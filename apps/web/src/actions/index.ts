@@ -1,0 +1,2 @@
+// Server actions entrypoint.
+export {};

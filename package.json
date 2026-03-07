@@ -1,0 +1,22 @@
+{
+  "name": "barberpro-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm dev:web",
+    "dev:web": "pnpm --filter @barberpro/web dev",
+    "dev:admin": "pnpm --filter @barberpro/web-admin dev",
+    "build:web": "pnpm --filter @barberpro/web build",
+    "build:admin": "pnpm --filter @barberpro/web-admin build",
+    "start:web": "pnpm --filter @barberpro/web start",
+    "start:admin": "pnpm --filter @barberpro/web-admin start",
+    "lint:web": "pnpm --filter @barberpro/web lint",
+    "lint:admin": "pnpm --filter @barberpro/web-admin lint",
+    "typecheck": "pnpm typecheck:web && pnpm typecheck:admin && pnpm typecheck:mobile",
+    "typecheck:web": "pnpm --filter @barberpro/web typecheck",
+    "typecheck:admin": "pnpm --filter @barberpro/web-admin typecheck",
+    "dev:mobile": "pnpm --filter @barberpro/mobile dev",
+    "typecheck:mobile": "pnpm --filter @barberpro/mobile typecheck"
+  },
+  "devDependencies": {}
+}

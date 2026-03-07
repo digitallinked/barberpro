@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+      "supabase": {
+      "url": "https://mcp.supabase.com/mcp"
+    },
+    "stripe": {
+      "url": "https://mcp.stripe.com"
+    },
+    "vercel": {
+      "url": "https://mcp.vercel.com"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+      
+        "sentry": {
+          "url": "https://mcp.sentry.dev/mcp"
+        }
+    }
+  }

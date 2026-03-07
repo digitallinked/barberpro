@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "BarberPro Mobile",
+    "slug": "barberpro-mobile",
+    "scheme": "barberpro",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+import { BRAND_DESCRIPTION, BRAND_NAME, BRAND_TAGLINE } from "@barberpro/ui";
+
+export const APP_NAME = BRAND_NAME;
+export const APP_TAGLINE = BRAND_TAGLINE;
+export const APP_DESCRIPTION = BRAND_DESCRIPTION;
