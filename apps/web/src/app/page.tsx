@@ -1,267 +1,802 @@
 import Link from "next/link";
 import {
-  BarChart3,
-  CalendarClock,
+  ArrowRight,
+  BarChart2,
+  Building2,
+  CalendarDays,
   Check,
   ChevronRight,
-  CircleDollarSign,
-  Clock3,
+  CreditCard,
+  DollarSign,
+  Menu,
+  Package,
+  Play,
+  Scissors,
   ShieldCheck,
   Sparkles,
+  Star,
+  Timer,
   Users
 } from "lucide-react";
 
-import { APP_DESCRIPTION, APP_NAME, APP_TAGLINE } from "@/constants";
-
-const coreHighlights = [
-  { label: "Daily Active Shops", value: "120+" },
-  { label: "Avg. Queue Reduction", value: "38%" },
-  { label: "Payment Reconciliation", value: "99.9%" }
-];
+// ─── Data ────────────────────────────────────────────────────────────────────
 
 const featureCards = [
   {
-    title: "Live Queue Board",
-    description: "Manage walk-ins and appointments in one unified service flow.",
-    icon: Clock3
+    title: "Queue Management",
+    description: "Handle walk-ins efficiently with digital queue system and real-time updates.",
+    icon: Timer,
+    iconBg: "bg-orange-500/20",
+    iconColor: "text-orange-400"
   },
   {
-    title: "Smart POS + Checkout",
-    description: "Fast cashier workflow with service bundles and add-ons.",
-    icon: CircleDollarSign
+    title: "Smart POS",
+    description: "Fast checkout with DuitNow QR, e-wallet, and cash payment support.",
+    icon: CreditCard,
+    iconBg: "bg-green-500/20",
+    iconColor: "text-green-400"
   },
   {
-    title: "Barber Performance",
-    description: "Track commission, upsells, and daily productivity.",
-    icon: BarChart3
+    title: "Payroll & Commission",
+    description: "Automated barber payouts with flexible commission structures.",
+    icon: DollarSign,
+    iconBg: "bg-blue-500/20",
+    iconColor: "text-blue-400"
+  },
+  {
+    title: "Inventory Control",
+    description: "Track stock levels, reorder alerts, and supplier management.",
+    icon: Package,
+    iconBg: "bg-purple-500/20",
+    iconColor: "text-purple-400"
+  },
+  {
+    title: "Appointments",
+    description: "Online booking calendar with barber scheduling and reminders.",
+    icon: CalendarDays,
+    iconBg: "bg-teal-500/20",
+    iconColor: "text-teal-400"
   },
   {
     title: "Customer CRM",
-    description: "Retention workflows, visit history, and personalized service notes.",
-    icon: Users
+    description: "Customer profiles, visit history, loyalty points, and rebooking.",
+    icon: Users,
+    iconBg: "bg-pink-500/20",
+    iconColor: "text-pink-400"
   },
   {
-    title: "Appointments + Walk-ins",
-    description: "Balanced schedule engine for online booking and in-store traffic.",
-    icon: CalendarClock
+    title: "Reports & Analytics",
+    description: "Real-time sales, expenses, profit reports and business insights.",
+    icon: BarChart2,
+    iconBg: "bg-yellow-500/20",
+    iconColor: "text-yellow-400"
   },
   {
-    title: "Role-Based Access",
-    description: "Secure permissions for owners, managers, cashiers, and staff.",
-    icon: ShieldCheck
+    title: "Multi-Branch",
+    description: "Manage multiple outlets with centralized control and reporting.",
+    icon: Building2,
+    iconBg: "bg-indigo-500/20",
+    iconColor: "text-indigo-400"
   }
 ];
 
-const pricingTiers = [
+const queueDetails = [
+  { title: "Add Walk-In Instantly", text: "Tap to add customer to queue, assign service and preferred barber in seconds." },
+  { title: "TV Display Board", text: "Show queue status on TV or tablet for customers to track their turn." },
+  { title: "Estimated Wait Time", text: "Automatic calculation based on service duration and barber availability." }
+];
+
+const posDetails = [
+  { title: "DuitNow QR Ready", text: "Generate instant payment QR codes for fast contactless transactions." },
+  { title: "Digital Receipts", text: "Send receipts via WhatsApp or email instantly after payment." },
+  { title: "Discounts & Promos", text: "Apply vouchers, member discounts, and promo codes at checkout." }
+];
+
+const payrollDetails = [
+  { title: "Flexible Commission Models", text: "Set up fixed salary + commission, per cut, per service, percentage-based, or hybrid rules." },
+  { title: "Real-Time Earnings Tracking", text: "Barbers can see their daily, weekly, and monthly earnings in real-time." },
+  { title: "Automated Payroll Calculation", text: "No more Excel sheets. System calculates payouts automatically based on completed services." }
+];
+
+const inventoryDetails = [
+  { title: "Low Stock Alerts", text: "Automatic notifications when products reach minimum quantity." },
+  { title: "Supplier Management", text: "Track supplier details, order history, and payment terms." },
+  { title: "Expense Tracking", text: "Record bills, purchases, and daily expenses for accurate accounting." }
+];
+
+const branchStats = [
+  { name: "KL Sentral HQ", sales: "RM 45,200", expenses: "RM 1,500", staff: 8 },
+  { name: "Bangsar Branch", sales: "RM 28,450", expenses: "RM 950", staff: 5 },
+  { name: "TTDI Branch", sales: "RM 15,100", expenses: "RM 500", staff: 3 }
+];
+
+const testimonials = [
+  {
+    quote: "Before BarberPro.my, I was spending 3 hours every week calculating barber commissions in Excel. Now it's automatic. Game changer for my business.",
+    author: "Ahmad Razak",
+    role: "Owner, Razak's Barbershop KL",
+    initials: "AR"
+  },
+  {
+    quote: "Queue management is brilliant. Customers love seeing the queue on TV and my barbers can focus on cutting hair instead of managing walk-ins.",
+    author: "Zack Ibrahim",
+    role: "Manager, Urban Cuts Bangsar",
+    initials: "ZI"
+  },
+  {
+    quote: "I run 4 branches and BarberPro.my helps me see everything in one dashboard. Sales, staff performance, inventory — all real-time. Worth every ringgit.",
+    author: "Muthu Kumar",
+    role: "Owner, Kumar's Barber Empire",
+    initials: "MK"
+  }
+];
+
+const pricing = [
   {
     name: "Starter",
     price: "RM 99",
-    note: "per branch / month",
-    points: ["Queue + POS", "Basic CRM", "Daily sales reports"]
+    note: "Perfect for single outlet",
+    features: ["Queue management", "Smart POS + receipts", "Basic payroll calculation", "Inventory tracking", "Customer CRM", "Daily sales reports"],
+    featured: false
   },
   {
-    name: "Growth",
-    price: "RM 199",
-    note: "per branch / month",
-    points: ["Everything in Starter", "Payroll + commission", "Inventory + expenses"],
+    name: "Professional",
+    price: "RM 249",
+    note: "For growing businesses",
+    features: ["Everything in Starter", "Advanced commission models", "Multi-branch dashboard", "Supplier + expense management", "Detailed analytics reports", "Priority support"],
     featured: true
   },
   {
-    name: "Scale",
+    name: "Enterprise",
     price: "Custom",
-    note: "multi-branch pricing",
-    points: ["Everything in Growth", "Advanced analytics", "Priority onboarding"]
+    note: "For multi-branch chains",
+    features: ["Everything in Professional", "Unlimited branches", "Dedicated onboarding", "Custom integrations", "SLA + account manager", "Enterprise-grade controls"],
+    featured: false
   }
 ];
 
-const faqs = [
-  {
-    q: "Is this built for Malaysian barber shops?",
-    a: "Yes. The workflows, pricing mindset, and operations structure are designed for local barber business models."
-  },
-  {
-    q: "Can I manage multiple branches?",
-    a: "Yes, branch-level visibility is a first-class concept in the platform architecture."
-  },
-  {
-    q: "Do I need all modules from day one?",
-    a: "No. You can start with operations essentials and expand progressively."
-  }
+const faqItems = [
+  { q: "How long does setup take?", a: "Most shops are up and running in under 5 minutes. Just add your services, staff, and you're ready to start taking customers." },
+  { q: "Do I need special hardware?", a: "No. BarberPro.my works on any device — laptop, tablet, or smartphone. You can use your existing devices." },
+  { q: "Can I import my existing customer data?", a: "Yes. We support CSV import for customer lists, or you can add them manually as they visit." },
+  { q: "How does commission calculation work?", a: "You set the rules once (fixed salary, per customer, per service, percentage, or hybrid). The system automatically calculates payouts based on completed services." },
+  { q: "Is my data secure?", a: "Absolutely. All data is encrypted and stored securely in Malaysian cloud servers. We never share your data with third parties." },
+  { q: "Can I try before buying?", a: "Yes. Start a free 14-day trial with full access to all features. No credit card required." },
+  { q: "What payment methods do you accept?", a: "We accept online banking, credit/debit card, and DuitNow QR for subscription payments." },
+  { q: "Do you provide training?", a: "Yes. All plans include onboarding training via video call, plus access to our knowledge base and video tutorials." }
 ];
+
+const footerGroups = [
+  { title: "Product", links: ["Features", "Pricing", "Demo", "Updates"] },
+  { title: "Company", links: ["About Us", "Blog", "Careers", "Contact"] },
+  { title: "Support", links: ["Help Center", "Documentation", "Terms of Service", "Privacy Policy"] }
+];
+
+// ─── Mock Screens ────────────────────────────────────────────────────────────
+
+function QueueScreen() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#0d0d0d] shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between bg-black/60 px-4 py-3">
+        <span className="text-xs font-semibold text-white">Queue Board</span>
+        <span className="flex items-center gap-1.5 text-xs text-green-400"><span className="h-1.5 w-1.5 rounded-full bg-green-400" />Live</span>
+      </div>
+      <div className="p-4 space-y-2">
+        <div className="flex items-center gap-3 rounded-lg border border-[#d4af37]/30 bg-[#d4af37]/10 p-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d4af37] text-[10px] font-bold text-black">A1</div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-white">Ahmad Razak</p>
+            <p className="text-[10px] text-gray-400">Haircut + Wash • Barber Ali</p>
+          </div>
+          <span className="ml-auto shrink-0 text-xs font-bold text-green-400">Now</span>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-white">A2</div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-white">Zulaikha</p>
+            <p className="text-[10px] text-gray-400">Beard Trim • Barber Faiz</p>
+          </div>
+          <span className="ml-auto shrink-0 text-xs text-gray-400">8 min</span>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-white">A3</div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-white">Rayyan</p>
+            <p className="text-[10px] text-gray-400">Fade Cut • Barber Haris</p>
+          </div>
+          <span className="ml-auto shrink-0 text-xs text-gray-400">14 min</span>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[10px] font-bold text-white">A4</div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-white">Iskandar</p>
+            <p className="text-[10px] text-gray-400">Hair + Styling</p>
+          </div>
+          <span className="ml-auto shrink-0 text-xs text-gray-400">22 min</span>
+        </div>
+      </div>
+      <div className="border-t border-white/5 bg-black/40 px-4 py-3 flex items-center justify-between">
+        <span className="text-xs text-gray-400">4 customers waiting</span>
+        <button type="button" className="rounded-md bg-[#d4af37] px-3 py-1 text-[11px] font-bold text-black">+ Add Walk-In</button>
+      </div>
+    </div>
+  );
+}
+
+function POSScreen() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#0d0d0d] shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between bg-black/60 px-4 py-3">
+        <span className="text-xs font-semibold text-white">POS — Checkout</span>
+        <span className="text-xs text-gray-400">Customer #A21</span>
+      </div>
+      <div className="p-4 space-y-2">
+        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+          <span className="text-xs text-white">Haircut</span>
+          <span className="text-xs font-semibold text-white">RM 25</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+          <span className="text-xs text-white">Hair Wash</span>
+          <span className="text-xs font-semibold text-white">RM 10</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+          <span className="text-xs text-white">Pomade (Suavecito)</span>
+          <span className="text-xs font-semibold text-white">RM 45</span>
+        </div>
+        <div className="my-1 border-t border-white/10" />
+        <div className="flex items-center justify-between px-3 py-1">
+          <span className="text-xs text-gray-400">Subtotal</span>
+          <span className="text-xs text-gray-400">RM 80</span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-1">
+          <span className="text-xs text-[#d4af37]">Member Discount (10%)</span>
+          <span className="text-xs text-[#d4af37]">- RM 8</span>
+        </div>
+        <div className="flex items-center justify-between rounded-lg bg-[#d4af37]/10 px-3 py-2">
+          <span className="text-sm font-bold text-white">Total</span>
+          <span className="text-sm font-bold text-[#d4af37]">RM 72</span>
+        </div>
+      </div>
+      <div className="border-t border-white/5 bg-black/40 px-4 py-3 grid grid-cols-3 gap-2">
+        <button type="button" className="rounded-md bg-white/10 py-1.5 text-[11px] text-white">Cash</button>
+        <button type="button" className="rounded-md bg-[#d4af37] py-1.5 text-[11px] font-bold text-black">DuitNow QR</button>
+        <button type="button" className="rounded-md bg-white/10 py-1.5 text-[11px] text-white">Card</button>
+      </div>
+    </div>
+  );
+}
+
+function PayrollScreen() {
+  const staff = [
+    { name: "Barber Ali", cuts: 18, commission: "RM 540", salary: "RM 800" },
+    { name: "Barber Faiz", cuts: 14, commission: "RM 420", salary: "RM 800" },
+    { name: "Barber Haris", cuts: 11, commission: "RM 330", salary: "RM 800" }
+  ];
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#0d0d0d] shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between bg-black/60 px-4 py-3">
+        <span className="text-xs font-semibold text-white">Payroll — March 2024</span>
+        <span className="text-xs text-[#d4af37]">Auto-calculated</span>
+      </div>
+      <div className="p-4 space-y-2">
+        {staff.map((s) => (
+          <div key={s.name} className="rounded-lg bg-white/5 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">{s.name}</span>
+              <span className="text-xs font-bold text-[#d4af37]">Total: {s.salary.replace("RM ", "RM ")} + {s.commission}</span>
+            </div>
+            <div className="mt-1.5 flex gap-4">
+              <span className="text-[10px] text-gray-400">{s.cuts} cuts</span>
+              <span className="text-[10px] text-gray-400">Commission: {s.commission}</span>
+              <span className="text-[10px] text-gray-400">Base: {s.salary}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-white/5 bg-black/40 px-4 py-3 flex items-center justify-between">
+        <span className="text-xs text-gray-400">3 staff • Total payout</span>
+        <span className="text-xs font-bold text-white">RM 3,690</span>
+      </div>
+    </div>
+  );
+}
+
+function InventoryScreen() {
+  const items = [
+    { name: "Pomade (Suavecito)", stock: 3, min: 5, status: "low" },
+    { name: "Shaving Cream", stock: 12, min: 8, status: "ok" },
+    { name: "Beard Oil", stock: 7, min: 5, status: "ok" },
+    { name: "Barber Cape", stock: 2, min: 4, status: "low" }
+  ];
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#0d0d0d] shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between bg-black/60 px-4 py-3">
+        <span className="text-xs font-semibold text-white">Inventory</span>
+        <span className="text-xs text-orange-400">2 low stock alerts</span>
+      </div>
+      <div className="p-4 space-y-2">
+        {items.map((item) => (
+          <div key={item.name} className={`flex items-center justify-between rounded-lg p-3 ${item.status === "low" ? "border border-red-500/30 bg-red-500/10" : "bg-white/5"}`}>
+            <div>
+              <p className="text-xs font-semibold text-white">{item.name}</p>
+              <p className="text-[10px] text-gray-400">Min stock: {item.min}</p>
+            </div>
+            <div className="text-right">
+              <p className={`text-sm font-bold ${item.status === "low" ? "text-red-400" : "text-green-400"}`}>{item.stock}</p>
+              <p className="text-[10px] text-gray-400">{item.status === "low" ? "⚠ Reorder" : "In stock"}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HeroDashboard() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#111111] shadow-2xl shadow-black/60">
+      <div className="flex items-center justify-between bg-black/50 px-4 py-3">
+        <span className="text-xs font-semibold text-white">Live Dashboard</span>
+        <span className="flex items-center gap-1.5 text-xs text-[#d4af37]"><span className="h-1.5 w-1.5 rounded-full bg-[#d4af37]" />Online</span>
+      </div>
+      <div className="grid grid-cols-2 gap-px bg-white/5">
+        {[
+          { label: "Today's Revenue", value: "RM 2,450" },
+          { label: "Walk-Ins", value: "38" },
+          { label: "Queue Active", value: "7" },
+          { label: "Avg Wait Time", value: "11 min" }
+        ].map((s) => (
+          <div key={s.label} className="bg-[#111111] px-4 py-3">
+            <p className="text-[10px] text-gray-500">{s.label}</p>
+            <p className="mt-1 text-sm font-bold text-white">{s.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-white/5 p-4">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Current Queue</p>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-2 text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d4af37]" />A21 - Haircut + Wash
+            </span>
+            <span className="font-semibold text-[#d4af37]">Now</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <span>A22 - Beard Trim</span><span>8 min</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <span>A23 - Fade Cut</span><span>14 min</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+// Section alternation: "dark" = charcoal-900-like (#0d1013), "mid" = charcoal-800-like (#151719)
+const S_DARK = "bg-[#0d1013]";
+const S_MID  = "bg-[#13161a]";
 
 export default function AppRootPage() {
   return (
-    <main className="bg-background text-foreground">
-      <div className="mx-auto max-w-7xl px-6 py-6">
-        <header className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-5 py-4 backdrop-blur">
-          <div>
-            <p className="text-sm font-semibold">{APP_NAME}</p>
-            <p className="text-xs text-muted-foreground">{APP_TAGLINE}</p>
+    <main className="overflow-x-hidden bg-[#0d1013] text-gray-100 antialiased">
+
+      {/* ── Navbar ── */}
+      <div className="sticky top-0 z-50 border-b border-white/5 bg-[#0d1013]/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#d4af37]/20">
+              <Scissors className="h-4 w-4 text-[#d4af37]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white leading-none">
+                BarberPro<span className="text-[#d4af37]">.my</span>
+              </p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+                Malaysia&apos;s #1 Barber Platform
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              className="rounded-md border border-border px-3 py-2 text-xs hover:bg-muted"
-              href="/login"
-            >
-              Login
+          <nav className="hidden items-center gap-6 md:flex">
+            {["Features", "Queue", "POS", "Payroll", "Pricing"].map((l) => (
+              <a key={l} href={`#${l.toLowerCase()}`} className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]">{l}</a>
+            ))}
+          </nav>
+          <div className="hidden items-center gap-3 md:flex">
+            <Link href="/login" className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white">
+              Log In
             </Link>
-            <Link
-              className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90"
-              href="/dashboard"
-            >
+            <Link href="/dashboard" className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition hover:brightness-110">
               Start Free Trial
             </Link>
           </div>
-        </header>
+          <button className="rounded-lg border border-white/10 p-2 text-gray-400 md:hidden" type="button">
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-6 pb-10 pt-6 lg:grid-cols-2">
-        <div className="space-y-6">
-          <p className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            Built for serious barber operations
-          </p>
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            Barber Shop Management, Payroll and Accounting for Malaysia
-          </h1>
-          <p className="max-w-xl text-base text-muted-foreground">{APP_DESCRIPTION}</p>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              className="rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-              href="/dashboard"
-            >
-              Launch Product
-            </Link>
-            <Link
-              className="rounded-md border border-border px-5 py-3 text-sm hover:bg-muted"
-              href="/dashboard"
-            >
-              See Live Dashboard
-            </Link>
+      {/* ── Hero ── */}
+      <section className={`${S_DARK} relative overflow-hidden`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(212,175,55,0.18),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(212,175,55,0.10),transparent_50%)]" />
+        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-24 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-32">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-4 py-1.5 text-xs font-semibold text-[#d4af37]">
+              <Sparkles className="h-3 w-3" />
+              Trusted by Malaysian Barbers
+            </p>
+            <h1 className="mt-6 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
+              Barber Shop<br />Management,{" "}
+              <span className="bg-gradient-to-r from-[#d4af37] to-[#f5d06e] bg-clip-text text-transparent">
+                Payroll &amp; Accounting
+              </span>{" "}
+              for Malaysia
+            </h1>
+            <p className="mt-5 max-w-xl text-base text-gray-400">
+              Complete solution for queue management, POS, payroll, commissions, inventory, and accounting — all in one platform.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link href="/dashboard" className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-6 py-3 text-sm font-bold text-black transition hover:brightness-110">
+                Start Free 14-Day Trial
+              </Link>
+              <Link href="/dashboard" className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-6 py-3 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white">
+                <Play className="h-4 w-4" /> Watch Live Demo
+              </Link>
+            </div>
+            <p className="mt-5 flex items-center gap-2 text-sm text-gray-500">
+              <ShieldCheck className="h-4 w-4 text-[#d4af37]" />
+              No credit card required
+            </p>
           </div>
+          <HeroDashboard />
         </div>
+      </section>
 
-        <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-lg shadow-black/20">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-medium">Operations Snapshot</p>
-            <p className="text-xs text-muted-foreground">KL Sentral HQ</p>
+      {/* ── Everything You Need ── */}
+      <section id="features" className={`${S_MID} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-black text-white sm:text-4xl lg:text-5xl">
+              Everything You Need to Run Your Barber Shop
+            </h2>
+            <p className="mx-auto mt-4 max-w-3xl text-lg text-gray-400">
+              Complete solution for queue management, POS, payroll, commissions, inventory, and accounting — all in one platform.
+            </p>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-border/70 bg-background/70 p-4">
-              <p className="text-xs text-muted-foreground">Today Sales</p>
-              <p className="mt-1 text-xl font-semibold">RM 1,245</p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-background/70 p-4">
-              <p className="text-xs text-muted-foreground">Queue Waiting</p>
-              <p className="mt-1 text-xl font-semibold">5</p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-background/70 p-4">
-              <p className="text-xs text-muted-foreground">Customers Served</p>
-              <p className="mt-1 text-xl font-semibold">18</p>
-            </div>
-            <div className="rounded-lg border border-border/70 bg-background/70 p-4">
-              <p className="text-xs text-muted-foreground">Payroll Due</p>
-              <p className="mt-1 text-xl font-semibold">RM 8,450</p>
-            </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {featureCards.map((card) => (
+              <article key={card.title} className="rounded-2xl border border-white/5 bg-[#0d0d0d] p-6">
+                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${card.iconBg} mb-5`}>
+                  <card.icon className={`h-6 w-6 ${card.iconColor}`} />
+                </div>
+                <h3 className="text-lg font-bold text-white">{card.title}</h3>
+                <p className="mt-2 text-sm text-gray-400">{card.description}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-6 py-10 md:grid-cols-3">
-        {coreHighlights.map((item) => (
-          <article
-            key={item.label}
-            className="rounded-xl border border-border/70 bg-card px-5 py-4"
-          >
-            <p className="text-xs text-muted-foreground">{item.label}</p>
-            <p className="mt-2 text-2xl font-semibold">{item.value}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="mx-auto max-w-7xl px-6 py-10">
-        <div className="mb-8 text-center">
-          <p className="text-sm text-primary">Everything in one dashboard</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-            Modern operating system for barber businesses
-          </h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {featureCards.map((feature) => (
-            <article
-              key={feature.title}
-              className="rounded-xl border border-border/70 bg-card p-5"
-            >
-              <div className="inline-flex rounded-md bg-primary/10 p-2 text-primary">
-                <feature.icon className="h-4 w-4" />
-              </div>
-              <h3 className="mt-4 text-base font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid gap-4 lg:grid-cols-3">
-          {pricingTiers.map((tier) => (
-            <article
-              key={tier.name}
-              className={`rounded-xl border p-6 ${
-                tier.featured
-                  ? "border-primary bg-primary/10"
-                  : "border-border/70 bg-card"
-              }`}
-            >
-              <p className="text-sm text-muted-foreground">{tier.name}</p>
-              <p className="mt-2 text-3xl font-semibold">{tier.price}</p>
-              <p className="text-xs text-muted-foreground">{tier.note}</p>
-              <ul className="mt-5 space-y-2">
-                {tier.points.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 text-primary" />
-                    <span>{point}</span>
+      {/* ── Queue ── */}
+      <section id="queue" className={`${S_DARK} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <QueueScreen />
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-orange-500">Queue Management</span>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-5xl">Handle Walk-Ins Like a Pro</h2>
+              <p className="mt-4 text-lg text-gray-400">No more paper tokens or WhatsApp chaos. Digital queue system with real-time updates, barber assignment, and customer-facing display board.</p>
+              <ul className="mt-8 space-y-4">
+                {queueDetails.map((d) => (
+                  <li key={d.title} className="flex gap-4">
+                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-orange-500/20">
+                      <Check className="h-3.5 w-3.5 text-orange-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white">{d.title}</h4>
+                      <p className="mt-1 text-sm text-gray-400">{d.text}</p>
+                    </div>
                   </li>
                 ))}
               </ul>
-            </article>
-          ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 py-10">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Frequently asked questions
-        </h2>
-        <div className="mt-6 space-y-3">
-          {faqs.map((faq) => (
-            <article
-              key={faq.q}
-              className="rounded-lg border border-border/70 bg-card p-5"
-            >
-              <h3 className="font-medium">{faq.q}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{faq.a}</p>
-            </article>
-          ))}
+      {/* ── POS ── */}
+      <section id="pos" className={`${S_MID} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div className="order-2 lg:order-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-green-500">Smart POS</span>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-5xl">Lightning-Fast Checkout</h2>
+              <p className="mt-4 text-lg text-gray-400">Accept all payment methods popular in Malaysia — cash, DuitNow QR, online banking, card, and e-wallets. Checkout in under 30 seconds.</p>
+              <ul className="mt-8 space-y-4">
+                {posDetails.map((d) => (
+                  <li key={d.title} className="flex gap-4">
+                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-green-500/20">
+                      <Check className="h-3.5 w-3.5 text-green-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white">{d.title}</h4>
+                      <p className="mt-1 text-sm text-gray-400">{d.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="order-1 lg:order-2">
+              <POSScreen />
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-16 pt-10">
-        <div className="rounded-2xl border border-border/70 bg-card p-8 text-center">
-          <h2 className="text-3xl font-semibold tracking-tight">
-            Ready to transform your barber business?
-          </h2>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Launch fast with a production-grade operations platform for modern barbershops.
+      {/* ── Payroll ── */}
+      <section id="payroll" className={`${S_DARK} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <PayrollScreen />
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-500">Payroll &amp; Commission</span>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-5xl">Built for Real Malaysian Barber Payouts</h2>
+              <p className="mt-4 text-lg text-gray-400">Support for fixed salary, per customer, per service, percentage commission, hybrid models, bonuses, deductions, and advances — all automated.</p>
+              <ul className="mt-8 space-y-4">
+                {payrollDetails.map((d) => (
+                  <li key={d.title} className="flex gap-4">
+                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-blue-500/20">
+                      <Check className="h-3.5 w-3.5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white">{d.title}</h4>
+                      <p className="mt-1 text-sm text-gray-400">{d.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Inventory ── */}
+      <section id="inventory" className={`${S_MID} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div className="order-2 lg:order-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-500">Inventory Control</span>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-5xl">Never Run Out of Stock Again</h2>
+              <p className="mt-4 text-lg text-gray-400">Track pomade, shaving cream, towels, and retail products. Get low stock alerts and manage suppliers all in one place.</p>
+              <ul className="mt-8 space-y-4">
+                {inventoryDetails.map((d) => (
+                  <li key={d.title} className="flex gap-4">
+                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-purple-500/20">
+                      <Check className="h-3.5 w-3.5 text-purple-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white">{d.title}</h4>
+                      <p className="mt-1 text-sm text-gray-400">{d.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="order-1 lg:order-2">
+              <InventoryScreen />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Branches ── */}
+      <section id="branches" className={`${S_DARK} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-black text-white sm:text-4xl lg:text-5xl">
+              Manage All Your Outlets in One Dashboard
+            </h2>
+            <p className="mx-auto mt-4 max-w-3xl text-lg text-gray-400">
+              Whether you have 2 or 20 branches, get centralized control with branch-level reporting, staff management, and performance comparison.
+            </p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {branchStats.map((branch) => (
+              <article key={branch.name} className="overflow-hidden rounded-2xl border border-white/5 bg-[#111111]">
+                <div className="flex items-center justify-between bg-black/50 px-4 py-3">
+                  <h4 className="text-base font-bold text-white">{branch.name}</h4>
+                  <span className="text-xs text-gray-400">{branch.staff} staff</span>
+                </div>
+                <div className="p-4 space-y-2">
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+                    <span className="text-sm text-gray-400">Monthly Sales</span>
+                    <span className="text-sm font-bold text-white">{branch.sales}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
+                    <span className="text-sm text-gray-400">Expenses</span>
+                    <span className="text-sm font-bold text-white">{branch.expenses}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/20 px-3 py-2.5">
+                    <span className="text-sm text-[#d4af37]">Net Profit</span>
+                    <span className="text-sm font-bold text-[#d4af37]">
+                      {`RM ${(parseInt(branch.sales.replace(/[^0-9]/g, "")) - parseInt(branch.expenses.replace(/[^0-9]/g, ""))).toLocaleString()}`}
+                    </span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ── */}
+      <section className={`${S_MID} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-black text-white sm:text-4xl lg:text-5xl">
+              Trusted by Top Barber Shops in Malaysia
+            </h2>
+            <p className="mt-4 text-lg text-gray-400">See what shop owners say about BarberPro.my</p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            {testimonials.map((t) => (
+              <article key={t.author} className="flex flex-col rounded-2xl border border-white/5 bg-[#0d0d0d] p-6">
+                <div className="mb-4 flex gap-1 text-[#d4af37]">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-current" />
+                  ))}
+                </div>
+                <p className="flex-1 text-gray-300 leading-relaxed">&quot;{t.quote}&quot;</p>
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#d4af37] bg-[#d4af37]/20 text-sm font-bold text-[#d4af37]">
+                    {t.initials}
+                  </div>
+                  <div>
+                    <p className="font-bold text-white">{t.author}</p>
+                    <p className="text-xs text-gray-500">{t.role}</p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section id="pricing" className={`${S_DARK} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-black text-white sm:text-4xl lg:text-5xl">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="mt-4 text-lg text-gray-400">Choose the plan that fits your business. No hidden fees.</p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {pricing.map((tier) => (
+              <article
+                key={tier.name}
+                className={`relative flex flex-col rounded-2xl p-6 ${
+                  tier.featured
+                    ? "border-2 border-[#d4af37] bg-[#1a1600]"
+                    : "border border-white/5 bg-[#111111]"
+                }`}
+              >
+                {tier.featured && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="rounded-full bg-[#d4af37] px-4 py-1 text-xs font-bold text-black">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <h3 className="text-xl font-bold text-white">{tier.name}</h3>
+                <p className="mt-1 text-sm text-gray-400">{tier.note}</p>
+                <div className="mt-4 flex items-end gap-1">
+                  <span className="text-4xl font-black text-white">{tier.price}</span>
+                  {tier.price !== "Custom" && <span className="mb-1 text-sm text-gray-400">/month</span>}
+                </div>
+                <ul className="mt-6 flex-1 space-y-3">
+                  {tier.features.map((f) => (
+                    <li key={f} className="flex items-center gap-3 text-sm text-gray-300">
+                      <Check className="h-4 w-4 shrink-0 text-[#d4af37]" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/dashboard"
+                  className={`mt-8 inline-flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-bold transition ${
+                    tier.featured
+                      ? "bg-[#d4af37] text-black hover:brightness-110"
+                      : "border border-white/10 text-white hover:bg-white/5"
+                  }`}
+                >
+                  {tier.price === "Custom" ? "Contact Sales" : "Start Free Trial"}
+                </Link>
+              </article>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-sm text-gray-500">
+            All plans include 14-day free trial • No credit card required • Cancel anytime
           </p>
-          <Link
-            className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-            href="/dashboard"
-          >
-            Get Started <ChevronRight className="h-4 w-4" />
-          </Link>
         </div>
       </section>
+
+      {/* ── FAQ ── */}
+      <section id="faq" className={`${S_MID} py-20`}>
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-black text-white sm:text-4xl lg:text-5xl">
+              Frequently Asked Questions
+            </h2>
+            <p className="mt-4 text-lg text-gray-400">Everything you need to know about BarberPro.my</p>
+          </div>
+          <div className="space-y-4">
+            {faqItems.map((item) => (
+              <article key={item.q} className="rounded-2xl border border-white/5 bg-[#0d0d0d] p-6">
+                <h4 className="text-lg font-bold text-white">{item.q}</h4>
+                <p className="mt-2 text-gray-400">{item.a}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA Banner ── */}
+      <section className={`${S_DARK} py-20`}>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-[#d4af37]/20 bg-gradient-to-br from-[#1a1400] to-[#0d0d0d] px-8 py-16 text-center">
+            <h2 className="text-3xl font-black text-white sm:text-4xl lg:text-5xl">
+              Ready to Transform Your Barber Shop?
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-400">
+              Join hundreds of Malaysian barber shops already using BarberPro.my. Start your free 14-day trial today.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+              <Link href="/dashboard" className="inline-flex items-center gap-2 rounded-lg bg-[#d4af37] px-8 py-3.5 text-sm font-bold text-black transition hover:brightness-110">
+                Start Free Trial Now <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/login" className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-8 py-3.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white">
+                <ChevronRight className="h-4 w-4" /> Contact Sales
+              </Link>
+            </div>
+            <p className="mt-6 text-sm text-gray-500">14-day free trial • No credit card required</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="border-t border-white/5 bg-[#0a0c0f]">
+        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <div className="grid gap-10 md:grid-cols-4">
+            <div>
+              <p className="text-base font-bold text-white">
+                BarberPro<span className="text-[#d4af37]">.my</span>
+              </p>
+              <p className="mt-3 max-w-xs text-sm text-gray-400">
+                Malaysia&apos;s premier barber shop management platform. From queue to payout, manage everything in one place.
+              </p>
+            </div>
+            {footerGroups.map((group) => (
+              <div key={group.title}>
+                <h4 className="mb-4 font-bold text-white">{group.title}</h4>
+                <ul className="space-y-2">
+                  {group.links.map((link) => (
+                    <li key={link}>
+                      <a href="#" className="text-sm text-gray-400 transition hover:text-[#d4af37]">{link}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-white/5 py-6 text-center text-sm text-gray-600">
+          <p>© 2024 BarberPro.my. All rights reserved.</p>
+          <p className="mt-1">Made with <span className="text-red-500">♥</span> in Malaysia</p>
+        </div>
+      </footer>
     </main>
   );
 }

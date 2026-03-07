@@ -3,24 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --background: 220 14% 7%;
-  --foreground: 210 20% 96%;
-  --card: 222 15% 10%;
-  --card-foreground: 210 20% 96%;
-  --muted: 222 14% 14%;
-  --muted-foreground: 215 13% 67%;
-  --border: 220 10% 22%;
-  --primary: 145 38% 42%;
-  --primary-foreground: 144 100% 97%;
-  --ring: 145 38% 42%;
-  --sidebar: 222 18% 9%;
-  --sidebar-foreground: 210 20% 92%;
-  --sidebar-primary: 145 38% 42%;
-  --sidebar-primary-foreground: 144 100% 97%;
-  --sidebar-accent: 220 10% 16%;
-  --sidebar-accent-foreground: 210 20% 96%;
+  /* Charcoal-900 base */
+  --background: 0 0% 7%;
+  --foreground: 210 20% 92%;
+
+  /* Charcoal-800 cards */
+  --card: 0 0% 11%;
+  --card-foreground: 210 20% 92%;
+
+  --muted: 0 0% 14%;
+  --muted-foreground: 215 10% 55%;
+  --border: 0 0% 18%;
+
+  /* Gold primary: #D4AF37 = hsl(43, 65%, 52%) */
+  --primary: 43 65% 52%;
+  --primary-foreground: 43 100% 8%;
+  --ring: 43 65% 52%;
+
+  /* Sidebar (charcoal-800) */
+  --sidebar: 0 0% 11%;
+  --sidebar-foreground: 210 20% 88%;
+  --sidebar-primary: 43 65% 52%;
+  --sidebar-primary-foreground: 43 100% 8%;
+  --sidebar-accent: 0 0% 15%;
+  --sidebar-accent-foreground: 210 20% 92%;
 }
 
 body {
   @apply bg-background text-foreground antialiased;
 }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--card)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 28%); }
