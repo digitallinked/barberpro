@@ -167,9 +167,33 @@ const faqItems = [
 ];
 
 const footerGroups = [
-  { title: "Product", links: ["Features", "Pricing", "Demo", "Updates"] },
-  { title: "Company", links: ["About Us", "Blog", "Careers", "Contact"] },
-  { title: "Support", links: ["Help Center", "Documentation", "Terms of Service", "Privacy Policy"] }
+  {
+    title: "Product",
+    links: [
+      { label: "Features", href: "#features" },
+      { label: "Pricing", href: "#pricing" },
+      { label: "Demo", href: "/dashboard" },
+      { label: "Updates", href: "/updates" }
+    ]
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "About Us", href: "/about" },
+      { label: "Blog", href: "/blog" },
+      { label: "Careers", href: "/careers" },
+      { label: "Contact", href: "/contact" }
+    ]
+  },
+  {
+    title: "Support",
+    links: [
+      { label: "Help Center", href: "/help" },
+      { label: "Documentation", href: "/help" },
+      { label: "Terms of Service", href: "/terms" },
+      { label: "Privacy Policy", href: "/privacy" }
+    ]
+  }
 ];
 
 // ─── Mock Screens ────────────────────────────────────────────────────────────
@@ -783,8 +807,8 @@ export default function AppRootPage() {
                 <h4 className="mb-4 font-bold text-white">{group.title}</h4>
                 <ul className="space-y-2">
                   {group.links.map((link) => (
-                    <li key={link}>
-                      <a href="#" className="text-sm text-gray-400 transition hover:text-[#d4af37]">{link}</a>
+                    <li key={link.label}>
+                      <Link href={link.href} className="text-sm text-gray-400 transition hover:text-[#d4af37]">{link.label}</Link>
                     </li>
                   ))}
                 </ul>
@@ -793,8 +817,8 @@ export default function AppRootPage() {
           </div>
         </div>
         <div className="border-t border-white/5 py-6 text-center text-sm text-gray-600">
-          <p>© 2024 BarberPro.my. All rights reserved.</p>
-          <p className="mt-1">Made with <span className="text-red-500">♥</span> in Malaysia</p>
+          <p>© {new Date().getFullYear()} BarberPro Technologies Sdn. Bhd. All rights reserved.</p>
+          <p className="mt-1">Made with <span className="text-red-500">♥</span> in Malaysia &nbsp;|&nbsp; <Link href="/terms" className="hover:text-gray-400 transition">Terms</Link> · <Link href="/privacy" className="hover:text-gray-400 transition">Privacy</Link></p>
         </div>
       </footer>
     </main>
