@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarketingNav } from "@/components/marketing/marketing-nav";
 import {
   ArrowRight,
   BarChart2,
@@ -8,10 +9,8 @@ import {
   ChevronRight,
   CreditCard,
   DollarSign,
-  Menu,
   Package,
   Play,
-  Scissors,
   ShieldCheck,
   Sparkles,
   Star,
@@ -405,42 +404,8 @@ const S_MID  = "bg-[#13161a]";
 
 export default function AppRootPage() {
   return (
-    <main className="overflow-x-hidden bg-[#0d1013] text-gray-100 antialiased">
-
-      {/* ── Navbar ── */}
-      <div className="sticky top-0 z-50 border-b border-white/5 bg-[#0d1013]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#d4af37]/20">
-              <Scissors className="h-4 w-4 text-[#d4af37]" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white leading-none">
-                BarberPro<span className="text-[#d4af37]">.my</span>
-              </p>
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">
-                Malaysia&apos;s #1 Barber Platform
-              </p>
-            </div>
-          </div>
-          <nav className="hidden items-center gap-6 md:flex">
-            {["Features", "Queue", "POS", "Payroll", "Pricing"].map((l) => (
-              <a key={l} href={`#${l.toLowerCase()}`} className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]">{l}</a>
-            ))}
-          </nav>
-          <div className="hidden items-center gap-3 md:flex">
-            <Link href="/login" className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white">
-              Log In
-            </Link>
-            <Link href="/dashboard" className="rounded-lg bg-[#d4af37] px-4 py-2 text-sm font-bold text-black transition hover:brightness-110">
-              Start Free Trial
-            </Link>
-          </div>
-          <button className="rounded-lg border border-white/10 p-2 text-gray-400 md:hidden" type="button">
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+    <main className="bg-[#0d1013] text-gray-100 antialiased">
+      <MarketingNav />
 
       {/* ── Hero ── */}
       <section className={`${S_DARK} relative overflow-hidden`}>

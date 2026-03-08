@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Scissors } from "lucide-react";
+import { Menu, Scissors, X } from "lucide-react";
 
 export function MarketingNav() {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navLinks = [
     { label: "Features", href: isHome ? "#features" : "/#features" },
@@ -56,7 +58,47 @@ export function MarketingNav() {
             Start Free Trial
           </Link>
         </div>
+        <button
+          type="button"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-gray-300 transition hover:border-white/20 hover:text-white md:hidden"
+          aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+        >
+          {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
+      {isMobileMenuOpen && (
+        <div className="border-t border-white/5 bg-[#0d1013] px-4 pb-4 sm:px-6 md:hidden">
+          <nav className="flex flex-col gap-1 pt-3">
+            {navLinks.map((l) => (
+              <Link
+                key={l.label}
+                href={l.href}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 transition hover:bg-white/5 hover:text-[#d4af37]"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              href="/login"
+              className="rounded-lg border border-white/10 px-3 py-2 text-center text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Log In
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-lg bg-[#d4af37] px-3 py-2 text-center text-sm font-bold text-black transition hover:brightness-110"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Start Free Trial
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
