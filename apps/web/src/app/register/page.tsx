@@ -17,7 +17,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 
-import { saveOnboarding, signUp, verifyOtp } from "@/actions/auth";
+import { checkSlugAvailability, saveOnboarding, signUp, verifyOtp } from "@/actions/auth";
 import { createCheckoutSession } from "@/actions/stripe";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,8 +130,14 @@ function RegisterContent() {
     shopName: "",
     slug: "",
     phone: "",
-    address: ""
+    addressLine1: "",
+    city: "",
+    postcode: "",
+    state: ""
   });
+  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "error">("idle");
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Plan selection
   const [selectedPlan, setSelectedPlan] = useState<Plan>("starter");
@@ -144,18 +150,44 @@ function RegisterContent() {
     }
   }, [resendCooldown]);
 
+  // Debounced slug availability check
+  const triggerSlugCheck = (slug: string) => {
+    if (slugTimerRef.current) clearTimeout(slugTimerRef.current);
+    if (!slug || slug.length < 3) {
+      setSlugStatus("idle");
+      setSlugError(null);
+      return;
+    }
+    setSlugStatus("checking");
+    setSlugError(null);
+    slugTimerRef.current = setTimeout(async () => {
+      const result = await checkSlugAvailability(slug);
+      if (result.available) {
+        setSlugStatus("available");
+        setSlugError(null);
+      } else {
+        setSlugStatus(result.error === "This URL is already taken" ? "taken" : "error");
+        setSlugError(result.error ?? null);
+      }
+    }, 500);
+  };
+
   // Auto-generate slug from shop name
   const handleShopNameChange = (name: string) => {
-    setShopForm((f) => ({
-      ...f,
-      shopName: name,
-      slug: name
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .trim()
-    }));
+    const newSlug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .trim();
+    setShopForm((f) => ({ ...f, shopName: name, slug: newSlug }));
+    triggerSlugCheck(newSlug);
+  };
+
+  const handleSlugChange = (raw: string) => {
+    const newSlug = raw.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+    setShopForm((f) => ({ ...f, slug: newSlug }));
+    triggerSlugCheck(newSlug);
   };
 
   // OTP input handling
@@ -270,13 +302,35 @@ function RegisterContent() {
       return;
     }
 
+    if (slugStatus === "taken" || slugStatus === "error") {
+      setError(slugError ?? "Please choose a different shop URL");
+      return;
+    }
+
+    if (slugStatus === "checking") {
+      setError("Please wait — checking URL availability");
+      return;
+    }
+
+    // Final server-side check before saving (handles race conditions)
+    const slugCheck = await checkSlugAvailability(shopForm.slug);
+    if (!slugCheck.available) {
+      setSlugStatus("taken");
+      setSlugError(slugCheck.error ?? "This URL is already taken");
+      setError(slugCheck.error ?? "This URL is already taken");
+      return;
+    }
+
     setIsLoading(true);
     const result = await saveOnboarding({
       shopName: shopForm.shopName,
       slug: shopForm.slug,
       phone: shopForm.phone,
-      address: shopForm.address,
-      plan: selectedPlan
+      addressLine1: shopForm.addressLine1,
+      city: shopForm.city,
+      postcode: shopForm.postcode,
+      state: shopForm.state,
+      plan: "starter" // plan is finalised in step 4
     });
     setIsLoading(false);
 
@@ -599,7 +653,24 @@ function RegisterContent() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="slug">Shop URL</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="slug">Shop URL</Label>
+                  {slugStatus === "checking" && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Checking…
+                    </span>
+                  )}
+                  {slugStatus === "available" && (
+                    <span className="flex items-center gap-1 text-xs font-medium text-green-400">
+                      <Check className="h-3 w-3" /> Available
+                    </span>
+                  )}
+                  {(slugStatus === "taken" || slugStatus === "error") && (
+                    <span className="flex items-center gap-1 text-xs font-medium text-red-400">
+                      <span className="h-3 w-3 text-center font-bold leading-3">✕</span> {slugError}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center">
                   <span className="flex h-10 items-center rounded-l-md border border-r-0 border-border bg-background px-3 text-xs text-muted-foreground">
                     barberpro.my/
@@ -609,19 +680,19 @@ function RegisterContent() {
                     placeholder="ahmads-barber"
                     required
                     value={shopForm.slug}
-                    onChange={(e) =>
-                      setShopForm((f) => ({
-                        ...f,
-                        slug: e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]/g, "-")
-                          .replace(/-+/g, "-")
-                      }))
-                    }
-                    className="rounded-l-none"
+                    onChange={(e) => handleSlugChange(e.target.value)}
+                    className={cn(
+                      "rounded-l-none",
+                      slugStatus === "available" && "border-green-500/50 focus-visible:ring-green-500",
+                      (slugStatus === "taken" || slugStatus === "error") && "border-red-500/50 focus-visible:ring-red-500"
+                    )}
                     pattern="[a-z0-9-]+"
+                    minLength={3}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Only lowercase letters, numbers, and hyphens. Min. 3 characters.
+                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -636,56 +707,64 @@ function RegisterContent() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="address">Shop address</Label>
+                <Label htmlFor="addressLine1">Street address</Label>
                 <Input
-                  id="address"
-                  placeholder="123, Jalan Masjid India, 50100 KL"
-                  value={shopForm.address}
-                  onChange={(e) => setShopForm((f) => ({ ...f, address: e.target.value }))}
+                  id="addressLine1"
+                  placeholder="No. 23, Jalan Masjid India"
+                  value={shopForm.addressLine1}
+                  onChange={(e) => setShopForm((f) => ({ ...f, addressLine1: e.target.value }))}
                 />
               </div>
 
-              {/* Plan selection */}
-              <div className="space-y-2">
-                <Label>Choose your plan</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {                  (
-                    [
-                      { id: "starter" as const, name: "Starter", price: "RM 99", desc: "Up to 5 staff", popular: false },
-                      {
-                        id: "professional" as const,
-                        name: "Professional",
-                        price: "RM 249",
-                        desc: "Unlimited staff",
-                        popular: true
-                      }
-                    ]
-                  ).map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => setSelectedPlan(plan.id)}
-                      className={cn(
-                        "relative rounded-lg border p-3 text-left transition-all",
-                        selectedPlan === plan.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-muted hover:border-border/80"
-                      )}
-                    >
-                      {plan.popular && (
-                        <span className="absolute -top-2 right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                          Popular
-                        </span>
-                      )}
-                      <div className="text-sm font-semibold">{plan.name}</div>
-                      <div className="text-base font-bold text-primary">{plan.price}</div>
-                      <div className="text-xs text-muted-foreground">{plan.desc}/mo</div>
-                      {selectedPlan === plan.id && (
-                        <Check className="absolute right-2 top-2 h-3.5 w-3.5 text-primary" />
-                      )}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="postcode">Postcode</Label>
+                  <Input
+                    id="postcode"
+                    placeholder="50100"
+                    maxLength={5}
+                    inputMode="numeric"
+                    value={shopForm.postcode}
+                    onChange={(e) =>
+                      setShopForm((f) => ({ ...f, postcode: e.target.value.replace(/\D/g, "") }))
+                    }
+                  />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    placeholder="Kuala Lumpur"
+                    value={shopForm.city}
+                    onChange={(e) => setShopForm((f) => ({ ...f, city: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="state">State</Label>
+                <select
+                  id="state"
+                  value={shopForm.state}
+                  onChange={(e) => setShopForm((f) => ({ ...f, state: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <option value="" disabled>Select state…</option>
+                  <optgroup label="States">
+                    {[
+                      "Johor", "Kedah", "Kelantan", "Melaka",
+                      "Negeri Sembilan", "Pahang", "Perak", "Perlis",
+                      "Pulau Pinang", "Sabah", "Sarawak", "Selangor", "Terengganu"
+                    ].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Federal Territories">
+                    {["W.P. Kuala Lumpur", "W.P. Labuan", "W.P. Putrajaya"].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
 
               <Button type="submit" className="w-full" disabled={isLoading}>
@@ -695,53 +774,92 @@ function RegisterContent() {
                     Saving…
                   </>
                 ) : (
-                  "Continue to payment"
+                  "Continue"
                 )}
               </Button>
             </form>
           )}
 
-          {/* Step 4: Payment */}
+          {/* Step 4: Plan + Payment */}
           {step === "payment" && (
             <div className="space-y-5">
               <div>
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
                   <CreditCard className="h-5 w-5 text-primary" />
                 </div>
-                <h2 className="text-lg font-semibold">Add payment method</h2>
+                <h2 className="text-lg font-semibold">Choose your plan</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  Your card will <span className="font-medium text-foreground">not</span> be
-                  charged until your 14-day trial ends
+                  14 days free — your card will{" "}
+                  <span className="font-medium text-foreground">not</span> be charged until your trial ends
                 </p>
               </div>
 
-              {/* Trial summary */}
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <div className="flex items-start gap-3">
-                  <Star className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
-                  <div className="space-y-1 text-sm">
-                    <div className="font-semibold text-foreground">
-                      {selectedPlan === "starter" ? "Starter" : "Professional"} Plan — 14-day free
-                      trial
-                    </div>
-                    <div className="text-muted-foreground">
-                      After trial:{" "}
-                      <span className="font-medium text-foreground">
-                        {selectedPlan === "starter" ? "RM 99" : "RM 249"}/month
+              {/* Plan picker */}
+              <div className="grid grid-cols-2 gap-3">
+                {(
+                  [
+                    {
+                      id: "starter" as const,
+                      name: "Starter",
+                      price: "RM 99",
+                      desc: "Up to 5 staff",
+                      features: ["Queue management", "POS & transactions", "Basic payroll"],
+                      popular: false
+                    },
+                    {
+                      id: "professional" as const,
+                      name: "Professional",
+                      price: "RM 249",
+                      desc: "Unlimited staff",
+                      features: ["Everything in Starter", "Multi-branch", "Advanced commissions & inventory"],
+                      popular: true
+                    }
+                  ]
+                ).map((plan) => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => setSelectedPlan(plan.id)}
+                    className={cn(
+                      "relative rounded-lg border p-3.5 text-left transition-all",
+                      selectedPlan === plan.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-muted hover:border-border/80"
+                    )}
+                  >
+                    {plan.popular && (
+                      <span className="absolute -top-2 right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        Popular
                       </span>
+                    )}
+                    {selectedPlan === plan.id && (
+                      <Check className="absolute right-2 top-2.5 h-3.5 w-3.5 text-primary" />
+                    )}
+                    <div className="text-sm font-semibold">{plan.name}</div>
+                    <div className="mt-0.5 text-xl font-bold text-primary">{plan.price}</div>
+                    <div className="text-xs text-muted-foreground">{plan.desc}/mo</div>
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5">
+                      <Star className="h-2.5 w-2.5 text-primary" />
+                      <span className="text-[10px] font-semibold text-primary">14 days free</span>
                     </div>
-                    <div className="text-muted-foreground">Cancel anytime before trial ends</div>
-                  </div>
-                </div>
+                    <ul className="mt-2.5 space-y-1">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-1.5">
+                          <Check className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
+                          <span className="text-[11px] leading-tight text-muted-foreground">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </button>
+                ))}
               </div>
 
-              {/* What happens next */}
-              <div className="space-y-2">
+              {/* What happens */}
+              <div className="rounded-lg border border-border/50 bg-muted/50 px-4 py-3 space-y-1.5">
                 {[
-                  "You get full access for 14 days",
-                  "We collect your card details securely via Stripe",
-                  "No charge until your trial expires",
-                  "Cancel anytime — no questions asked"
+                  "Full access for 14 days, completely free",
+                  "Card collected securely via Stripe — no charge now",
+                  "Cancel anytime before trial ends"
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Check className="h-3.5 w-3.5 flex-shrink-0 text-primary" />

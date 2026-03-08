@@ -5,6 +5,35 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+export async function checkSlugAvailability(slug: string, currentUserId?: string) {
+  if (!slug || slug.length < 3) {
+    return { available: false, error: "Slug must be at least 3 characters" };
+  }
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    return { available: false, error: "Only lowercase letters, numbers, and hyphens" };
+  }
+  if (slug.startsWith("-") || slug.endsWith("-")) {
+    return { available: false, error: "Cannot start or end with a hyphen" };
+  }
+
+  const supabase = await createClient();
+
+  const query = supabase
+    .from("tenants")
+    .select("id, owner_auth_id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  const { data } = await query;
+
+  // Taken by someone else (not the current user's own tenant)
+  if (data && data.owner_auth_id !== currentUserId) {
+    return { available: false, error: "This URL is already taken" };
+  }
+
+  return { available: true };
+}
+
 export async function signUp(formData: {
   email: string;
   password: string;
@@ -102,7 +131,10 @@ export async function saveOnboarding(data: {
   shopName: string;
   slug: string;
   phone: string;
-  address: string;
+  addressLine1: string;
+  city: string;
+  postcode: string;
+  state: string;
   plan: "starter" | "professional";
 }) {
   const supabase = await createClient();
@@ -114,6 +146,11 @@ export async function saveOnboarding(data: {
   if (!user) {
     return { error: "Not authenticated" };
   }
+
+  // Build a combined address string for backward compat with the `address` column
+  const addressFull = [data.addressLine1, data.city, data.postcode, data.state]
+    .filter(Boolean)
+    .join(", ");
 
   const { data: existing } = await supabase
     .from("tenants")
@@ -128,7 +165,11 @@ export async function saveOnboarding(data: {
         name: data.shopName,
         slug: data.slug,
         phone: data.phone,
-        address: data.address,
+        address: addressFull,
+        address_line1: data.addressLine1,
+        city: data.city,
+        postcode: data.postcode,
+        state: data.state,
         plan: data.plan,
         updated_at: new Date().toISOString()
       })
@@ -144,7 +185,11 @@ export async function saveOnboarding(data: {
       name: data.shopName,
       slug: data.slug,
       phone: data.phone,
-      address: data.address,
+      address: addressFull,
+      address_line1: data.addressLine1,
+      city: data.city,
+      postcode: data.postcode,
+      state: data.state,
       plan: data.plan,
       email: user.email,
       owner_auth_id: user.id,
