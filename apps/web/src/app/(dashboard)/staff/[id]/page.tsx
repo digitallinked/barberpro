@@ -1,13 +1,14 @@
 import { PagePlaceholder } from "@/components/page-placeholder";
 
 type StaffDetailPageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export default function StaffDetailPage({ params }: StaffDetailPageProps) {
+export default async function StaffDetailPage({ params }: StaffDetailPageProps) {
+  const { id } = await params;
   return (
     <PagePlaceholder
-      title={`Staff Detail: ${params.id}`}
+      title={`Staff Detail: ${id}`}
       description="Individual barber performance, commission setup, and profile controls."
     />
   );

@@ -1,13 +1,14 @@
 import { PagePlaceholder } from "@/components/page-placeholder";
 
 type BranchDetailPageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export default function BranchDetailPage({ params }: BranchDetailPageProps) {
+export default async function BranchDetailPage({ params }: BranchDetailPageProps) {
+  const { id } = await params;
   return (
     <PagePlaceholder
-      title={`Branch Detail: ${params.id}`}
+      title={`Branch Detail: ${id}`}
       description="Branch-specific operations, staff, inventory, and performance view."
     />
   );
