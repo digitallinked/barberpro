@@ -1,252 +1,290 @@
+"use client";
+
 import {
   CheckCircle2,
+  Clock,
   MoveRight,
-  RefreshCw,
+  Scissors,
   Timer,
   UserCheck,
   UserRound,
-  Users
+  Users,
+  XCircle
 } from "lucide-react";
+import { useState } from "react";
+
+// ─── Data ──────────────────────────────────────────────────────────────────────
+
+const STATS = [
+  { label: "Waiting", value: "8", hint: "~35 min avg wait", icon: Timer, iconBg: "bg-orange-500/10", iconColor: "text-orange-400" },
+  { label: "In Service", value: "5", hint: "Currently serving", icon: UserCheck, iconBg: "bg-blue-500/10", iconColor: "text-blue-400" },
+  { label: "Completed", value: "23", hint: "Today so far", icon: CheckCircle2, iconBg: "bg-emerald-500/10", iconColor: "text-emerald-400" },
+  { label: "Available", value: "3", hint: "Barbers ready", icon: UserRound, iconBg: "bg-purple-500/10", iconColor: "text-purple-400" }
+];
+
+const TABS = [
+  { label: "All", count: 13 },
+  { label: "Waiting", count: 8 },
+  { label: "Assigned", count: 5 },
+  { label: "In Service", count: 5 },
+  { label: "Completed", count: 23 },
+  { label: "Cancelled", count: 2 }
+];
+
+type QueueEntry = {
+  code: string;
+  name: string;
+  phone: string;
+  services: string[];
+  status: "waiting" | "in-service";
+  preferred: string | null;
+  barber: string | null;
+  started?: string;
+  timer: string;
+  timerLabel: string;
+};
+
+const QUEUE: QueueEntry[] = [
+  { code: "Q1", name: "Ahmad Fauzi", phone: "+6012-345-6789", services: ["Premium Cut", "Hot Towel Shave"], status: "waiting", preferred: "Sam", barber: null, timer: "25:14", timerLabel: "waiting time" },
+  { code: "Q2", name: "Tan Wei Liang", phone: "+6019-876-5432", services: ["Basic Cut"], status: "in-service", preferred: null, barber: "Sam", started: "14:15", timer: "20:00", timerLabel: "in service" },
+  { code: "Q3", name: "Kumar s/o Rajan", phone: "+6016-234-8901", services: ["Kids Cut", "Hair Wash"], status: "waiting", preferred: null, barber: null, timer: "18:45", timerLabel: "waiting time" },
+  { code: "Q4", name: "Jason Lee", phone: "+6012-567-8901", services: ["Hair Coloring"], status: "in-service", preferred: null, barber: "Zack", started: "13:45", timer: "50:00", timerLabel: "in service" },
+  { code: "Q5", name: "Walk-in Guest", phone: "No phone", services: ["Basic Cut"], status: "waiting", preferred: null, barber: null, timer: "12:30", timerLabel: "waiting time" },
+  { code: "Q6", name: "Hafiz Rahman", phone: "+6013-456-7890", services: ["Premium Cut", "Beard Trim"], status: "waiting", preferred: "Ali", barber: null, timer: "08:20", timerLabel: "waiting time" }
+];
+
+type Barber = {
+  name: string;
+  init: string;
+  role: string;
+  status: "available" | "busy" | "break";
+  info: string;
+  metric: string;
+  metricColor: string;
+};
+
+const BARBERS: Barber[] = [
+  { name: "Sam", init: "S", role: "Senior Barber", status: "available", info: "Today: 8 customers", metric: "RM 450", metricColor: "text-emerald-400" },
+  { name: "Zack", init: "Z", role: "Barber", status: "busy", info: "Serving: Jason Lee", metric: "50 min", metricColor: "text-red-400" },
+  { name: "Ali", init: "A", role: "Barber", status: "available", info: "Today: 6 customers", metric: "RM 280", metricColor: "text-emerald-400" },
+  { name: "Faiz", init: "F", role: "Junior Barber", status: "busy", info: "Serving: Tan Wei Liang", metric: "20 min", metricColor: "text-red-400" },
+  { name: "Rina", init: "R", role: "Barber", status: "break", info: "Back at: 15:00", metric: "~15 min", metricColor: "text-yellow-400" },
+  { name: "David", init: "D", role: "Barber", status: "available", info: "Today: 4 customers", metric: "RM 180", metricColor: "text-emerald-400" }
+];
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
+}
+
+const statusBadge: Record<string, string> = {
+  available: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+  busy: "bg-red-500/10 border-red-500/30 text-red-400",
+  break: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+};
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function QueuePage() {
-  const queueRows = [
-    {
-      code: "Q1",
-      name: "Ahmad Fauzi",
-      phone: "+6012-345-6789",
-      service: "Premium Cut + Shave",
-      wait: "~45 min",
-      status: "Waiting",
-      barber: "Sam"
-    },
-    {
-      code: "Q2",
-      name: "Tan Wei Liang",
-      phone: "+6019-876-5432",
-      service: "Basic Cut",
-      wait: "~30 min",
-      status: "In Service",
-      barber: "Sam"
-    },
-    {
-      code: "Q3",
-      name: "Kumar Rajan",
-      phone: "+6016-234-8901",
-      service: "Kids Cut",
-      wait: "~20 min",
-      status: "Waiting",
-      barber: "Any"
-    },
-    {
-      code: "Q4",
-      name: "Jason Lee",
-      phone: "+6012-567-8901",
-      service: "Hair Coloring",
-      wait: "~60 min",
-      status: "In Service",
-      barber: "Zack"
-    }
-  ];
-
-  const barberStatus = [
-    {
-      name: "Sam",
-      role: "Senior Barber",
-      status: "Available",
-      count: "Today: 8 customers"
-    },
-    { name: "Zack", role: "Barber", status: "Busy", count: "Serving: Tan Wei Liang" },
-    { name: "Ali", role: "Barber", status: "Available", count: "Today: 6 customers" },
-    { name: "Faiz", role: "Junior Barber", status: "Busy", count: "Serving: Jason Lee" },
-    { name: "Rina", role: "Barber", status: "Break", count: "Back in: 15 min" }
-  ];
+  const [activeTab, setActiveTab] = useState(0);
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Walk-in Queue</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage walk-in customers and barber assignments.
-          </p>
+          <h2 className="text-2xl font-bold text-white">Walk-in Queue</h2>
+          <p className="mt-1 text-sm text-gray-400">Manage walk-in customers and barber assignments</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-2 text-sm hover:bg-muted"
-            type="button"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Queue Board
+        <div className="flex items-center gap-2">
+          <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40">
+            <Scissors className="h-4 w-4" />
+            <span className="hidden sm:inline">Queue Board</span>
           </button>
         </div>
-      </header>
+      </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Waiting", value: "8", hint: "~35 min avg wait", icon: Timer },
-          { label: "In Service", value: "5", hint: "Actively serving", icon: UserCheck },
-          { label: "Completed", value: "23", hint: "Today so far", icon: CheckCircle2 },
-          { label: "Available", value: "3", hint: "Barbers ready", icon: UserRound }
-        ].map((item) => (
-          <article
-            key={item.label}
-            className="rounded-xl border border-border/70 bg-card p-4"
+      {/* Stat bar */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {STATS.map((s) => {
+          const Icon = s.icon;
+          return (
+            <Card key={s.label} className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{s.label}</p>
+                <span className={`rounded-lg p-2 ${s.iconBg}`}><Icon className={`h-4 w-4 ${s.iconColor}`} /></span>
+              </div>
+              <h3 className="text-2xl font-bold text-white">{s.value}</h3>
+              <p className="text-xs text-gray-500 mt-1">{s.hint}</p>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex flex-wrap items-center gap-2">
+        {TABS.map((t, i) => (
+          <button
+            key={t.label}
+            type="button"
+            onClick={() => setActiveTab(i)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              activeTab === i
+                ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30"
+                : "border border-white/5 bg-[#1a1a1a] text-gray-400 hover:text-white"
+            }`}
           >
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                {item.label}
-              </p>
-              <item.icon className="h-4 w-4 text-primary" />
-            </div>
-            <p className="mt-2 text-3xl font-semibold">{item.value}</p>
-            <p className="text-xs text-muted-foreground">{item.hint}</p>
-          </article>
+            {t.label} <span className="ml-1 opacity-70">({t.count})</span>
+          </button>
         ))}
-      </section>
+      </div>
 
-      <div className="grid gap-4 xl:grid-cols-12">
-        <section className="space-y-3 xl:col-span-8">
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-card p-3">
-            {[
-              "All (13)",
-              "Waiting (8)",
-              "Assigned (5)",
-              "In Service (5)",
-              "Completed (23)",
-              "Cancelled (2)"
-            ].map((tab, idx) => (
-              <button
-                key={tab}
-                className={`rounded-md border px-3 py-1.5 text-xs ${
-                  idx === 0
-                    ? "border-primary bg-primary/20 text-primary"
-                    : "border-border/70 bg-background text-muted-foreground hover:text-foreground"
-                }`}
-                type="button"
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+      {/* Main grid */}
+      <div className="grid gap-6 xl:grid-cols-3">
+        {/* Queue cards (2/3) */}
+        <div className="space-y-4 xl:col-span-2">
+          {QUEUE.map((q) => (
+            <Card key={q.code} className="relative overflow-hidden">
+              {/* Status banner */}
+              {q.status === "waiting" && q.code === "Q1" && (
+                <div className="absolute right-0 top-0 rounded-bl-lg bg-orange-500 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#111]">
+                  Next
+                </div>
+              )}
+              {q.status === "in-service" && (
+                <div className="absolute right-0 top-0 flex items-center gap-1 rounded-bl-lg bg-blue-500 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
+                  <Clock className="h-3 w-3" /> In Service
+                </div>
+              )}
 
-          {queueRows.map((item) => (
-            <article
-              key={item.code}
-              className="rounded-xl border border-border/70 bg-card p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-lg font-semibold text-primary">
-                    {item.code}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-semibold">{item.name}</h3>
-                    <p className="text-xs text-muted-foreground">{item.phone}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded bg-muted px-2 py-1 text-muted-foreground">
-                        {item.service}
-                      </span>
-                      <span className="rounded bg-muted px-2 py-1 text-muted-foreground">
-                        {item.wait}
-                      </span>
-                      <span className="rounded bg-muted px-2 py-1 text-muted-foreground">
-                        Barber: {item.barber}
-                      </span>
+              <div className="p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-2xl font-bold ${
+                      q.status === "in-service"
+                        ? "border-2 border-blue-500 bg-[#2a2a2a] text-white"
+                        : q.code === "Q1"
+                          ? "bg-[#D4AF37] text-[#111] shadow-lg"
+                          : "border border-white/10 bg-[#2a2a2a] text-gray-400"
+                    }`}>
+                      {q.code}
                     </div>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p
-                    className={`text-xs font-medium ${
-                      item.status === "In Service"
-                        ? "text-blue-300"
-                        : "text-amber-300"
-                    }`}
-                  >
-                    {item.status}
-                  </p>
-                  <p className="text-2xl font-semibold">
-                    {item.status === "In Service" ? "20:00" : "25:14"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                    item.status === "In Service"
-                      ? "bg-emerald-500/20 text-emerald-300"
-                      : "bg-primary text-primary-foreground"
-                  }`}
-                  type="button"
-                >
-                  {item.status === "In Service" ? "Mark Complete" : "Assign Barber"}
-                </button>
-                <button
-                  className="rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  type="button"
-                >
-                  Reassign
-                </button>
-              </div>
-            </article>
-          ))}
-        </section>
-
-        <aside className="space-y-4 xl:col-span-4">
-          <section className="rounded-xl border border-border/70 bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">Barber Availability</h2>
-              <button className="text-xs text-primary" type="button">
-                Manage
-              </button>
-            </div>
-            <div className="space-y-2.5">
-              {barberStatus.map((barber) => (
-                <article
-                  key={barber.name}
-                  className="rounded-lg border border-border/70 bg-background/60 p-3"
-                >
-                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{barber.name}</p>
-                      <p className="text-xs text-muted-foreground">{barber.role}</p>
+                      <h3 className="text-lg font-bold text-white mb-1">{q.name}</h3>
+                      <p className="text-sm text-gray-400 mb-2">{q.phone}</p>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {q.services.map((s) => (
+                          <span key={s} className="rounded-md bg-[#111] border border-white/5 px-2 py-0.5 text-xs text-gray-300">{s}</span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        {q.preferred && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Preferred:</span>
+                            <span className="text-[#D4AF37] font-medium">{q.preferred}</span>
+                          </div>
+                        )}
+                        {q.barber && (
+                          <>
+                            <div className="flex items-center gap-1">
+                              <span className="text-gray-500">Barber:</span>
+                              <span className="text-blue-400 font-medium">{q.barber}</span>
+                            </div>
+                            {q.started && <span className="text-gray-500">Started: {q.started}</span>}
+                          </>
+                        )}
+                        {!q.preferred && !q.barber && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-500">Preferred:</span>
+                            <span className="text-gray-400">Any available</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p
-                      className={`text-xs ${
-                        barber.status === "Available"
-                          ? "text-emerald-300"
-                          : barber.status === "Busy"
-                            ? "text-rose-300"
-                            : "text-amber-300"
-                      }`}
-                    >
-                      {barber.status}
-                    </p>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{barber.count}</p>
-                </article>
+                  <div className="shrink-0 text-right">
+                    <p className={`text-2xl font-bold mb-1 ${q.status === "in-service" ? "text-blue-500" : q.code === "Q1" ? "text-orange-500" : "text-gray-400"}`}>
+                      {q.timer}
+                    </p>
+                    <p className="text-xs text-gray-500">{q.timerLabel}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
+                  {q.status === "in-service" ? (
+                    <>
+                      <button type="button" className="rounded-lg bg-emerald-500/20 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/30">
+                        <CheckCircle2 className="mr-1.5 inline h-3.5 w-3.5" />Mark Complete
+                      </button>
+                      <button type="button" className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-gray-400 transition hover:text-white">Reassign</button>
+                      <button type="button" className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-red-400 transition hover:text-red-300">
+                        <XCircle className="mr-1 inline h-3.5 w-3.5" />Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110">Assign Barber</button>
+                      <button type="button" className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-gray-400 transition hover:text-white">Edit</button>
+                      <button type="button" className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-red-400 transition hover:text-red-300">
+                        <XCircle className="mr-1 inline h-3.5 w-3.5" />Remove
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Right sidebar */}
+        <div className="space-y-6">
+          {/* Barber Availability */}
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-white">Barber Availability</h3>
+              <button type="button" className="text-xs font-medium text-[#D4AF37] hover:text-[#D4AF37]/80">Manage</button>
+            </div>
+            <div className="space-y-3">
+              {BARBERS.map((b) => (
+                <div key={b.name} className={`rounded-lg border p-4 transition ${statusBadge[b.status]}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-sm font-bold text-white">
+                      {b.init}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-white">{b.name}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge[b.status]}`}>
+                          {b.status === "available" ? "Available" : b.status === "busy" ? "Serving" : "On Break"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">{b.role}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-gray-400">{b.info}</span>
+                    <span className={`font-medium ${b.metricColor}`}>{b.metric}</span>
+                  </div>
+                </div>
               ))}
             </div>
-          </section>
+          </Card>
 
-          <section className="rounded-xl border border-primary/40 bg-primary/10 p-4">
-            <p className="text-xs uppercase tracking-wide text-primary">Now Serving</p>
-            <div className="mt-2 flex items-end justify-between">
-              <p className="text-5xl font-bold text-primary">Q2</p>
-              <Users className="h-6 w-6 text-primary" />
+          {/* Now Serving */}
+          <Card className="border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/10 to-transparent p-5">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#D4AF37]">Now Serving</h3>
+            <div className="mt-3 flex items-end justify-between">
+              <p className="text-5xl font-black text-[#D4AF37]">Q2</p>
+              <Users className="h-6 w-6 text-[#D4AF37]/60" />
             </div>
-            <p className="mt-1 text-sm">Tan Wei Liang</p>
-            <p className="text-xs text-muted-foreground">Barber: Sam</p>
-            <button
-              className="mt-4 inline-flex items-center gap-1 text-xs text-primary"
-              type="button"
-            >
+            <p className="mt-2 text-lg font-semibold text-white">Tan Wei Liang</p>
+            <p className="text-sm text-gray-400 mt-1">Barber: Sam</p>
+            <button type="button" className="mt-4 flex items-center gap-1 text-xs font-medium text-[#D4AF37] transition hover:text-[#D4AF37]/80">
               Open queue board <MoveRight className="h-3.5 w-3.5" />
             </button>
-          </section>
-        </aside>
+          </Card>
+        </div>
       </div>
     </div>
   );

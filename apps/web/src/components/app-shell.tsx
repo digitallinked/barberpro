@@ -13,6 +13,7 @@ import {
   CreditCard,
   Home,
   LogOut,
+  Megaphone,
   Menu,
   Package,
   Plus,
@@ -42,6 +43,7 @@ const NAV_MANAGEMENT: NavItem[] = [
   { label: "Payroll & Comm.", href: "/payroll",     icon: CircleDollarSign },
   { label: "Inventory",       href: "/inventory",   icon: Package },
   { label: "Expenses",        href: "/expenses",    icon: Wallet },
+  { label: "Promotions",      href: "/promotions",  icon: Megaphone },
   { label: "Reports",         href: "/reports",     icon: BarChart3 },
   { label: "Branches",        href: "/branches",    icon: Store }
 ];

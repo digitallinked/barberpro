@@ -1,198 +1,190 @@
+"use client";
+
 import {
   Bell,
   Building2,
   CreditCard,
   Globe,
-  ReceiptText,
-  ShieldCheck,
-  Upload
+  ImageIcon,
+  Save,
+  Scissors,
+  Search,
+  Shield,
+  Users,
+  Zap
 } from "lucide-react";
+import { useState } from "react";
+
+// ─── Data ──────────────────────────────────────────────────────────────────────
+
+const NAV_ITEMS = [
+  { id: "profile",       label: "Business Profile",     icon: Building2 },
+  { id: "branches",      label: "Branches",             icon: Globe },
+  { id: "services",      label: "Services & Pricing",   icon: Scissors },
+  { id: "roles",         label: "Staff Roles",          icon: Users },
+  { id: "notifications", label: "Notifications",        icon: Bell },
+  { id: "integrations",  label: "Integrations",         icon: Zap },
+  { id: "billing",       label: "Billing",              icon: CreditCard }
+];
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
+}
+
+function FormField({ label, type = "text", value = "", placeholder = "" }: { label: string; type?: string; value?: string; placeholder?: string }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-gray-300">{label}</label>
+      <input
+        type={type}
+        defaultValue={value}
+        placeholder={placeholder}
+        className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
+      />
+    </div>
+  );
+}
 
 export default function SettingsPage() {
-  const sections = [
-    {
-      heading: "Business",
-      items: ["Business Profile", "Branches", "Operating Hours"]
-    },
-    {
-      heading: "Services",
-      items: ["Service Categories", "Pricing"]
-    },
-    {
-      heading: "Staff & Payroll",
-      items: ["Roles & Permissions", "Payroll Settings"]
-    },
-    {
-      heading: "Financial",
-      items: ["Payment Methods", "Tax & Invoice", "Receipt Branding"]
-    },
-    {
-      heading: "System",
-      items: ["Notifications", "Language"]
-    }
-  ];
+  const [activeSection, setActiveSection] = useState("profile");
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your business configuration and operational defaults.
-        </p>
-      </header>
-
-      <div className="grid gap-4 xl:grid-cols-12">
-        <aside className="rounded-xl border border-border/70 bg-card p-3 xl:col-span-3">
-          {sections.map((group) => (
-            <div key={group.heading} className="mb-4 last:mb-0">
-              <p className="mb-1 px-2 text-xs uppercase tracking-wide text-muted-foreground">
-                {group.heading}
-              </p>
-              <div className="space-y-1">
-                {group.items.map((item, idx) => (
-                  <button
-                    key={item}
-                    className={`w-full rounded-md px-3 py-2 text-left text-sm ${
-                      group.heading === "Business" && idx === 0
-                        ? "bg-primary/20 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                    type="button"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </aside>
-
-        <section className="rounded-xl border border-border/70 bg-card p-6 xl:col-span-9">
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-semibold">Business Profile</h2>
-              <p className="text-sm text-muted-foreground">
-                Manage your business information.
-              </p>
-            </div>
-            <button
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-              type="button"
-            >
-              Save Changes
-            </button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">Business Name</span>
-              <input
-                defaultValue="BarberPro KL"
-                className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">
-                Registration Number (SSM)
-              </span>
-              <input
-                defaultValue="202301234567"
-                className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="space-y-1.5 md:col-span-2">
-              <span className="text-xs text-muted-foreground">Business Address</span>
-              <textarea
-                defaultValue="Lot 123, Jalan Sentral 5, KL Sentral, 50470 Kuala Lumpur"
-                className="min-h-20 w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">Phone Number</span>
-              <input
-                defaultValue="+60 12-345 6789"
-                className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">Email</span>
-              <input
-                defaultValue="info@barberpro.my"
-                className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-              />
-            </label>
-          </div>
-
-          <div className="mt-5 flex items-center gap-3 rounded-lg border border-border/70 bg-background/50 p-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/20 text-primary">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <button
-              className="inline-flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm hover:bg-muted"
-              type="button"
-            >
-              <Upload className="h-4 w-4" />
-              Upload New Logo
-            </button>
-          </div>
-        </section>
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white">Settings</h2>
+          <p className="mt-1 text-sm text-gray-400">Manage your business configuration</p>
+        </div>
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <input type="text" placeholder="Search settings..." className="w-full rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none" />
+        </div>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          {
-            title: "Roles & Permissions",
-            description: "Manage access by owner, manager, cashier, and barber.",
-            icon: ShieldCheck
-          },
-          {
-            title: "Payment Methods",
-            description: "Configure cash, card, transfer, and e-wallet defaults.",
-            icon: CreditCard
-          },
-          {
-            title: "Receipt Branding",
-            description: "Customize receipt header, footer, and branch labels.",
-            icon: ReceiptText
-          },
-          {
-            title: "Notifications",
-            description: "Control reminders, alerts, and payroll notices.",
-            icon: Bell
-          }
-        ].map((card) => (
-          <article
-            key={card.title}
-            className="rounded-xl border border-border/70 bg-card p-5"
-          >
-            <card.icon className="h-5 w-5 text-primary" />
-            <h3 className="mt-3 text-sm font-semibold">{card.title}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">{card.description}</p>
-          </article>
-        ))}
-      </section>
+      <div className="grid gap-6 lg:grid-cols-4">
+        {/* Sidebar nav */}
+        <div className="lg:col-span-1">
+          <Card className="p-3">
+            <nav className="space-y-0.5">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                      activeSection === item.id
+                        ? "bg-[#D4AF37]/10 text-[#D4AF37]"
+                        : "text-gray-400 hover:bg-white/[0.03] hover:text-white"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </Card>
+        </div>
 
-      <section className="rounded-xl border border-border/70 bg-card p-5">
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Localization</h3>
+        {/* Main content */}
+        <div className="space-y-6 lg:col-span-3">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">Business Profile</h3>
+                <p className="text-sm text-gray-400">Update your business information and branding</p>
+              </div>
+              <button type="button" className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110">
+                <Save className="h-4 w-4" /> Save Changes
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <FormField label="Business Name" value="BarberPro KL" placeholder="Enter business name" />
+                <FormField label="Registration Number (SSM)" value="202301234567" placeholder="SSM Number" />
+              </div>
+
+              <FormField label="Business Address" value="Lot G-01, KL Sentral Station, 50470 KL" placeholder="Full address" />
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <FormField label="Phone Number" type="tel" value="+60 12-345 6789" placeholder="+60" />
+                <FormField label="Email" type="email" value="info@barberpro.my" placeholder="email@example.com" />
+              </div>
+
+              {/* Logo upload */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-300">Business Logo</label>
+                <div className="flex items-center gap-4">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-[#111]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#D4AF37]/20">
+                      <Scissors className="h-6 w-6 text-[#D4AF37]" />
+                    </div>
+                  </div>
+                  <div>
+                    <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#2a2a2a] px-3 py-2 text-sm text-white transition hover:bg-[#333]">
+                      <ImageIcon className="h-4 w-4" /> Upload Logo
+                    </button>
+                    <p className="mt-1 text-xs text-gray-500">PNG, JPG or SVG. Max 2MB.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Operating hours */}
+              <div>
+                <label className="mb-3 block text-sm font-medium text-gray-300">Operating Hours</label>
+                <div className="space-y-2">
+                  {["Monday - Friday", "Saturday", "Sunday"].map((day) => (
+                    <div key={day} className="flex items-center gap-3 rounded-lg bg-[#111] px-4 py-3 text-sm">
+                      <span className="w-40 text-gray-300">{day}</span>
+                      <input type="text" defaultValue={day === "Sunday" ? "Closed" : "09:00"} className="w-20 rounded border border-white/10 bg-[#1a1a1a] px-2 py-1 text-center text-xs text-white" />
+                      {day !== "Sunday" && (
+                        <>
+                          <span className="text-gray-500">to</span>
+                          <input type="text" defaultValue={day === "Saturday" ? "18:00" : "21:00"} className="w-20 rounded border border-white/10 bg-[#1a1a1a] px-2 py-1 text-center text-xs text-white" />
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Security */}
+              <div className="border-t border-white/5 pt-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="h-4 w-4 text-gray-500" />
+                  <label className="text-sm font-medium text-gray-300">Security</label>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg bg-[#111] px-4 py-3">
+                    <div>
+                      <p className="text-sm text-white">Two-Factor Authentication</p>
+                      <p className="text-xs text-gray-500">Extra security for your account</p>
+                    </div>
+                    <div className="h-6 w-11 rounded-full bg-[#D4AF37] p-0.5 cursor-pointer">
+                      <div className="h-5 w-5 translate-x-5 rounded-full bg-white transition" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-[#111] px-4 py-3">
+                    <div>
+                      <p className="text-sm text-white">Session Timeout</p>
+                      <p className="text-xs text-gray-500">Auto-logout after inactivity</p>
+                    </div>
+                    <select className="rounded border border-white/10 bg-[#1a1a1a] px-2 py-1 text-xs text-white outline-none">
+                      <option>30 minutes</option>
+                      <option>1 hour</option>
+                      <option>2 hours</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">Timezone</span>
-            <select className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary">
-              <option>Asia/Kuala_Lumpur</option>
-            </select>
-          </label>
-          <label className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">Language</span>
-            <select className="w-full rounded-md border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary">
-              <option>English (Malaysia)</option>
-              <option>Bahasa Melayu</option>
-            </select>
-          </label>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
