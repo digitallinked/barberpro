@@ -29,7 +29,7 @@ export async function createCheckoutSession(plan: StripePlan) {
 
   if (!customerId) {
     const customer = await stripe.customers.create({
-      email: user.email ?? tenant.email,
+      email: user.email ?? tenant.email ?? undefined,
       name: tenant.name,
       metadata: {
         tenant_id: tenant.id,

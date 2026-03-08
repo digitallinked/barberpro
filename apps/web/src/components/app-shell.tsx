@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   Bell,
@@ -22,40 +22,47 @@ import {
   Store,
   Users,
   Wallet,
-  X
+  X,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
-// ─── Nav definition ───────────────────────────────────────────────────────────
+import { useTenant } from "@/components/tenant-provider";
+import { signOut } from "@/actions/auth";
 
 type NavItem = { label: string; href: string; icon: React.ElementType };
 
 const NAV_MAIN: NavItem[] = [
-  { label: "Dashboard",    href: "/dashboard",    icon: Home },
-  { label: "Queue",        href: "/queue",        icon: ClipboardList },
+  { label: "Dashboard", href: "/dashboard", icon: Home },
+  { label: "Queue", href: "/queue", icon: ClipboardList },
   { label: "Appointments", href: "/appointments", icon: CalendarCheck2 },
-  { label: "POS",          href: "/pos",          icon: CreditCard },
-  { label: "Customers",    href: "/customers",    icon: Contact2 },
-  { label: "Staff",        href: "/staff",        icon: Users }
+  { label: "POS", href: "/pos", icon: CreditCard },
+  { label: "Customers", href: "/customers", icon: Contact2 },
+  { label: "Staff", href: "/staff", icon: Users },
 ];
 
 const NAV_MANAGEMENT: NavItem[] = [
-  { label: "Payroll & Comm.", href: "/payroll",     icon: CircleDollarSign },
-  { label: "Inventory",       href: "/inventory",   icon: Package },
-  { label: "Expenses",        href: "/expenses",    icon: Wallet },
-  { label: "Promotions",      href: "/promotions",  icon: Megaphone },
-  { label: "Reports",         href: "/reports",     icon: BarChart3 },
-  { label: "Branches",        href: "/branches",    icon: Store }
+  { label: "Payroll & Comm.", href: "/payroll", icon: CircleDollarSign },
+  { label: "Inventory", href: "/inventory", icon: Package },
+  { label: "Expenses", href: "/expenses", icon: Wallet },
+  { label: "Promotions", href: "/promotions", icon: Megaphone },
+  { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "Branches", href: "/branches", icon: Store },
 ];
 
 const NAV_BUSINESS: NavItem[] = [
   { label: "Commissions", href: "/commissions", icon: Scissors },
-  { label: "Settings",    href: "/settings",    icon: Settings }
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
-// ─── Sidebar link ─────────────────────────────────────────────────────────────
-
-function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; onClick?: () => void }) {
+function NavLink({
+  item,
+  active,
+  onClick,
+}: {
+  item: NavItem;
+  active: boolean;
+  onClick?: () => void;
+}) {
   const Icon = item.icon;
   return (
     <Link
@@ -73,25 +80,60 @@ function NavLink({ item, active, onClick }: { item: NavItem; active: boolean; on
   );
 }
 
-function NavGroup({ label, items, pathname, onNav }: { label: string; items: NavItem[]; pathname: string; onNav?: () => void }) {
+function NavGroup({
+  label,
+  items,
+  pathname,
+  onNav,
+}: {
+  label: string;
+  items: NavItem[];
+  pathname: string;
+  onNav?: () => void;
+}) {
   return (
     <div className="mt-6">
-      <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">{label}</p>
+      <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        {label}
+      </p>
       <div className="space-y-0.5">
         {items.map((item) => (
-          <NavLink key={item.href} item={item} active={pathname === item.href} onClick={onNav} />
+          <NavLink
+            key={item.href}
+            item={item}
+            active={pathname === item.href}
+            onClick={onNav}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-// ─── Sidebar content ──────────────────────────────────────────────────────────
+function SidebarContent({
+  pathname,
+  onNav,
+  userName,
+  userRole,
+  branchName,
+}: {
+  pathname: string;
+  onNav?: () => void;
+  userName: string;
+  userRole: string;
+  branchName: string;
+}) {
+  const initials = userName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
-function SidebarContent({ pathname, onNav }: { pathname: string; onNav?: () => void }) {
+  const roleLabel = userRole.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
   return (
     <div className="flex h-full flex-col">
-      {/* Logo */}
       <div className="flex items-center gap-2.5 border-b border-white/5 px-4 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#D4AF37]/20">
           <Scissors className="h-4 w-4 text-[#D4AF37]" />
@@ -101,58 +143,97 @@ function SidebarContent({ pathname, onNav }: { pathname: string; onNav?: () => v
             BarberPro<span className="text-[#D4AF37]">.my</span>
           </p>
           <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-            Owner Dashboard
+            {roleLabel} Dashboard
           </p>
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-0.5">
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Main</p>
+          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Main
+          </p>
           {NAV_MAIN.map((item) => (
-            <NavLink key={item.href} item={item} active={pathname === item.href} onClick={onNav} />
+            <NavLink
+              key={item.href}
+              item={item}
+              active={pathname === item.href}
+              onClick={onNav}
+            />
           ))}
         </div>
-        <NavGroup label="Management" items={NAV_MANAGEMENT} pathname={pathname} onNav={onNav} />
-        <NavGroup label="Business"   items={NAV_BUSINESS}   pathname={pathname} onNav={onNav} />
+        <NavGroup
+          label="Management"
+          items={NAV_MANAGEMENT}
+          pathname={pathname}
+          onNav={onNav}
+        />
+        <NavGroup
+          label="Business"
+          items={NAV_BUSINESS}
+          pathname={pathname}
+          onNav={onNav}
+        />
       </nav>
 
-      {/* User profile */}
       <div className="border-t border-white/5 p-3">
         <div className="flex items-center gap-3 rounded-lg px-2 py-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37]/40 bg-[#D4AF37]/20 text-sm font-bold text-[#D4AF37]">
-            AR
+            {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">Ahmad Razak</p>
-            <p className="truncate text-xs text-gray-500">Owner • KL Branch</p>
+            <p className="truncate text-sm font-medium text-white">{userName}</p>
+            <p className="truncate text-xs text-gray-500">
+              {roleLabel} &bull; {branchName}
+            </p>
           </div>
-          <button type="button" className="shrink-0 text-gray-400 transition hover:text-white">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="shrink-0 text-gray-400 transition hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Shell ────────────────────────────────────────────────────────────────────
-
 type AppShellProps = { children: ReactNode };
 
 export function AppShell({ children }: AppShellProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  let userName = "User";
+  let userRole = "owner";
+  let branchName = "Main Branch";
+  let branches: { id: string; name: string; is_hq: boolean }[] = [];
+
+  try {
+    const tenant = useTenant();
+    userName = tenant.userName;
+    userRole = tenant.userRole;
+    branchName = tenant.branchName ?? "No Branch";
+    branches = tenant.branches;
+  } catch {
+    // TenantProvider not available (e.g. dev mode without Supabase)
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#111111]">
-      {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-[#1a1a1a] lg:block">
-        <SidebarContent pathname={pathname} />
+        <SidebarContent
+          pathname={pathname}
+          userName={userName}
+          userRole={userRole}
+          branchName={branchName}
+        />
       </aside>
 
-      {/* Mobile sidebar overlay */}
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -170,14 +251,18 @@ export function AppShell({ children }: AppShellProps) {
             >
               <X className="h-5 w-5" />
             </button>
-            <SidebarContent pathname={pathname} onNav={() => setOpen(false)} />
+            <SidebarContent
+              pathname={pathname}
+              onNav={() => setOpen(false)}
+              userName={userName}
+              userRole={userRole}
+              branchName={branchName}
+            />
           </aside>
         </div>
       )}
 
-      {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
         <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-white/5 bg-[#1a1a1a]/80 px-4 backdrop-blur-md sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
@@ -188,34 +273,34 @@ export function AppShell({ children }: AppShellProps) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            {/* Branch selector */}
             <button
               type="button"
               className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40"
             >
-              <span className="font-medium">KL Sentral HQ</span>
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+              <span className="font-medium">{branchName}</span>
+              {branches.length > 1 && (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              )}
             </button>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Notification bell */}
-            <button type="button" className="relative rounded-md p-2 text-gray-400 transition hover:text-white">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1.5 top-1.5 flex h-2 w-2 items-center justify-center rounded-full bg-red-500 text-[8px] text-white" />
-            </button>
-            {/* New Walk-in CTA */}
             <button
               type="button"
+              className="relative rounded-md p-2 text-gray-400 transition hover:text-white"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+            <Link
+              href="/queue"
               className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110"
             >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">New Walk-in</span>
-            </button>
+            </Link>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>

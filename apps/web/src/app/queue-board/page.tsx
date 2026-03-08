@@ -1,34 +1,73 @@
-import { Clock, Scissors, Star, Users } from "lucide-react";
+"use client";
 
-// ─── Data ──────────────────────────────────────────────────────────────────────
+import { Clock, Scissors, Star } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo } from "react";
 
-const NOW_SERVING = {
-  number: "Q2",
-  name: "Tan Wei Liang",
-  barber: "Sam",
-  chair: "Chair 1",
-  service: "Premium Cut",
-  timer: "20:00"
-};
-
-const NEXT_IN_LINE = [
-  { number: "Q3", name: "Kumar s/o Rajan", service: "Kids Cut", wait: "18 min" },
-  { number: "Q4", name: "Ahmad Fauzi", service: "Premium Cut + Shave", wait: "25 min" }
-];
-
-const WAITING = [
-  { number: "Q5", name: "Walk-in Guest", service: "Basic Cut", wait: "12 min" },
-  { number: "Q6", name: "Hafiz Rahman", service: "Beard Trim", wait: "8 min" },
-  { number: "Q7", name: "Jason Lee", service: "Hair Coloring", wait: "5 min" },
-  { number: "Q8", name: "David Tan", service: "Basic Cut", wait: "2 min" }
-];
-
-// ─── Page (full-screen TV display, outside dashboard shell) ────────────────────
+import { useQueueBoard } from "@/hooks";
 
 export default function QueueBoardPage() {
   return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+          <p className="mt-4 text-sm text-gray-400">Loading queue board...</p>
+        </div>
+      }
+    >
+      <QueueBoardContent />
+    </Suspense>
+  );
+}
+
+function QueueBoardContent() {
+  const searchParams = useSearchParams();
+  const branchId = searchParams.get("branch");
+
+  const { data, isLoading, error } = useQueueBoard(branchId);
+
+  const tickets = data?.data ?? [];
+  const branchName = data?.branchName ?? "Branch";
+
+  const nowServing = useMemo(
+    () => tickets.find((t) => t.status === "in_service"),
+    [tickets]
+  );
+  const waiting = useMemo(
+    () => tickets.filter((t) => t.status === "waiting")
+  , [tickets]);
+  const nextInLine = waiting.slice(0, 2);
+  const waitingRest = waiting.slice(2);
+
+  if (!branchId) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
+        <p className="text-xl font-medium text-gray-400">No branch selected</p>
+        <p className="mt-2 text-sm text-gray-500">Use URL: /queue-board?branch=BRANCH_ID</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+        <p className="mt-4 text-sm text-gray-400">Loading queue...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
+        <p className="text-xl font-medium text-red-400">Failed to load queue</p>
+      </div>
+    );
+  }
+
+  return (
     <div className="flex min-h-screen flex-col bg-[#0a0a0a] p-6 font-sans text-white lg:p-10">
-      {/* Header */}
       <header className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#D4AF37]/20">
@@ -38,95 +77,139 @@ export default function QueueBoardPage() {
             <h1 className="text-3xl font-black tracking-tight text-white">
               BarberPro<span className="text-[#D4AF37]">.my</span>
             </h1>
-            <p className="text-sm font-medium text-gray-400">KL Sentral HQ Branch</p>
+            <p className="text-sm font-medium text-gray-400">{branchName}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 text-gray-400">
           <Clock className="h-5 w-5" />
-          <span className="text-lg font-medium tabular-nums">{new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="text-lg font-medium tabular-nums">
+            {new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}
+          </span>
         </div>
       </header>
 
-      {/* Main grid */}
       <div className="grid flex-1 gap-6 lg:grid-cols-3">
-        {/* Now Serving – takes up 1/3 */}
         <div className="flex flex-col">
           <div className="flex-1 rounded-2xl border border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/20 via-[#D4AF37]/10 to-transparent p-8">
             <p className="text-lg font-bold uppercase tracking-widest text-white/80 mb-4">Now Serving</p>
-            <div className="mb-6 flex items-center justify-center">
-              <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#D4AF37] text-6xl font-black text-[#0a0a0a] shadow-2xl shadow-[#D4AF37]/30">
-                {NOW_SERVING.number}
+            {nowServing ? (
+              <>
+                <div className="mb-6 flex items-center justify-center">
+                  <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#D4AF37] text-6xl font-black text-[#0a0a0a] shadow-2xl shadow-[#D4AF37]/30">
+                    {nowServing.queue_number}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-white/90">
+                    Barber: {nowServing.assigned_staff?.full_name ?? "—"}
+                  </p>
+                  <div className="mt-4">
+                    <p className="text-sm font-bold uppercase tracking-wider text-white/80 mb-1">Service</p>
+                    <p className="text-2xl font-black text-white">
+                      {nowServing.service?.name ?? "—"}
+                    </p>
+                  </div>
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#D4AF37]/20 px-4 py-2">
+                    <Clock className="h-4 w-4 text-[#D4AF37]" />
+                    <span className="text-xl font-bold tabular-nums text-[#D4AF37]">
+                      {nowServing.called_at
+                        ? formatDuration(nowServing.called_at)
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center py-12">
+                <p className="text-2xl font-bold text-white/60">No one in service</p>
+                <p className="mt-2 text-sm text-gray-500">Waiting for next customer</p>
               </div>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold text-white/90">Barber: {NOW_SERVING.barber}</p>
-              <p className="text-base font-medium text-white/70">{NOW_SERVING.chair}</p>
-              <div className="mt-4">
-                <p className="text-sm font-bold uppercase tracking-wider text-white/80 mb-1">Service</p>
-                <p className="text-2xl font-black text-white">{NOW_SERVING.service}</p>
-              </div>
-              <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#D4AF37]/20 px-4 py-2">
-                <Clock className="h-4 w-4 text-[#D4AF37]" />
-                <span className="text-xl font-bold tabular-nums text-[#D4AF37]">{NOW_SERVING.timer}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Next in Line + Waiting Queue – takes up 2/3 */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          {/* Next in Line */}
           <div>
             <h2 className="mb-4 text-2xl font-black uppercase tracking-wide text-white">Next in Line</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {NEXT_IN_LINE.map((q, i) => (
-                <div key={q.number} className={`rounded-xl border p-5 ${i === 0 ? "border-orange-500/30 bg-orange-500/10" : "border-white/10 bg-white/[0.03]"}`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-2xl font-black ${i === 0 ? "bg-orange-500 text-white" : "bg-[#1a1a1a] border border-white/10 text-gray-400"}`}>
-                      {q.number}
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-white">{q.name}</p>
-                      <p className="text-sm text-gray-400">{q.service}</p>
-                      <p className="mt-1 text-sm font-medium text-orange-400">~{q.wait} wait</p>
+              {nextInLine.length > 0 ? (
+                nextInLine.map((q, i) => (
+                  <div
+                    key={q.id}
+                    className={`rounded-xl border p-5 ${
+                      i === 0
+                        ? "border-orange-500/30 bg-orange-500/10"
+                        : "border-white/10 bg-white/[0.03]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-2xl font-black ${
+                          i === 0 ? "bg-orange-500 text-white" : "bg-[#1a1a1a] border border-white/10 text-gray-400"
+                        }`}
+                      >
+                        {q.queue_number}
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-white">
+                          {q.customer?.full_name ?? "Walk-in Guest"}
+                        </p>
+                        <p className="text-sm text-gray-400">{q.service?.name ?? "—"}</p>
+                        <p className="mt-1 text-sm font-medium text-orange-400">
+                          ~{formatWait(q.created_at)} wait
+                        </p>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+                  <p className="text-gray-500">No one waiting</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
-          {/* Waiting Queue */}
           <div>
             <h2 className="mb-4 text-2xl font-black uppercase tracking-wide text-white">
-              Waiting Queue <span className="text-lg font-normal text-gray-500">({WAITING.length})</span>
+              Waiting Queue <span className="text-lg font-normal text-gray-500">({waitingRest.length})</span>
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {WAITING.map((q) => (
-                <div key={q.number} className="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+              {waitingRest.map((q) => (
+                <div
+                  key={q.id}
+                  className="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4"
+                >
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-[#1a1a1a] text-lg font-bold text-gray-400">
-                    {q.number}
+                    {q.queue_number}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{q.name}</p>
-                    <p className="text-xs text-gray-500">{q.service}</p>
+                    <p className="text-sm font-bold text-white truncate">
+                      {q.customer?.full_name ?? "Walk-in Guest"}
+                    </p>
+                    <p className="text-xs text-gray-500">{q.service?.name ?? "—"}</p>
                   </div>
-                  <span className="text-sm font-medium text-gray-400">{q.wait}</span>
+                  <span className="text-sm font-medium text-gray-400">
+                    ~{formatWait(q.created_at)}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* VIP banner */}
           <div className="mt-auto rounded-2xl border border-[#D4AF37]/20 bg-gradient-to-r from-[#D4AF37]/10 to-transparent p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-lg font-bold text-white flex items-center gap-2"><Star className="h-5 w-5 text-[#D4AF37]" /> Become a VIP Member Today!</p>
+                <p className="text-lg font-bold text-white flex items-center gap-2">
+                  <Star className="h-5 w-5 text-[#D4AF37]" /> Become a VIP Member Today!
+                </p>
                 <p className="text-sm text-gray-400">Get 20% off all services + priority booking</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-500 uppercase tracking-wider">Starting from</p>
-                <p className="text-3xl font-black text-[#D4AF37]">RM 99<span className="text-lg text-gray-400">/month</span></p>
+                <p className="text-3xl font-black text-[#D4AF37]">
+                  RM 99<span className="text-lg text-gray-400">/month</span>
+                </p>
               </div>
             </div>
           </div>
@@ -134,4 +217,21 @@ export default function QueueBoardPage() {
       </div>
     </div>
   );
+}
+
+function formatDuration(fromIso: string): string {
+  const from = new Date(fromIso);
+  const now = new Date();
+  const diffMs = now.getTime() - from.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const secs = Math.floor((diffMs % 60000) / 1000);
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function formatWait(fromIso: string): string {
+  const from = new Date(fromIso);
+  const now = new Date();
+  const diffMs = now.getTime() - from.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  return `${mins} min`;
 }

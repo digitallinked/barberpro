@@ -2,10 +2,11 @@ import { redirect } from "next/navigation";
 import { type ReactNode } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { TenantProvider } from "@/components/tenant-provider";
 import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/supabase/queries";
 
-const ACTIVE_STATUSES = ["trialing", "active", "past_due"];
 const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete_expired", "paused"];
 
 type DashboardLayoutProps = {
@@ -16,7 +17,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   if (hasSupabaseEnv()) {
     const supabase = await createClient();
     const {
-      data: { user }
+      data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
@@ -40,6 +41,17 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     ) {
       redirect("/subscription-required");
     }
+
+    const tenantCtx = await getCurrentTenant();
+    if (!tenantCtx) {
+      redirect("/login");
+    }
+
+    return (
+      <TenantProvider value={tenantCtx}>
+        <AppShell>{children}</AppShell>
+      </TenantProvider>
+    );
   }
 
   return <AppShell>{children}</AppShell>;

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -15,93 +17,18 @@ import {
   TrendingUp,
   Users
 } from "lucide-react";
+import Link from "next/link";
 
-// ─── Data ──────────────────────────────────────────────────────────────────────
-
-const STAT_CARDS = [
-  {
-    label: "Total Sales Today",
-    value: "RM 1,245.00",
-    sub: "Target: RM 2,000",
-    icon: CircleDollarSign,
-    iconBg: "bg-emerald-500/10",
-    iconColor: "text-emerald-400",
-    trend: "+8% vs yesterday",
-    trendUp: true
-  },
-  {
-    label: "Customers Served",
-    value: "18",
-    valueSuffix: "/ 24",
-    sub: null,
-    icon: Users,
-    iconBg: "bg-blue-500/10",
-    iconColor: "text-blue-400",
-    trend: "+3 vs yesterday",
-    trendUp: true,
-    avatarsCount: 15
-  },
-  {
-    label: "Active Queue",
-    value: "5",
-    valueSuffix: "waiting",
-    sub: null,
-    icon: Timer,
-    iconBg: "bg-amber-500/10",
-    iconColor: "text-amber-400",
-    trend: null,
-    trendUp: null,
-    showQueueBtn: true
-  },
-  {
-    label: "Payroll Payable",
-    value: "RM 8,450",
-    sub: "Includes commissions up to yesterday.",
-    icon: CircleDollarSign,
-    iconBg: "bg-purple-500/10",
-    iconColor: "text-purple-400",
-    trend: null,
-    trendUp: null
-  }
-];
-
-const TRANSACTIONS = [
-  { id: "#TRX-9821", customer: "Farid Kamil",  service: "Premium Cut + Shave", barber: "Sam",  barberInit: "S",  amount: "RM 65.00",  status: "Paid",       statusColor: "green"  },
-  { id: "#TRX-9820", customer: "Jason Lim",    service: "Kids Cut",             barber: "Zack", barberInit: "Z",  amount: "RM 25.00",  status: "Paid (QR)",  statusColor: "green"  },
-  { id: "#TRX-9819", customer: "Muthu Kumar",  service: "Hair Coloring",        barber: "Ali",  barberInit: "A",  amount: "RM 120.00", status: "Pending",    statusColor: "yellow" },
-  { id: "#TRX-9818", customer: "Walk-in Guest",service: "Basic Cut",            barber: "Sam",  barberInit: "S",  amount: "RM 35.00",  status: "Paid",       statusColor: "green"  }
-];
-
-const QUICK_ACTIONS = [
-  { label: "Add Walk-in",  icon: PlusCircle,  color: "text-[#D4AF37]" },
-  { label: "Book Appt",    icon: CalendarPlus,color: "text-blue-400" },
-  { label: "Checkout",     icon: CreditCard,  color: "text-emerald-400" },
-  { label: "Add Expense",  icon: Receipt,     color: "text-red-400" }
-];
-
-const TOP_BARBERS = [
-  { name: "Sam",  init: "S",  revenue: "RM 450", customers: 8,  rank: 1 },
-  { name: "Zack", init: "Z",  revenue: "RM 320", customers: 5,  rank: 2 },
-  { name: "Ali",  init: "A",  revenue: "RM 280", customers: 6,  rank: 3 }
-];
-
-const LOW_STOCK = [
-  { name: "Pomade Matte Clay",  qty: "2 left",  severity: "red"    },
-  { name: "Shaving Foam XL",    qty: "1 left",  severity: "red"    },
-  { name: "Face Towels (White)",qty: "5 left",  severity: "yellow" }
-];
-
-const BRANCHES = [
-  { name: "KL Sentral HQ",  note: "Best performing", revenue: "RM 45,200", trend: "+12% vs last mth", up: true  },
-  { name: "Bangsar Branch", note: "Target: RM 30k",  revenue: "RM 28,450", trend: "+5% vs last mth",  up: true  },
-  { name: "TTDI Branch",    note: "Needs attention",  revenue: "RM 15,100", trend: "-8% vs last mth",  up: false }
-];
-
-const EXPENSES = [
-  { name: "TNB Bill (Electricity)", note: "Oct 2023",             amount: "- RM 450.00"   },
-  { name: "Syabas Bill (Water)",    note: "Oct 2023",             amount: "- RM 85.00"    },
-  { name: "Restock: Pomade",        note: "Supplier: Mentega Co.",amount: "- RM 1,200.00" }
-];
+import {
+  useDashboardStats,
+  useTransactions,
+  useStaffMembers,
+  useInventoryItems,
+  useBranches,
+  useExpenses,
+  useQueueStats
+} from "@/hooks";
+import { useTenant } from "@/components/tenant-provider";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -112,15 +39,30 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
 }
 
 function StatusBadge({ status, color }: { status: string; color: string }) {
-  const cls = color === "green"
-    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-    : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+  const cls =
+    color === "green"
+      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+      : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
   return (
     <span className={`rounded border px-2 py-0.5 text-xs font-bold ${cls}`}>{status}</span>
   );
 }
 
-// ─── Mini bar chart (SVG placeholder that looks like a real chart) ────────────
+function formatAmount(amount: number): string {
+  return `RM ${amount.toFixed(2)}`;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-MY", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+// ─── Mini bar chart ───────────────────────────────────────────────────────────
 
 function MiniChart() {
   const bars = [60, 82, 55, 90, 78, 95, 70];
@@ -141,21 +83,69 @@ function MiniChart() {
   );
 }
 
+// ─── Quick Actions ────────────────────────────────────────────────────────────
+
+const QUICK_ACTIONS = [
+  { label: "Add Walk-in", icon: PlusCircle, color: "text-[#D4AF37]", href: "/queue" },
+  { label: "Book Appt", icon: CalendarPlus, color: "text-blue-400", href: "/appointments" },
+  { label: "Checkout", icon: CreditCard, color: "text-emerald-400", href: "/pos" },
+  { label: "Add Customer", icon: Users, color: "text-purple-400", href: "/customers" }
+];
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { userName, branchName } = useTenant();
+  const { data: statsData, isLoading: statsLoading } = useDashboardStats();
+  const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
+  const { data: staffData, isLoading: staffLoading } = useStaffMembers();
+  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
+  const { data: branchesData, isLoading: branchesLoading } = useBranches();
+  const { data: expensesData, isLoading: expensesLoading } = useExpenses();
+  const { data: queueData } = useQueueStats();
+
+  const stats = statsData?.data ?? null;
+  const transactions = transactionsData?.data ?? [];
+  const staffMembers = staffData?.data ?? [];
+  const inventoryItems = inventoryData?.data ?? [];
+  const branches = branchesData?.data ?? [];
+  const expenses = expensesData?.data ?? [];
+  const queueStats = queueData?.data ?? { waiting: 0, inProgress: 0, completed: 0 };
+
+  const lowStockItems = inventoryItems.filter(
+    (i) => i.stock_qty != null && i.reorder_level != null && i.stock_qty <= i.reorder_level
+  );
+  const barbers = staffMembers.filter((s) => /barber/i.test(s.role ?? ""));
+
+  const isLoading =
+    statsLoading ||
+    transactionsLoading ||
+    staffLoading ||
+    inventoryLoading ||
+    branchesLoading ||
+    expensesLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Welcome row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Good morning, Ahmad</h2>
+          <h2 className="text-2xl font-bold text-white">
+            Good morning, {userName ?? "User"}
+          </h2>
           <p className="mt-1 text-sm text-gray-400">
             Here&apos;s what&apos;s happening at{" "}
-            <span className="font-medium text-[#D4AF37]">KL Sentral HQ</span> today.
+            <span className="font-medium text-[#D4AF37]">{branchName ?? "your branch"}</span> today.
           </p>
         </div>
-        {/* Period toggle */}
         <div className="flex items-center gap-1 rounded-lg border border-white/5 bg-[#1a1a1a] p-1">
           {["Today", "Week", "Month"].map((p, i) => (
             <button
@@ -173,67 +163,90 @@ export default function DashboardPage() {
 
       {/* ── Stat cards ── */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {STAT_CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.label} className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
-              <div className="flex items-start justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{card.label}</p>
-                <span className={`rounded-lg p-2 ${card.iconBg}`}>
-                  <Icon className={`h-4 w-4 ${card.iconColor}`} />
-                </span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <h3 className="text-2xl font-bold text-white">{card.value}</h3>
-                {card.valueSuffix && (
-                  <span className="text-sm font-normal text-gray-500">{card.valueSuffix}</span>
-                )}
-              </div>
-              {card.sub && <p className="mt-1.5 text-xs text-gray-500">{card.sub}</p>}
-              {card.trend && (
-                <p className={`mt-1.5 flex items-center gap-1 text-xs ${card.trendUp ? "text-emerald-400" : "text-red-400"}`}>
-                  {card.trendUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {card.trend}
-                </p>
-              )}
-              {card.showQueueBtn && (
-                <button
-                  type="button"
-                  className="mt-3 w-full rounded border border-white/10 py-1.5 text-xs text-white transition hover:bg-white/5"
-                >
-                  View Queue Board
-                </button>
-              )}
-              {card.avatarsCount && (
-                <div className="mt-3 flex items-center">
-                  {[...Array(3)].map((_, i) => (
-                    <span
-                      key={i}
-                      className={`-ml-2 first:ml-0 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1a1a1a] bg-[#2a2a2a] text-[10px] font-medium text-white`}
-                    >
-                      {["S","Z","A"][i]}
-                    </span>
-                  ))}
-                  <span className="-ml-2 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1a1a1a] bg-[#2a2a2a] text-[10px] font-medium text-white">
-                    +15
-                  </span>
-                </div>
-              )}
-            </Card>
-          );
-        })}
+        <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Today&apos;s Revenue
+            </p>
+            <span className="rounded-lg p-2 bg-emerald-500/10">
+              <CircleDollarSign className="h-4 w-4 text-emerald-400" />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">
+              {stats ? formatAmount(stats.todayRevenue) : "RM 0.00"}
+            </h3>
+          </div>
+          <p className="mt-1.5 text-xs text-gray-500">Today&apos;s total sales</p>
+        </Card>
+
+        <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Customers Today
+            </p>
+            <span className="rounded-lg p-2 bg-blue-500/10">
+              <Users className="h-4 w-4 text-blue-400" />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">
+              {stats?.todayCustomers ?? 0}
+            </h3>
+          </div>
+          <p className="mt-1.5 text-xs text-gray-500">Unique customers served</p>
+        </Card>
+
+        <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Total Transactions
+            </p>
+            <span className="rounded-lg p-2 bg-purple-500/10">
+              <CircleDollarSign className="h-4 w-4 text-purple-400" />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">
+              {stats?.totalTransactions ?? 0}
+            </h3>
+          </div>
+          <p className="mt-1.5 text-xs text-gray-500">Today</p>
+        </Card>
+
+        <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
+          <div className="flex items-start justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Active Queue
+            </p>
+            <span className="rounded-lg p-2 bg-amber-500/10">
+              <Timer className="h-4 w-4 text-amber-400" />
+            </span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">{queueStats.waiting}</h3>
+            <span className="text-sm font-normal text-gray-500">waiting</span>
+          </div>
+          <Link
+            href="/queue-board"
+            className="mt-3 block w-full rounded border border-white/10 py-1.5 text-center text-xs text-white transition hover:bg-white/5"
+          >
+            View Queue Board
+          </Link>
+        </Card>
       </div>
 
       {/* ── Main grid ── */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left column (2/3) */}
         <div className="space-y-6 lg:col-span-2">
           {/* Sales & Revenue chart */}
           <Card className="p-5">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-white">Sales &amp; Revenue</h3>
-                <p className="mt-0.5 text-sm text-gray-500">Daily revenue comparison with last week</p>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  Daily revenue comparison with last week
+                </p>
               </div>
               <BarChart2 className="h-5 w-5 text-[#D4AF37]" />
             </div>
@@ -254,49 +267,61 @@ export default function DashboardPage() {
           <Card>
             <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
               <h3 className="font-bold text-white">Recent Transactions</h3>
-              <button type="button" className="text-sm font-medium text-[#D4AF37] transition hover:text-[#D4AF37]/80">
+              <Link
+                href="/reports"
+                className="text-sm font-medium text-[#D4AF37] transition hover:text-[#D4AF37]/80"
+              >
                 View All
-              </button>
+              </Link>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    <th className="p-4 text-left">ID</th>
-                    <th className="p-4 text-left">Customer</th>
-                    <th className="p-4 text-left">Service</th>
-                    <th className="p-4 text-left">Barber</th>
-                    <th className="p-4 text-left">Amount</th>
-                    <th className="p-4 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TRANSACTIONS.map((t) => (
-                    <tr key={t.id} className="border-t border-white/[0.04] transition hover:bg-white/[0.02]">
-                      <td className="p-4 font-mono text-gray-500">{t.id}</td>
-                      <td className="p-4 font-medium text-white">{t.customer}</td>
-                      <td className="p-4 text-gray-300">{t.service}</td>
-                      <td className="p-4 text-gray-300">
-                        <span className="flex items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2a2a2a] text-xs font-medium text-white">
-                            {t.barberInit}
-                          </span>
-                          {t.barber}
-                        </span>
-                      </td>
-                      <td className="p-4 font-bold text-white">{t.amount}</td>
-                      <td className="p-4">
-                        <StatusBadge status={t.status} color={t.statusColor} />
-                      </td>
+              {transactions.length === 0 ? (
+                <div className="px-5 py-12 text-center text-sm text-gray-500">
+                  No data yet
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      <th className="p-4 text-left">Customer</th>
+                      <th className="p-4 text-left">Payment</th>
+                      <th className="p-4 text-left">Amount</th>
+                      <th className="p-4 text-left">Status</th>
+                      <th className="p-4 text-left">Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {transactions.map((t) => (
+                      <tr
+                        key={t.id}
+                        className="border-t border-white/[0.04] transition hover:bg-white/[0.02]"
+                      >
+                        <td className="p-4 font-medium text-white">
+                          {t.customer?.full_name ?? "Walk-in"}
+                        </td>
+                        <td className="p-4 text-gray-300">{t.payment_method}</td>
+                        <td className="p-4 font-bold text-white">
+                          {formatAmount(t.total_amount)}
+                        </td>
+                        <td className="p-4">
+                          <StatusBadge
+                            status={t.payment_status}
+                            color={
+                              t.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"
+                            }
+                          />
+                        </td>
+                        <td className="p-4 text-gray-500">{formatDate(t.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </Card>
         </div>
 
-        {/* Right column (1/3) */}
+        {/* Right column */}
         <div className="space-y-6">
           {/* Quick Actions */}
           <Card className="p-5">
@@ -305,14 +330,14 @@ export default function DashboardPage() {
               {QUICK_ACTIONS.map((a) => {
                 const Icon = a.icon;
                 return (
-                  <button
+                  <Link
                     key={a.label}
-                    type="button"
+                    href={a.href}
                     className="flex flex-col items-center justify-center gap-2 rounded-lg border border-white/5 bg-[#111111] p-4 text-xs font-medium text-gray-300 transition hover:border-[#D4AF37]/30 hover:bg-[#2a2a2a]"
                   >
                     <Icon className={`h-5 w-5 ${a.color}`} />
                     {a.label}
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -321,63 +346,79 @@ export default function DashboardPage() {
           {/* Top Barbers */}
           <Card className="p-5">
             <h3 className="mb-4 font-bold text-white">Top Barbers Today</h3>
-            <div className="space-y-3">
-              {TOP_BARBERS.map((b) => (
-                <div key={b.name} className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-sm font-bold text-white">
-                      {b.init}
+            {barbers.length === 0 ? (
+              <p className="text-sm text-gray-500">No data yet</p>
+            ) : (
+              <div className="space-y-3">
+                {barbers.slice(0, 5).map((b, idx) => (
+                  <div key={b.id} className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-sm font-bold text-white">
+                        {b.full_name?.charAt(0) ?? "?"}
+                      </div>
+                      {idx === 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D4AF37] text-[9px] font-bold text-black">
+                          1
+                        </span>
+                      )}
                     </div>
-                    {b.rank === 1 && (
-                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D4AF37] text-[9px] font-bold text-black">
-                        1
-                      </span>
-                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-white">{b.full_name}</p>
+                      <p className="text-[10px] text-gray-500">Barber</p>
+                    </div>
+                    <span
+                      className={`text-sm font-bold ${
+                        idx === 0 ? "text-[#D4AF37]" : idx === 1 ? "text-gray-300" : "text-gray-400"
+                      }`}
+                    >
+                      —
+                    </span>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-white">{b.name}</p>
-                    <p className="text-[10px] text-gray-500">{b.customers} customers served</p>
-                  </div>
-                  <span className={`text-sm font-bold ${b.rank === 1 ? "text-[#D4AF37]" : b.rank === 2 ? "text-gray-300" : "text-gray-400"}`}>
-                    {b.revenue}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Low Stock Alert */}
           <Card className="p-5">
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-400" />
-              <h3 className="text-sm font-bold uppercase tracking-wide text-red-400">Low Stock Alert</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-red-400">
+                Low Stock Alert
+              </h3>
             </div>
-            <ul className="space-y-2">
-              {LOW_STOCK.map((item) => (
-                <li
-                  key={item.name}
-                  className="flex items-center justify-between border-b border-red-500/10 pb-2 text-sm last:border-0"
+            {lowStockItems.length === 0 ? (
+              <p className="text-sm text-gray-500">No low stock items</p>
+            ) : (
+              <>
+                <ul className="space-y-2">
+                  {lowStockItems.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-center justify-between border-b border-red-500/10 pb-2 text-sm last:border-0"
+                    >
+                      <span className="text-gray-300">{item.name}</span>
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-bold ${
+                          (item.stock_qty ?? 0) <= 1
+                            ? "bg-red-500/10 text-red-400"
+                            : "bg-yellow-500/10 text-yellow-500"
+                        }`}
+                      >
+                        {item.stock_qty ?? 0} left
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/inventory"
+                  className="mt-4 flex w-full items-center justify-center gap-1 text-xs font-medium text-red-400 transition hover:text-red-300"
                 >
-                  <span className="text-gray-300">{item.name}</span>
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs font-bold ${
-                      item.severity === "red"
-                        ? "bg-red-500/10 text-red-400"
-                        : "bg-yellow-500/10 text-yellow-500"
-                    }`}
-                  >
-                    {item.qty}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              className="mt-4 flex w-full items-center justify-center gap-1 text-xs font-medium text-red-400 transition hover:text-red-300"
-            >
-              <ShoppingCart className="h-3.5 w-3.5" />
-              Order Stock
-            </button>
+                  <ShoppingCart className="h-3.5 w-3.5" />
+                  Order Stock
+                </Link>
+              </>
+            )}
           </Card>
         </div>
       </div>
@@ -390,47 +431,61 @@ export default function DashboardPage() {
             <h3 className="font-bold text-white">Branch Performance</h3>
             <BookOpen className="h-4 w-4 text-gray-500" />
           </div>
-          <div className="divide-y divide-white/[0.04]">
-            {BRANCHES.map((b) => (
-              <div key={b.name} className="flex items-center justify-between px-5 py-4">
-                <div>
-                  <p className="text-sm font-bold text-white">{b.name}</p>
-                  <p className="text-xs text-gray-500">{b.note}</p>
+          {branches.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-gray-500">No data yet</div>
+          ) : (
+            <div className="divide-y divide-white/[0.04]">
+              {branches.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex items-center justify-between px-5 py-4"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-white">{b.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {b.is_hq ? "HQ" : "Branch"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white">—</p>
+                    <p className="text-xs text-gray-500">Stats coming soon</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-white">{b.revenue}</p>
-                  <p className={`flex items-center justify-end gap-1 text-xs ${b.up ? "text-emerald-400" : "text-red-400"}`}>
-                    {b.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                    {b.trend}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Recent Expenses */}
         <Card>
           <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
             <h3 className="font-bold text-white">Recent Expenses</h3>
-            <button
-              type="button"
+            <Link
+              href="/expenses"
               className="rounded-md bg-[#2a2a2a] px-3 py-1 text-xs text-white transition hover:bg-[#333]"
             >
               Add New
-            </button>
+            </Link>
           </div>
-          <div className="divide-y divide-white/[0.04]">
-            {EXPENSES.map((e) => (
-              <div key={e.name} className="flex items-center justify-between px-5 py-4">
-                <div>
-                  <p className="text-sm font-medium text-white">{e.name}</p>
-                  <p className="text-xs text-gray-500">{e.note}</p>
+          {expenses.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-gray-500">No data yet</div>
+          ) : (
+            <div className="divide-y divide-white/[0.04]">
+              {expenses.slice(0, 5).map((e) => (
+                <div key={e.id} className="flex items-center justify-between px-5 py-4">
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      {e.vendor ?? e.category ?? "Expense"}
+                    </p>
+                    <p className="text-xs text-gray-500">{e.category ?? e.notes ?? "—"}</p>
+                  </div>
+                  <p className="text-sm font-bold text-white">
+                    - {formatAmount(e.amount ?? 0)}
+                  </p>
                 </div>
-                <p className="text-sm font-bold text-white">{e.amount}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
