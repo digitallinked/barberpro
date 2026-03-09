@@ -6,9 +6,9 @@ import { getAuthContext } from "./_helpers";
 
 type TransactionItem = {
   itemType: string;
-  serviceId?: string;
-  inventoryItemId?: string;
-  staffId?: string;
+  serviceId: string | null;
+  inventoryItemId: string | null;
+  staffId: string | null;
   name: string;
   quantity: number;
   unitPrice: number;
@@ -17,8 +17,8 @@ type TransactionItem = {
 
 type CreateTransactionData = {
   branchId: string;
-  customerId?: string;
-  queueTicketId?: string;
+  customerId: string | null;
+  queueTicketId: string | null;
   paymentMethod: string;
   items: TransactionItem[];
   subtotal: number;
@@ -111,7 +111,20 @@ export async function createTransaction(data: CreateTransactionData) {
       }
     }
 
+    if (queueTicketId) {
+      await supabase
+        .from("queue_tickets")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", queueTicketId)
+        .eq("tenant_id", tenantId);
+    }
+
     revalidatePath("/pos");
+    revalidatePath("/queue");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (e) {

@@ -14,8 +14,9 @@ import {
   User,
   Wallet
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 
 import {
   useServices,
@@ -43,6 +44,7 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
 
 export default function PosPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const { branchId } = useTenant();
   const { data: servicesData, isLoading: servicesLoading } = useServices();
   const { data: categoriesData } = useServiceCategories();
@@ -74,6 +76,12 @@ export default function PosPage() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [prefillApplied, setPrefillApplied] = useState(false);
+
+  const queueTicketId = searchParams.get("queue_ticket_id");
+  const prefillCustomerId = searchParams.get("customer_id");
+  const prefillServiceId = searchParams.get("service_id");
+  const prefillStaffId = searchParams.get("staff_id");
 
   const filteredCustomers = useMemo(
     () =>
@@ -99,6 +107,58 @@ export default function PosPage() {
     }
     return map;
   }, [services]);
+
+  useEffect(() => {
+    if (prefillApplied) return;
+    if (prefillCustomerId && !customersData) return;
+    if (prefillStaffId && !staffData) return;
+    if (prefillServiceId && !servicesData) return;
+
+    if (prefillCustomerId && customers.some((c) => c.id === prefillCustomerId)) {
+      setSelectedCustomer(prefillCustomerId);
+    }
+
+    if (prefillStaffId) {
+      const barberIdx = barbers.findIndex((b) => b.staff_profile_id === prefillStaffId);
+      if (barberIdx >= 0) {
+        setSelectedBarber(barberIdx);
+      }
+    }
+
+    if (prefillServiceId) {
+      const service = services.find((s) => s.id === prefillServiceId && s.is_active);
+      if (service) {
+        setCart((prev) => {
+          const exists = prev.some((i) => i.type === "service" && i.serviceId === service.id);
+          if (exists) return prev;
+          return [
+            ...prev,
+            {
+              id: service.id,
+              name: service.name,
+              price: service.price ?? 0,
+              qty: 1,
+              type: "service",
+              serviceId: service.id
+            }
+          ];
+        });
+      }
+    }
+
+    setPrefillApplied(true);
+  }, [
+    prefillApplied,
+    prefillCustomerId,
+    prefillServiceId,
+    prefillStaffId,
+    customersData,
+    staffData,
+    servicesData,
+    customers,
+    barbers,
+    services
+  ]);
 
   function addToCart(
     id: string,
@@ -144,39 +204,48 @@ export default function PosPage() {
     if (!branchId || cart.length === 0) return;
     setCheckoutError(null);
     setSubmitting(true);
-    const staffProfileId =
-      selectedBarber !== null && barbers[selectedBarber]
-        ? barbers[selectedBarber].staff_profile_id
-        : undefined;
+    try {
+      const staffProfileId =
+        selectedBarber !== null && barbers[selectedBarber]
+          ? barbers[selectedBarber].staff_profile_id
+          : null;
 
-    const items = cart.map((i) => ({
-      itemType: i.type,
-      serviceId: i.serviceId,
-      inventoryItemId: i.inventoryItemId,
-      staffId: i.type === "service" ? staffProfileId : undefined,
-      name: i.name,
-      quantity: i.qty,
-      unitPrice: i.price,
-      lineTotal: i.price * i.qty
-    }));
+      const items = cart.map((i) => ({
+        itemType: i.type,
+        serviceId: i.serviceId ?? null,
+        inventoryItemId: i.inventoryItemId ?? null,
+        staffId: i.type === "service" ? staffProfileId : null,
+        name: i.name,
+        quantity: i.qty,
+        unitPrice: i.price,
+        lineTotal: i.price * i.qty
+      }));
 
-    const result = await createTransaction({
-      branchId,
-      customerId: selectedCustomer || undefined,
-      paymentMethod: method,
-      items,
-      subtotal,
-      discountAmount: 0,
-      taxAmount: tax,
-      totalAmount: total
-    });
-    setSubmitting(false);
-    if (result.success) {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      setCart([]);
-    } else {
-      setCheckoutError(result.error ?? "Checkout failed");
+      const result = await createTransaction({
+        branchId,
+        customerId: selectedCustomer || null,
+        queueTicketId: queueTicketId || null,
+        paymentMethod: method,
+        items,
+        subtotal,
+        discountAmount: 0,
+        taxAmount: tax,
+        totalAmount: total
+      });
+
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
+        queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+        setCart([]);
+      } else {
+        setCheckoutError(result.error ?? "Checkout failed");
+      }
+    } catch {
+      setCheckoutError("Checkout failed due to an unexpected server response.");
+    } finally {
+      setSubmitting(false);
     }
   }
 

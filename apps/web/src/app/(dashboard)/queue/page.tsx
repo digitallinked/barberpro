@@ -3,6 +3,7 @@
 import {
   CheckCircle2,
   Clock,
+  CreditCard,
   MoveRight,
   Scissors,
   Timer,
@@ -23,7 +24,7 @@ import {
   useServices
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
-import { createQueueTicket, updateQueueStatus } from "@/actions/queue";
+import { completeQueueTicketWithPayment, createQueueTicket, updateQueueStatus } from "@/actions/queue";
 import type { QueueTicketWithRelations } from "@/services/queue";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -54,6 +55,15 @@ function formatServiceTime(calledAt: string): string {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
+  const params = new URLSearchParams();
+  params.set("queue_ticket_id", ticket.id);
+  if (ticket.customer_id) params.set("customer_id", ticket.customer_id);
+  if (ticket.service_id) params.set("service_id", ticket.service_id);
+  if (ticket.assigned_staff_id) params.set("staff_id", ticket.assigned_staff_id);
+  return `/pos?${params.toString()}`;
+}
+
 export default function QueuePage() {
   const queryClient = useQueryClient();
   const { branchId } = useTenant();
@@ -66,6 +76,7 @@ export default function QueuePage() {
   const stats = statsData?.data ?? { waiting: 0, inProgress: 0, completed: 0 };
   const staffMembers = staffData?.data ?? [];
   const services = servicesData?.data ?? [];
+  const activeServices = services.filter((s) => s.is_active);
 
   const barbers = staffMembers.filter((s) =>
     /barber/i.test(s.role ?? "")
@@ -99,8 +110,11 @@ export default function QueuePage() {
   const [activeTab, setActiveTab] = useState(0);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState<QueueTicketWithRelations | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState<QueueTicketWithRelations | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const filteredTickets =
     activeTab === 0
@@ -111,7 +125,9 @@ export default function QueuePage() {
           ? activeTickets.filter((t) => t.status === "waiting" && t.assigned_staff_id)
           : activeTab === 3
             ? activeTickets.filter((t) => t.status === "in_service")
-            : tickets.filter((t) => t.status === "completed");
+            : activeTab === 4
+              ? tickets.filter((t) => t.status === "completed")
+              : tickets.filter((t) => t.status === "cancelled");
   const tabCounts = [
     activeTickets.length,
     activeTickets.filter((t) => t.status === "waiting").length,
@@ -155,6 +171,33 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
       setShowAssignModal(null);
+    }
+  }
+
+  async function handleCompleteWithPayment(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPaymentError(null);
+    setPaymentSubmitting(true);
+
+    const fd = new FormData(e.currentTarget);
+    const method = (fd.get("payment_method") as string) || "cash";
+    const proof = fd.get("payment_proof");
+
+    if (method === "qr" && (!(proof instanceof File) || proof.size === 0)) {
+      setPaymentSubmitting(false);
+      setPaymentError("Please upload payment proof for QR payment.");
+      return;
+    }
+
+    const result = await completeQueueTicketWithPayment(fd);
+    setPaymentSubmitting(false);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setShowPaymentModal(null);
+    } else {
+      setPaymentError(result.error ?? "Failed to complete payment");
     }
   }
 
@@ -370,12 +413,21 @@ export default function QueuePage() {
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
                         {q.status === "in_service" ? (
                           <>
+                            <Link
+                              href={buildPosPaymentHref(q)}
+                              className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110"
+                            >
+                              <CreditCard className="mr-1.5 inline h-3.5 w-3.5" /> Checkout in POS
+                            </Link>
                             <button
                               type="button"
-                              onClick={() => handleUpdateStatus(q.id, "completed")}
+                              onClick={() => {
+                                setPaymentError(null);
+                                setShowPaymentModal(q);
+                              }}
                               className="rounded-lg bg-emerald-500/20 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/30"
                             >
-                              <CheckCircle2 className="mr-1.5 inline h-3.5 w-3.5" /> Mark Complete
+                              <CheckCircle2 className="mr-1.5 inline h-3.5 w-3.5" /> Collect Here
                             </button>
                             <button
                               type="button"
@@ -434,6 +486,16 @@ export default function QueuePage() {
                             </button>
                           </>
                         )}
+                      </div>
+                    )}
+                    {q.status === "completed" && (
+                      <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
+                        <Link
+                          href={buildPosPaymentHref(q)}
+                          className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110"
+                        >
+                          Proceed to Payment
+                        </Link>
                       </div>
                     )}
                   </div>
@@ -541,12 +603,21 @@ export default function QueuePage() {
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                 >
                   <option value="">Select service</option>
-                  {services.filter((s) => s.is_active).map((s) => (
+                  {activeServices.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} (RM {s.price})
                     </option>
                   ))}
                 </select>
+                {activeServices.length === 0 && (
+                  <p className="mt-1 text-[11px] text-amber-300">
+                    No active services found.{" "}
+                    <Link href="/services" className="font-medium text-[#D4AF37] underline hover:text-[#e8c85b]">
+                      Create a service
+                    </Link>{" "}
+                    first.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Preferred Barber</label>
@@ -627,6 +698,100 @@ export default function QueuePage() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Collect Payment</h3>
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(null)}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="mb-4 text-sm text-gray-400">
+              {showPaymentModal.queue_number} - {showPaymentModal.customer?.full_name ?? "Walk-in Guest"}
+            </p>
+
+            <form onSubmit={handleCompleteWithPayment} className="space-y-4">
+              {paymentError && (
+                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{paymentError}</div>
+              )}
+
+              <input type="hidden" name="ticket_id" value={showPaymentModal.id} />
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Amount Due (RM)</label>
+                <input
+                  name="amount_due"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  defaultValue={(showPaymentModal.service?.price ?? 0).toFixed(2)}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Amount Received (RM)</label>
+                <input
+                  name="amount_received"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  defaultValue={(showPaymentModal.service?.price ?? 0).toFixed(2)}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Payment Method</label>
+                <select
+                  name="payment_method"
+                  defaultValue="qr"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="ewallet">E-Wallet</option>
+                  <option value="qr">QR Transfer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">
+                  Payment Proof (for QR/online)
+                </label>
+                <input
+                  name="payment_proof"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-[#D4AF37] file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-[#111]"
+                />
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Upload a screenshot/photo from customer's banking app after successful payment.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={paymentSubmitting}
+                className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
+              >
+                {paymentSubmitting ? "Processing..." : "Confirm Payment & Complete Ticket"}
+              </button>
+            </form>
           </div>
         </div>
       )}

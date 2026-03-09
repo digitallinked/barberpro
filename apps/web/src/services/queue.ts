@@ -19,7 +19,7 @@ export type QueueTicketWithRelations = {
   updated_at: string;
   customer: { full_name: string; phone: string } | null;
   assigned_staff: { full_name: string } | null;
-  service: { name: string } | null;
+  service: { name: string; price: number } | null;
 };
 
 function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations {
@@ -49,7 +49,7 @@ function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations 
     assigned_staff: staffName
       ? { full_name: (staffName as Record<string, unknown>).full_name as string }
       : null,
-    service: service ? { name: service.name as string } : null,
+    service: service ? { name: service.name as string, price: Number(service.price ?? 0) } : null,
   };
 }
 
@@ -77,20 +77,66 @@ export async function getQueueTickets(
       updated_at,
       customers (full_name, phone),
       staff_profiles (app_users (full_name)),
-      services (name)
+      services (name, price)
     `
     )
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    return { data: null, error: new Error(error.message) };
+  if (!error) {
+    const tickets: QueueTicketWithRelations[] = (data ?? []).map((row: Record<string, unknown>) =>
+      mapQueueTicket(row)
+    );
+    return { data: tickets, error: null };
   }
 
-  const tickets: QueueTicketWithRelations[] = (data ?? []).map((row: Record<string, unknown>) =>
-    mapQueueTicket(row)
-  );
+  // Fallback when RLS blocks related joins but queue_tickets itself is accessible.
+  const { data: baseData, error: baseError } = await client
+    .from("queue_tickets")
+    .select(
+      `
+      id,
+      queue_number,
+      status,
+      branch_id,
+      customer_id,
+      service_id,
+      assigned_staff_id,
+      preferred_staff_id,
+      estimated_wait_min,
+      called_at,
+      completed_at,
+      created_at,
+      updated_at
+    `
+    )
+    .eq("tenant_id", tenantId)
+    .eq("branch_id", branchId)
+    .order("created_at", { ascending: false });
+
+  if (baseError) {
+    return { data: null, error: new Error(baseError.message) };
+  }
+
+  const tickets: QueueTicketWithRelations[] = (baseData ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    queue_number: row.queue_number as string,
+    status: row.status as string,
+    branch_id: row.branch_id as string,
+    customer_id: row.customer_id as string | null,
+    service_id: row.service_id as string | null,
+    assigned_staff_id: row.assigned_staff_id as string | null,
+    preferred_staff_id: row.preferred_staff_id as string | null,
+    estimated_wait_min: row.estimated_wait_min as number | null,
+    called_at: row.called_at as string | null,
+    completed_at: row.completed_at as string | null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+    customer: null,
+    assigned_staff: null,
+    service: null,
+  }));
 
   return { data: tickets, error: null };
 }
@@ -179,7 +225,7 @@ export async function getQueueTicketsForBranch(
       updated_at,
       customers (full_name, phone),
       staff_profiles (app_users (full_name)),
-      services (name)
+      services (name, price)
     `
     )
     .eq("branch_id", branchId)

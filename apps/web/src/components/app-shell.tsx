@@ -35,6 +35,7 @@ const NAV_MAIN: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Queue", href: "/queue", icon: ClipboardList },
   { label: "Appointments", href: "/appointments", icon: CalendarCheck2 },
+  { label: "Services", href: "/services", icon: Scissors },
   { label: "POS", href: "/pos", icon: CreditCard },
   { label: "Customers", href: "/customers", icon: Contact2 },
   { label: "Staff", href: "/staff", icon: Users },
