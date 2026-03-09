@@ -1,21 +1,35 @@
 "use client";
 
-import { Clock, MapPin, Plus, Store, X } from "lucide-react";
+import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useBranches } from "@/hooks";
 import { createBranch } from "@/actions/branches";
+import { useTenant } from "@/components/tenant-provider";
 
 export default function BranchesPage() {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useBranches();
+  const tenant = useTenant();
+
   const [showModal, setShowModal] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const branches = data?.data ?? [];
+  const isStarter = tenant.tenantPlan === "starter";
+  const atBranchLimit = isStarter && branches.length >= 1;
+
+  function handleAddBranchClick() {
+    if (atBranchLimit) {
+      setShowUpgrade(true);
+    } else {
+      setShowModal(true);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,16 +53,35 @@ export default function BranchesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Branches</h2>
-          <p className="mt-1 text-sm text-gray-400">Manage multi-branch operations and locations</p>
+          <p className="mt-1 text-sm text-gray-400">Manage your locations</p>
         </div>
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={handleAddBranchClick}
           className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
         >
-          <Plus className="h-4 w-4" /> Add Branch
+          {atBranchLimit ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          Add Branch
         </button>
       </div>
+
+      {/* Starter plan banner */}
+      {isStarter && (
+        <div className="flex items-center gap-3 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-4 py-3">
+          <Lock className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+          <p className="text-sm text-gray-300">
+            <span className="font-semibold text-white">Starter plan</span> — includes 1 branch.{" "}
+            <button
+              type="button"
+              onClick={() => setShowUpgrade(true)}
+              className="font-semibold text-[#D4AF37] hover:underline"
+            >
+              Upgrade to Professional
+            </button>{" "}
+            for unlimited branches.
+          </p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center rounded-2xl border border-white/5 bg-[#1a1a1a] py-16">
@@ -60,6 +93,11 @@ export default function BranchesPage() {
       ) : error ? (
         <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-5 text-red-400">
           Failed to load branches. Please try again.
+        </div>
+      ) : branches.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/5 bg-[#1a1a1a] py-16 gap-3">
+          <Store className="h-10 w-10 text-gray-600" />
+          <p className="text-gray-400">No branches found.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-3">
@@ -98,7 +136,59 @@ export default function BranchesPage() {
         </div>
       )}
 
-      {/* Add Branch Modal */}
+      {/* Upgrade paywall modal */}
+      {showUpgrade && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl text-center">
+            <button
+              type="button"
+              onClick={() => setShowUpgrade(false)}
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-400 hover:bg-white/5 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4AF37]/10">
+              <Rocket className="h-7 w-7 text-[#D4AF37]" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Upgrade to Professional</h3>
+            <p className="mt-2 text-sm text-gray-400">
+              Your <span className="font-semibold text-white">Starter plan</span> supports 1 branch.
+              Upgrade to <span className="font-semibold text-white">Professional</span> to add unlimited branches and unlock multi-location management.
+            </p>
+            <ul className="mt-4 space-y-2 text-left">
+              {[
+                "Unlimited branches",
+                "Multi-branch dashboard",
+                "Advanced commissions",
+                "Supplier & expense management",
+                "Priority support",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-gray-300">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-[10px] font-bold">✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex flex-col gap-2">
+              <Link
+                href="/settings?tab=billing"
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+              >
+                Upgrade Now — RM 249/mo <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowUpgrade(false)}
+                className="rounded-lg py-2 text-sm text-gray-500 hover:text-gray-300"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Branch Modal (Professional only) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
@@ -160,18 +250,6 @@ export default function BranchesPage() {
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                   placeholder="Full address"
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  name="is_hq"
-                  type="checkbox"
-                  value="true"
-                  id="is_hq"
-                  className="h-4 w-4 rounded border-white/20 bg-[#111] text-[#D4AF37] focus:ring-[#D4AF37]"
-                />
-                <label htmlFor="is_hq" className="text-sm text-gray-300">
-                  Is HQ
-                </label>
               </div>
               <div className="flex gap-3 pt-2">
                 <button

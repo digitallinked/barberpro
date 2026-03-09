@@ -203,12 +203,39 @@ export async function saveOnboarding(data: {
 
   const fullName = user.user_metadata?.full_name ?? user.email ?? "Owner";
 
+  // Auto-generate a branch code from the shop name initials
+  const branchCode = data.shopName
+    .split(/\s+/)
+    .map((w: string) => w[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 4)
+    .padEnd(2, "X") + "01";
+
+  // Create default HQ branch using the shop's address
+  const { data: defaultBranch, error: branchError } = await supabase
+    .from("branches")
+    .insert({
+      tenant_id: tenant.id,
+      name: data.shopName,
+      code: branchCode,
+      address: addressFull || null,
+      phone: data.phone || null,
+      is_hq: true,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (branchError) return { error: branchError.message };
+
+  // Create the owner app_user, assigned to the default branch
   await supabase.from("app_users").insert({
     tenant_id: tenant.id,
     auth_user_id: user.id,
     full_name: fullName,
     email: user.email,
     role: "owner",
+    branch_id: defaultBranch.id,
     is_active: true
   });
 
