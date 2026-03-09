@@ -22,6 +22,37 @@ export type QueueTicketWithRelations = {
   service: { name: string } | null;
 };
 
+function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations {
+  const customer = row.customers as Record<string, unknown> | null;
+  const staffProfile = row.staff_profiles as Record<string, unknown> | null;
+  const appUser = staffProfile?.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
+  const staffName = Array.isArray(appUser) ? appUser[0] : appUser;
+  const service = row.services as Record<string, unknown> | null;
+
+  return {
+    id: row.id as string,
+    queue_number: row.queue_number as string,
+    status: row.status as string,
+    branch_id: row.branch_id as string,
+    customer_id: row.customer_id as string | null,
+    service_id: row.service_id as string | null,
+    assigned_staff_id: row.assigned_staff_id as string | null,
+    preferred_staff_id: row.preferred_staff_id as string | null,
+    estimated_wait_min: row.estimated_wait_min as number | null,
+    called_at: row.called_at as string | null,
+    completed_at: row.completed_at as string | null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+    customer: customer
+      ? { full_name: customer.full_name as string, phone: customer.phone as string }
+      : null,
+    assigned_staff: staffName
+      ? { full_name: (staffName as Record<string, unknown>).full_name as string }
+      : null,
+    service: service ? { name: service.name as string } : null,
+  };
+}
+
 export async function getQueueTickets(
   client: Client,
   tenantId: string,
@@ -57,36 +88,9 @@ export async function getQueueTickets(
     return { data: null, error: new Error(error.message) };
   }
 
-  const tickets: QueueTicketWithRelations[] = (data ?? []).map((row: Record<string, unknown>) => {
-    const customer = row.customers as Record<string, unknown> | null;
-    const staffProfile = row.staff_profiles as Record<string, unknown> | null;
-    const appUser = staffProfile?.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
-    const staffName = Array.isArray(appUser) ? appUser[0] : appUser;
-    const service = row.services as Record<string, unknown> | null;
-
-    return {
-      id: row.id as string,
-      queue_number: row.queue_number as string,
-      status: row.status as string,
-      branch_id: row.branch_id as string,
-      customer_id: row.customer_id as string | null,
-      service_id: row.service_id as string | null,
-      assigned_staff_id: row.assigned_staff_id as string | null,
-      preferred_staff_id: row.preferred_staff_id as string | null,
-      estimated_wait_min: row.estimated_wait_min as number | null,
-      called_at: row.called_at as string | null,
-      completed_at: row.completed_at as string | null,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-      customer: customer
-        ? { full_name: customer.full_name as string, phone: customer.phone as string }
-        : null,
-      assigned_staff: staffName
-        ? { full_name: (staffName as Record<string, unknown>).full_name as string }
-        : null,
-      service: service ? { name: service.name as string } : null,
-    };
-  });
+  const tickets: QueueTicketWithRelations[] = (data ?? []).map((row: Record<string, unknown>) =>
+    mapQueueTicket(row)
+  );
 
   return { data: tickets, error: null };
 }
@@ -152,18 +156,92 @@ export async function getQueueTicketsForBranch(
 }> {
   const { data: branch, error: branchError } = await client
     .from("branches")
-    .select("id, name, tenant_id")
+    .select("name")
     .eq("id", branchId)
-    .single();
+    .maybeSingle();
 
-  if (branchError || !branch) {
-    return { data: null, branchName: null, error: new Error(branchError?.message ?? "Branch not found") };
+  const { data, error } = await client
+    .from("queue_tickets")
+    .select(
+      `
+      id,
+      queue_number,
+      status,
+      branch_id,
+      customer_id,
+      service_id,
+      assigned_staff_id,
+      preferred_staff_id,
+      estimated_wait_min,
+      called_at,
+      completed_at,
+      created_at,
+      updated_at,
+      customers (full_name, phone),
+      staff_profiles (app_users (full_name)),
+      services (name)
+    `
+    )
+    .eq("branch_id", branchId)
+    .order("created_at", { ascending: false });
+
+  let tickets: QueueTicketWithRelations[] = [];
+  let ticketsError: Error | null = null;
+
+  if (error) {
+    // Public board may have RLS access to queue_tickets but not related tables.
+    // Fallback to base fields so the board still renders.
+    const { data: baseData, error: baseError } = await client
+      .from("queue_tickets")
+      .select(
+        `
+        id,
+        queue_number,
+        status,
+        branch_id,
+        customer_id,
+        service_id,
+        assigned_staff_id,
+        preferred_staff_id,
+        estimated_wait_min,
+        called_at,
+        completed_at,
+        created_at,
+        updated_at
+      `
+      )
+      .eq("branch_id", branchId)
+      .order("created_at", { ascending: false });
+
+    if (baseError) {
+      ticketsError = new Error(baseError.message);
+    } else {
+      tickets = (baseData ?? []).map((row: Record<string, unknown>) => ({
+        id: row.id as string,
+        queue_number: row.queue_number as string,
+        status: row.status as string,
+        branch_id: row.branch_id as string,
+        customer_id: row.customer_id as string | null,
+        service_id: row.service_id as string | null,
+        assigned_staff_id: row.assigned_staff_id as string | null,
+        preferred_staff_id: row.preferred_staff_id as string | null,
+        estimated_wait_min: row.estimated_wait_min as number | null,
+        called_at: row.called_at as string | null,
+        completed_at: row.completed_at as string | null,
+        created_at: row.created_at as string,
+        updated_at: row.updated_at as string,
+        customer: null,
+        assigned_staff: null,
+        service: null,
+      }));
+    }
+  } else {
+    tickets = (data ?? []).map((row: Record<string, unknown>) => mapQueueTicket(row));
   }
 
-  const result = await getQueueTickets(client, branch.tenant_id, branchId);
   return {
-    data: result.data,
-    branchName: branch.name,
-    error: result.error,
+    data: tickets,
+    branchName: branch?.name ?? null,
+    error: ticketsError,
   };
 }

@@ -30,14 +30,25 @@ export function useQueueStats() {
 }
 
 export function useQueueBoard(branchId: string | null) {
-  const supabase = useSupabase();
-
   return useQuery({
     queryKey: ["queue-board", branchId],
     queryFn: async () => {
-      const result = await getQueueTicketsForBranch(supabase, branchId!);
-      if (result.error) throw result.error;
-      return result;
+      const res = await fetch(`/api/queue-board?branch=${encodeURIComponent(branchId!)}`);
+      const json = (await res.json()) as {
+        data?: Awaited<ReturnType<typeof getQueueTicketsForBranch>>["data"];
+        branchName?: string | null;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(json.error ?? "Failed to load queue board");
+      }
+
+      return {
+        data: json.data ?? [],
+        branchName: json.branchName ?? null,
+        error: null,
+      };
     },
     enabled: !!branchId,
     refetchInterval: 5_000,

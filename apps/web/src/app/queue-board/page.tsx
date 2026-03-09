@@ -59,9 +59,12 @@ function QueueBoardContent() {
   }
 
   if (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unable to fetch queue data for this branch.";
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
         <p className="text-xl font-medium text-red-400">Failed to load queue</p>
+        <p className="mt-2 max-w-xl text-center text-sm text-gray-500">{errorMessage}</p>
       </div>
     );
   }
