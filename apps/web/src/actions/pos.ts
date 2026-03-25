@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { paymentMethodForDb, TRANSACTION_PAYMENT_METHODS } from "@/lib/payment-method";
+
 import { getAuthContext } from "./_helpers";
 
 type TransactionItem = {
@@ -47,6 +49,11 @@ export async function createTransaction(data: CreateTransactionData) {
       return { success: false, error: "Branch, payment method, and items are required" };
     }
 
+    const methodForDb = paymentMethodForDb(paymentMethod);
+    if (!TRANSACTION_PAYMENT_METHODS.has(methodForDb)) {
+      return { success: false, error: "Invalid payment method" };
+    }
+
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
       .insert({
@@ -54,7 +61,7 @@ export async function createTransaction(data: CreateTransactionData) {
         branch_id: branchId,
         customer_id: customerId || null,
         queue_ticket_id: queueTicketId || null,
-        payment_method: paymentMethod,
+        payment_method: methodForDb,
         cashier_user_id: appUserId,
         subtotal,
         discount_amount: discountAmount,
@@ -139,7 +146,8 @@ export async function recordQuickPayment(formData: FormData) {
 
     const branchId = (formData.get("branch_id") as string) || "";
     const staffProfileId = (formData.get("staff_profile_id") as string) || "";
-    const paymentMethod = ((formData.get("payment_method") as string) || "cash").toLowerCase();
+    const rawMethod = ((formData.get("payment_method") as string) || "cash").toLowerCase();
+    const paymentMethod = paymentMethodForDb(rawMethod);
     const amount = Number(formData.get("amount"));
     const paymentProof = formData.get("payment_proof");
 
@@ -148,10 +156,10 @@ export async function recordQuickPayment(formData: FormData) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return { success: false, error: "Enter a valid amount greater than 0" };
     }
-    if (paymentMethod !== "cash" && paymentMethod !== "qr") {
+    if (paymentMethod !== "cash" && paymentMethod !== "duitnow_qr") {
       return { success: false, error: "Invalid payment method" };
     }
-    if (paymentMethod === "qr" && (!(paymentProof instanceof File) || paymentProof.size === 0)) {
+    if (paymentMethod === "duitnow_qr" && (!(paymentProof instanceof File) || paymentProof.size === 0)) {
       return { success: false, error: "Add a photo of the payment (QR / transfer receipt)" };
     }
 

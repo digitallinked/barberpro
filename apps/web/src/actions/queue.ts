@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { paymentMethodForDb } from "@/lib/payment-method";
+
 import { getAuthContext } from "./_helpers";
 
 export async function createQueueTicket(formData: FormData) {
@@ -89,7 +91,8 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     const { supabase, tenantId, appUserId } = await getAuthContext();
 
     const ticketId = formData.get("ticket_id") as string;
-    const paymentMethod = (formData.get("payment_method") as string) || "cash";
+    const rawPaymentMethod = (formData.get("payment_method") as string) || "cash";
+    const paymentMethod = paymentMethodForDb(rawPaymentMethod);
     const amountDue = Number(formData.get("amount_due")) || 0;
     const amountReceived = Number(formData.get("amount_received")) || 0;
     const paymentProof = formData.get("payment_proof");
@@ -97,7 +100,7 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     if (!ticketId) return { success: false, error: "Ticket is required" };
     if (amountDue <= 0) return { success: false, error: "Amount due must be greater than 0" };
     if (amountReceived < amountDue) return { success: false, error: "Amount received is less than amount due" };
-    if (paymentMethod === "qr" && (!(paymentProof instanceof File) || paymentProof.size === 0)) {
+    if (paymentMethod === "duitnow_qr" && (!(paymentProof instanceof File) || paymentProof.size === 0)) {
       return { success: false, error: "Payment proof image is required for QR payment" };
     }
 
