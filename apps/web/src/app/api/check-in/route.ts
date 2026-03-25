@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { malaysiaPhoneLookupVariants, normalizeMalaysiaMobile } from "@/lib/phone-malaysia";
 import { shopCalendarDateString } from "@/lib/shop-day";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -48,22 +49,108 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid or expired check-in link" }, { status: 404 });
   }
 
-  const phoneVal = phone?.trim() || `walk-in-${randomUUID().slice(0, 12)}`;
+  const trimmedPhone = phone?.trim() ?? "";
+  const useSyntheticPhone = trimmedPhone.length === 0;
+  /** Canonical stored phone for real mobiles (E.164-style +60… when possible). */
+  const storePhone = useSyntheticPhone
+    ? `walk-in-${randomUUID().slice(0, 12)}`
+    : normalizeMalaysiaMobile(trimmedPhone) || trimmedPhone;
 
-  const { data: customer, error: custError } = await admin
-    .from("customers")
-    .insert({
-      tenant_id: branch.tenant_id,
-      branch_id: branch.id,
-      full_name,
-      phone: phoneVal,
-      loyalty_points: 0,
-    })
-    .select("id")
-    .single();
+  let customerId: string;
 
-  if (custError || !customer) {
-    return NextResponse.json({ error: custError?.message ?? "Could not save your details" }, { status: 500 });
+  if (useSyntheticPhone) {
+    const { data: inserted, error: custError } = await admin
+      .from("customers")
+      .insert({
+        tenant_id: branch.tenant_id,
+        branch_id: branch.id,
+        full_name,
+        phone: storePhone,
+        loyalty_points: 0,
+      })
+      .select("id")
+      .single();
+
+    if (custError || !inserted) {
+      return NextResponse.json({ error: custError?.message ?? "Could not save your details" }, { status: 500 });
+    }
+    customerId = inserted.id;
+  } else {
+    let existingId: string | null = null;
+    for (const variant of malaysiaPhoneLookupVariants(trimmedPhone)) {
+      const { data: row } = await admin
+        .from("customers")
+        .select("id")
+        .eq("tenant_id", branch.tenant_id)
+        .eq("phone", variant)
+        .maybeSingle();
+      if (row) {
+        existingId = row.id;
+        break;
+      }
+    }
+
+    if (existingId) {
+      const { error: upErr } = await admin
+        .from("customers")
+        .update({
+          full_name,
+          branch_id: branch.id,
+          phone: storePhone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingId);
+
+      if (upErr) {
+        return NextResponse.json({ error: upErr.message }, { status: 500 });
+      }
+      customerId = existingId;
+    } else {
+      const { data: inserted, error: custError } = await admin
+        .from("customers")
+        .insert({
+          tenant_id: branch.tenant_id,
+          branch_id: branch.id,
+          full_name,
+          phone: storePhone,
+          loyalty_points: 0,
+        })
+        .select("id")
+        .single();
+
+      if (inserted) {
+        customerId = inserted.id;
+      } else if (custError && isUniqueViolation(custError)) {
+        let racedId: string | null = null;
+        for (const variant of malaysiaPhoneLookupVariants(trimmedPhone)) {
+          const { data: row } = await admin
+            .from("customers")
+            .select("id")
+            .eq("tenant_id", branch.tenant_id)
+            .eq("phone", variant)
+            .maybeSingle();
+          if (row) {
+            racedId = row.id;
+            break;
+          }
+        }
+        if (!racedId) {
+          return NextResponse.json({ error: custError.message }, { status: 500 });
+        }
+        await admin
+          .from("customers")
+          .update({
+            full_name,
+            branch_id: branch.id,
+            phone: storePhone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", racedId);
+        customerId = racedId;
+      } else {
+        return NextResponse.json({ error: custError?.message ?? "Could not save your details" }, { status: 500 });
+      }
+    }
   }
 
   const queueDay = shopCalendarDateString();
@@ -84,7 +171,7 @@ export async function POST(request: Request) {
       .insert({
         tenant_id: branch.tenant_id,
         branch_id: branch.id,
-        customer_id: customer.id,
+        customer_id: customerId,
         queue_number,
         queue_day: queueDay,
         status: "waiting",
