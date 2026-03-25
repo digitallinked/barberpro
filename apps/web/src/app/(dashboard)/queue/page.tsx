@@ -1,9 +1,9 @@
 "use client";
 
 import {
+  Banknote,
   CheckCircle2,
   Clock,
-  CreditCard,
   MoveRight,
   QrCode,
   RefreshCw,
@@ -522,21 +522,15 @@ export default function QueuePage() {
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
                         {q.status === "in_service" ? (
                           <>
-                            <Link
-                              href={buildPosPaymentHref(q)}
-                              className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110"
-                            >
-                              <CreditCard className="mr-1.5 inline h-3.5 w-3.5" /> Checkout in POS
-                            </Link>
                             <button
                               type="button"
                               onClick={() => {
                                 setPaymentError(null);
                                 setShowPaymentModal(q);
                               }}
-                              className="rounded-lg bg-emerald-500/20 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/30"
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
                             >
-                              <CheckCircle2 className="mr-1.5 inline h-3.5 w-3.5" /> Collect Here
+                              <Banknote className="h-4 w-4 shrink-0" /> Receive payment
                             </button>
                             <button
                               type="button"
@@ -877,7 +871,7 @@ export default function QueuePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">Collect Payment</h3>
+              <h3 className="text-lg font-bold text-white">Receive payment</h3>
               <button
                 type="button"
                 onClick={() => setShowPaymentModal(null)}
