@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -222,6 +223,7 @@ export async function saveOnboarding(data: {
       phone: data.phone || null,
       is_hq: true,
       is_active: true,
+      checkin_token: randomUUID(),
     })
     .select("id")
     .single();

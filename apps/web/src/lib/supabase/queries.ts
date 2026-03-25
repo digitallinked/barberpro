@@ -1,6 +1,42 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/types/database.types";
+
 import { createClient } from "./server";
+
+type ServerClient = SupabaseClient<Database>;
+
+/**
+ * Picks the branch for queue/check-in actions: explicit choice (if valid),
+ * then the user's assigned branch, then HQ, then first active branch.
+ */
+export async function resolveEffectiveBranchId(
+  supabase: ServerClient,
+  tenantId: string,
+  appUserBranchId: string | null,
+  requestedBranchId?: string | null
+): Promise<string | null> {
+  const { data: branches } = await supabase
+    .from("branches")
+    .select("id, is_hq")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("is_hq", { ascending: false });
+
+  const list = branches ?? [];
+  if (list.length === 0) return null;
+
+  if (requestedBranchId && list.some((b) => b.id === requestedBranchId)) {
+    return requestedBranchId;
+  }
+  if (appUserBranchId && list.some((b) => b.id === appUserBranchId)) {
+    return appUserBranchId;
+  }
+  const hq = list.find((b) => b.is_hq);
+  return hq?.id ?? list[0]!.id;
+}
 
 export type TenantContext = {
   tenantId: string;
@@ -50,11 +86,13 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
     .order("is_hq", { ascending: false });
 
   const branchList = branches ?? [];
-  const activeBranch =
-    branchList.find((b) => b.id === appUser.branch_id) ??
-    branchList.find((b) => b.is_hq) ??
-    branchList[0] ??
-    null;
+  const activeBranchId = await resolveEffectiveBranchId(
+    supabase,
+    tenant.id,
+    appUser.branch_id,
+    null
+  );
+  const activeBranch = branchList.find((b) => b.id === activeBranchId) ?? null;
 
   return {
     tenantId: tenant.id,

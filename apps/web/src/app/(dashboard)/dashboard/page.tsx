@@ -227,6 +227,7 @@ export default function DashboardPage() {
             <h3 className="text-2xl font-bold text-white">{queueStats.waiting}</h3>
             <span className="text-sm font-normal text-gray-500">waiting</span>
           </div>
+          <p className="mt-1.5 text-xs text-gray-500">Today · Malaysia time</p>
           <Link
             href="/queue-board"
             className="mt-3 block w-full rounded border border-white/10 py-1.5 text-center text-xs text-white transition hover:bg-white/5"

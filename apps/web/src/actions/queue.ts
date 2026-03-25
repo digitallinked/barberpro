@@ -1,8 +1,11 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { paymentMethodForDb } from "@/lib/payment-method";
+import { env } from "@/lib/env";
+import { shopDayUtcBounds } from "@/lib/shop-day";
 
 import { getAuthContext } from "./_helpers";
 
@@ -14,16 +17,22 @@ export async function createQueueTicket(formData: FormData) {
     const customer_id = (formData.get("customer_id") as string) || null;
     const service_id = (formData.get("service_id") as string) || null;
     const preferred_staff_id = (formData.get("preferred_staff_id") as string) || null;
+    const rawParty = Number(formData.get("party_size"));
+    const party_size = Number.isFinite(rawParty) ? Math.min(20, Math.max(1, Math.floor(rawParty))) : 1;
 
     if (!branch_id) {
       return { success: false, error: "Branch is required" };
     }
 
+    const { start, end } = shopDayUtcBounds();
+
     const { count } = await supabase
       .from("queue_tickets")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId)
-      .eq("branch_id", branch_id);
+      .eq("branch_id", branch_id)
+      .gte("created_at", start)
+      .lte("created_at", end);
 
     const queue_number = "Q" + String((count ?? 0) + 1).padStart(4, "0");
 
@@ -35,6 +44,7 @@ export async function createQueueTicket(formData: FormData) {
       preferred_staff_id: preferred_staff_id || null,
       queue_number,
       status: "waiting",
+      party_size,
     });
 
     if (error) return { success: false, error: error.message };
@@ -195,6 +205,97 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     revalidatePath("/pos");
     revalidatePath("/dashboard");
     return { success: true, warning };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function cancelStaleWaitingQueueTickets(branchId: string) {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+    if (!branchId) return { success: false, error: "Branch is required" };
+
+    const { data: branch } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("id", branchId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (!branch) return { success: false, error: "Branch not found" };
+
+    const { start } = shopDayUtcBounds();
+    const now = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("queue_tickets")
+      .update({ status: "cancelled", updated_at: now })
+      .eq("tenant_id", tenantId)
+      .eq("branch_id", branchId)
+      .eq("status", "waiting")
+      .lt("created_at", start);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/queue");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function getQueueCheckinUrl(branchId: string) {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+    if (!branchId) return { success: false, error: "Branch is required" as const };
+
+    const { data: branch, error } = await supabase
+      .from("branches")
+      .select("checkin_token")
+      .eq("id", branchId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (error || !branch) return { success: false, error: "Branch not found" as const };
+
+    let token = branch.checkin_token;
+    if (!token) {
+      token = randomUUID();
+      const { error: upError } = await supabase
+        .from("branches")
+        .update({ checkin_token: token, updated_at: new Date().toISOString() })
+        .eq("id", branchId)
+        .eq("tenant_id", tenantId);
+
+      if (upError) return { success: false, error: upError.message };
+    }
+
+    const baseUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const url = `${baseUrl.replace(/\/$/, "")}/check-in/${token}`;
+    return { success: true as const, url };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function rotateQueueCheckinToken(branchId: string) {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+    if (!branchId) return { success: false, error: "Branch is required" };
+
+    const token = randomUUID();
+    const { error } = await supabase
+      .from("branches")
+      .update({ checkin_token: token, updated_at: new Date().toISOString() })
+      .eq("id", branchId)
+      .eq("tenant_id", tenantId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/queue");
+    const baseUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const url = `${baseUrl.replace(/\/$/, "")}/check-in/${token}`;
+    return { success: true as const, url };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }

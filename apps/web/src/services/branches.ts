@@ -10,7 +10,9 @@ export async function getBranches(
 ): Promise<{ data: BranchRow[] | null; error: Error | null }> {
   const { data, error } = await client
     .from("branches")
-    .select("id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at")
+    .select(
+      "id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at, checkin_token"
+    )
     .eq("tenant_id", tenantId)
     .order("is_hq", { ascending: false })
     .order("created_at", { ascending: false });
@@ -24,7 +26,9 @@ export async function getBranch(
 ): Promise<{ data: BranchRow | null; error: Error | null }> {
   const { data, error } = await client
     .from("branches")
-    .select("id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at")
+    .select(
+      "id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at, checkin_token"
+    )
     .eq("id", id)
     .single();
 

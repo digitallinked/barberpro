@@ -5,8 +5,11 @@ import {
   Clock,
   CreditCard,
   MoveRight,
+  QrCode,
+  RefreshCw,
   Scissors,
   Timer,
+  Trash2,
   UserCheck,
   UserRound,
   Users,
@@ -14,7 +17,8 @@ import {
   XCircle
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -24,7 +28,15 @@ import {
   useServices
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
-import { completeQueueTicketWithPayment, createQueueTicket, updateQueueStatus } from "@/actions/queue";
+import {
+  cancelStaleWaitingQueueTickets,
+  completeQueueTicketWithPayment,
+  createQueueTicket,
+  getQueueCheckinUrl,
+  rotateQueueCheckinToken,
+  updateQueueStatus
+} from "@/actions/queue";
+import { formatShopDateLabel, formatShopTimeLabel } from "@/lib/shop-day";
 import type { QueueTicketWithRelations } from "@/services/queue";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -83,6 +95,10 @@ export default function QueuePage() {
   );
 
   const activeTickets = tickets.filter((t) => !["completed", "cancelled"].includes(t.status));
+
+  const nextWaitingId = [...tickets]
+    .filter((t) => t.status === "waiting")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]?.id;
   const inServiceIds = new Set(
     activeTickets.filter((t) => t.status === "in_service").map((t) => t.assigned_staff_id)
   );
@@ -115,24 +131,36 @@ export default function QueuePage() {
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [checkinUrl, setCheckinUrl] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [rotatingQr, setRotatingQr] = useState(false);
+  const [staleSubmitting, setStaleSubmitting] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const filteredTickets =
     activeTab === 0
-      ? activeTickets
+      ? tickets
       : activeTab === 1
-        ? activeTickets.filter((t) => t.status === "waiting")
+        ? tickets.filter((t) => t.status === "waiting")
         : activeTab === 2
-          ? activeTickets.filter((t) => t.status === "waiting" && t.assigned_staff_id)
+          ? tickets.filter((t) => t.status === "waiting" && t.assigned_staff_id)
           : activeTab === 3
-            ? activeTickets.filter((t) => t.status === "in_service")
+            ? tickets.filter((t) => t.status === "in_service")
             : activeTab === 4
               ? tickets.filter((t) => t.status === "completed")
               : tickets.filter((t) => t.status === "cancelled");
   const tabCounts = [
-    activeTickets.length,
-    activeTickets.filter((t) => t.status === "waiting").length,
-    activeTickets.filter((t) => t.status === "waiting" && t.assigned_staff_id).length,
-    activeTickets.filter((t) => t.status === "in_service").length,
+    tickets.length,
+    tickets.filter((t) => t.status === "waiting").length,
+    tickets.filter((t) => t.status === "waiting" && t.assigned_staff_id).length,
+    tickets.filter((t) => t.status === "in_service").length,
     tickets.filter((t) => t.status === "completed").length,
     tickets.filter((t) => t.status === "cancelled").length
   ];
@@ -171,6 +199,48 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
       setShowAssignModal(null);
+    }
+  }
+
+  async function openQrModal() {
+    if (!branchId) return;
+    setShowQrModal(true);
+    setQrError(null);
+    setCheckinUrl(null);
+    setQrLoading(true);
+    const result = await getQueueCheckinUrl(branchId);
+    setQrLoading(false);
+    if (result.success && typeof result.url === "string") setCheckinUrl(result.url);
+    else setQrError(typeof result.error === "string" ? result.error : "Could not load QR link");
+  }
+
+  async function handleRotateQr() {
+    if (!branchId) return;
+    setRotatingQr(true);
+    setQrError(null);
+    const result = await rotateQueueCheckinToken(branchId);
+    setRotatingQr(false);
+    if (result.success && typeof result.url === "string") setCheckinUrl(result.url);
+    else setQrError(typeof result.error === "string" ? result.error : "Could not rotate link");
+  }
+
+  async function handleClearStale() {
+    if (!branchId) return;
+    if (
+      !confirm(
+        "Cancel all waiting tickets from before today? This cannot be undone. Completed history is kept."
+      )
+    ) {
+      return;
+    }
+    setStaleSubmitting(true);
+    const result = await cancelStaleWaitingQueueTickets(branchId);
+    setStaleSubmitting(false);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+    } else {
+      alert(result.error ?? "Failed");
     }
   }
 
@@ -213,7 +283,7 @@ export default function QueuePage() {
     {
       label: "Waiting",
       value: String(stats.waiting),
-      hint: "In queue",
+      hint: "In queue today",
       icon: Timer,
       iconBg: "bg-orange-500/10",
       iconColor: "text-orange-400"
@@ -221,7 +291,7 @@ export default function QueuePage() {
     {
       label: "In Service",
       value: String(stats.inProgress),
-      hint: "Currently serving",
+      hint: "Serving today",
       icon: UserCheck,
       iconBg: "bg-blue-500/10",
       iconColor: "text-blue-400"
@@ -229,7 +299,7 @@ export default function QueuePage() {
     {
       label: "Completed",
       value: String(stats.completed),
-      hint: "Total completed",
+      hint: "Completed today",
       icon: CheckCircle2,
       iconBg: "bg-emerald-500/10",
       iconColor: "text-emerald-400"
@@ -249,9 +319,30 @@ export default function QueuePage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Walk-in Queue</h2>
-          <p className="mt-1 text-sm text-gray-400">Manage walk-in customers and barber assignments</p>
+          <p className="mt-1 text-sm text-gray-400">
+            Today&apos;s queue (Malaysia time) — oldest tickets appear first.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
+            <span className="font-medium text-white">{formatShopDateLabel(clock)}</span>
+            <span className="font-mono text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void openQrModal()}
+            className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/40 bg-[#1a1a1a] px-3 py-2 text-sm font-medium text-[#D4AF37] transition hover:bg-[#D4AF37]/10"
+          >
+            <QrCode className="h-4 w-4" /> Customer QR
+          </button>
+          <button
+            type="button"
+            onClick={handleClearStale}
+            disabled={staleSubmitting}
+            className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-gray-400 transition hover:border-amber-500/30 hover:text-amber-200 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" /> Clear stale
+          </button>
           <button
             type="button"
             onClick={() => setShowNewModal(true)}
@@ -313,7 +404,7 @@ export default function QueuePage() {
             </div>
           ) : (
             filteredTickets.map((q) => {
-              const isNext = q.status === "waiting" && !activeTickets.some((t) => t.status === "in_service");
+              const isNext = q.status === "waiting" && q.id === nextWaitingId;
               const timer =
                 q.status === "in_service" && q.called_at
                   ? formatServiceTime(q.called_at)
@@ -358,6 +449,11 @@ export default function QueuePage() {
                             {q.customer?.phone ?? "No phone"}
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mb-2">
+                            {q.party_size > 1 && (
+                              <span className="rounded-md border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-0.5 text-xs font-medium text-[#D4AF37]">
+                                Party of {q.party_size}
+                              </span>
+                            )}
                             {q.service && (
                               <span className="rounded-md bg-[#111] border border-white/5 px-2 py-0.5 text-xs text-gray-300">
                                 {q.service.name}
@@ -567,6 +663,56 @@ export default function QueuePage() {
         </div>
       </div>
 
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Customer check-in QR</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQrModal(false);
+                  setCheckinUrl(null);
+                  setQrError(null);
+                }}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              Customers scan to enter their name, how many cuts, and optional phone. Queue numbers reset each
+              calendar day (Malaysia time).
+            </p>
+            {qrLoading && (
+              <div className="flex justify-center py-12">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+              </div>
+            )}
+            {!qrLoading && qrError && (
+              <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{qrError}</div>
+            )}
+            {!qrLoading && checkinUrl && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="rounded-xl bg-white p-3">
+                  <QRCodeSVG value={checkinUrl} size={200} level="M" />
+                </div>
+                <p className="break-all text-center text-[11px] text-gray-500">{checkinUrl}</p>
+                <button
+                  type="button"
+                  disabled={rotatingQr}
+                  onClick={() => void handleRotateQr()}
+                  className="flex items-center gap-2 text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${rotatingQr ? "animate-spin" : ""}`} />
+                  Generate new link (invalidates old QR)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* New Walk-in Modal */}
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -595,6 +741,17 @@ export default function QueuePage() {
                 />
                 <input type="hidden" name="customer_id" id="customer_id" />
                 <p className="mt-1 text-[10px] text-gray-500">Walk-in if left empty</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Number of haircuts</label>
+                <input
+                  type="number"
+                  name="party_size"
+                  min={1}
+                  max={20}
+                  defaultValue={1}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Service</label>

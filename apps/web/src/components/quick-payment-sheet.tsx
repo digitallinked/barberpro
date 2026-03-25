@@ -122,16 +122,32 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
       if (proofFile) fd.append("payment_proof", proofFile);
 
       const result = await recordQuickPayment(fd);
+      if (!result || typeof result !== "object") {
+        setError("No response from server. Check your connection and try again.");
+        return;
+      }
       if (result.success) {
-        await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-        await queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+        try {
+          await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+          await queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+        } catch {
+          /* cache refresh is best-effort */
+        }
         if (result.warning) setWarning(result.warning);
         else onOpenChange(false);
       } else {
         setError(result.error ?? "Could not save payment");
       }
-    } catch {
-      setError("Something went wrong. Try again.");
+    } catch (err) {
+      console.error("recordQuickPayment", err);
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "Failed to fetch" || /failed to fetch/i.test(msg)) {
+        setError(
+          "Could not reach the server—receipt photos are often too large. Try a smaller picture, check your connection, and restart the dev server after config changes (`pnpm dev`)."
+        );
+      } else {
+        setError(msg || "Something went wrong. Try again.");
+      }
     } finally {
       setSubmitting(false);
     }

@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
+import { shopDayUtcBounds } from "@/lib/shop-day";
 
 type Client = SupabaseClient<Database>;
 
@@ -13,6 +14,7 @@ export type QueueTicketWithRelations = {
   assigned_staff_id: string | null;
   preferred_staff_id: string | null;
   estimated_wait_min: number | null;
+  party_size: number;
   called_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -39,6 +41,7 @@ function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations 
     assigned_staff_id: row.assigned_staff_id as string | null,
     preferred_staff_id: row.preferred_staff_id as string | null,
     estimated_wait_min: row.estimated_wait_min as number | null,
+    party_size: typeof row.party_size === "number" ? row.party_size : 1,
     called_at: row.called_at as string | null,
     completed_at: row.completed_at as string | null,
     created_at: row.created_at as string,
@@ -58,6 +61,8 @@ export async function getQueueTickets(
   tenantId: string,
   branchId: string
 ): Promise<{ data: QueueTicketWithRelations[] | null; error: Error | null }> {
+  const { start, end } = shopDayUtcBounds();
+
   const { data, error } = await client
     .from("queue_tickets")
     .select(
@@ -71,6 +76,7 @@ export async function getQueueTickets(
       assigned_staff_id,
       preferred_staff_id,
       estimated_wait_min,
+      party_size,
       called_at,
       completed_at,
       created_at,
@@ -82,7 +88,9 @@ export async function getQueueTickets(
     )
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .order("created_at", { ascending: false });
+    .gte("created_at", start)
+    .lte("created_at", end)
+    .order("created_at", { ascending: true });
 
   if (!error) {
     const tickets: QueueTicketWithRelations[] = (data ?? []).map((row: Record<string, unknown>) =>
@@ -105,6 +113,7 @@ export async function getQueueTickets(
       assigned_staff_id,
       preferred_staff_id,
       estimated_wait_min,
+      party_size,
       called_at,
       completed_at,
       created_at,
@@ -113,7 +122,9 @@ export async function getQueueTickets(
     )
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .order("created_at", { ascending: false });
+    .gte("created_at", start)
+    .lte("created_at", end)
+    .order("created_at", { ascending: true });
 
   if (baseError) {
     return { data: null, error: new Error(baseError.message) };
@@ -129,6 +140,7 @@ export async function getQueueTickets(
     assigned_staff_id: row.assigned_staff_id as string | null,
     preferred_staff_id: row.preferred_staff_id as string | null,
     estimated_wait_min: row.estimated_wait_min as number | null,
+    party_size: typeof row.party_size === "number" ? row.party_size : 1,
     called_at: row.called_at as string | null,
     completed_at: row.completed_at as string | null,
     created_at: row.created_at as string,
@@ -149,12 +161,16 @@ export async function getQueueStats(
   data: { waiting: number; inProgress: number; completed: number } | null;
   error: Error | null;
 }> {
+  const { start, end } = shopDayUtcBounds();
+
   const { count: waiting, error: waitingError } = await client
     .from("queue_tickets")
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .eq("status", "waiting");
+    .eq("status", "waiting")
+    .gte("created_at", start)
+    .lte("created_at", end);
 
   if (waitingError) {
     return { data: null, error: new Error(waitingError.message) };
@@ -165,7 +181,9 @@ export async function getQueueStats(
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .eq("status", "in_service");
+    .eq("status", "in_service")
+    .gte("created_at", start)
+    .lte("created_at", end);
 
   if (inProgressError) {
     return { data: null, error: new Error(inProgressError.message) };
@@ -176,7 +194,9 @@ export async function getQueueStats(
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    .gte("created_at", start)
+    .lte("created_at", end);
 
   if (completedError) {
     return { data: null, error: new Error(completedError.message) };
@@ -194,7 +214,8 @@ export async function getQueueStats(
 
 export async function getQueueTicketsForBranch(
   client: Client,
-  branchId: string
+  branchId: string,
+  dayBounds: { start: string; end: string } = shopDayUtcBounds()
 ): Promise<{
   data: QueueTicketWithRelations[] | null;
   branchName: string | null;
@@ -205,6 +226,8 @@ export async function getQueueTicketsForBranch(
     .select("name")
     .eq("id", branchId)
     .maybeSingle();
+
+  const { start, end } = dayBounds;
 
   const { data, error } = await client
     .from("queue_tickets")
@@ -219,6 +242,7 @@ export async function getQueueTicketsForBranch(
       assigned_staff_id,
       preferred_staff_id,
       estimated_wait_min,
+      party_size,
       called_at,
       completed_at,
       created_at,
@@ -229,7 +253,9 @@ export async function getQueueTicketsForBranch(
     `
     )
     .eq("branch_id", branchId)
-    .order("created_at", { ascending: false });
+    .gte("created_at", start)
+    .lte("created_at", end)
+    .order("created_at", { ascending: true });
 
   let tickets: QueueTicketWithRelations[] = [];
   let ticketsError: Error | null = null;
@@ -250,6 +276,7 @@ export async function getQueueTicketsForBranch(
         assigned_staff_id,
         preferred_staff_id,
         estimated_wait_min,
+        party_size,
         called_at,
         completed_at,
         created_at,
@@ -257,7 +284,9 @@ export async function getQueueTicketsForBranch(
       `
       )
       .eq("branch_id", branchId)
-      .order("created_at", { ascending: false });
+      .gte("created_at", start)
+      .lte("created_at", end)
+      .order("created_at", { ascending: true });
 
     if (baseError) {
       ticketsError = new Error(baseError.message);
@@ -272,6 +301,7 @@ export async function getQueueTicketsForBranch(
         assigned_staff_id: row.assigned_staff_id as string | null,
         preferred_staff_id: row.preferred_staff_id as string | null,
         estimated_wait_min: row.estimated_wait_min as number | null,
+        party_size: typeof row.party_size === "number" ? row.party_size : 1,
         called_at: row.called_at as string | null,
         completed_at: row.completed_at as string | null,
         created_at: row.created_at as string,

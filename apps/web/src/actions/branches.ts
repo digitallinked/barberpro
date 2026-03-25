@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
@@ -33,6 +34,7 @@ export async function createBranch(formData: FormData) {
       address: address || null,
       operating_hours: hours,
       is_hq,
+      checkin_token: randomUUID(),
     });
 
     if (error) return { success: false, error: error.message };

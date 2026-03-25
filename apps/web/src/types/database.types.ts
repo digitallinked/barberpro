@@ -156,6 +156,7 @@ export type Database = {
       branches: {
         Row: {
           address: string | null
+          checkin_token: string | null
           code: string
           created_at: string
           email: string | null
@@ -170,6 +171,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          checkin_token?: string | null
           code: string
           created_at?: string
           email?: string | null
@@ -184,6 +186,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          checkin_token?: string | null
           code?: string
           created_at?: string
           email?: string | null
@@ -713,6 +716,7 @@ export type Database = {
           customer_id: string | null
           estimated_wait_min: number | null
           id: string
+          party_size: number
           preferred_staff_id: string | null
           queue_number: string
           service_id: string | null
@@ -729,6 +733,7 @@ export type Database = {
           customer_id?: string | null
           estimated_wait_min?: number | null
           id?: string
+          party_size?: number
           preferred_staff_id?: string | null
           queue_number: string
           service_id?: string | null
@@ -745,6 +750,7 @@ export type Database = {
           customer_id?: string | null
           estimated_wait_min?: number | null
           id?: string
+          party_size?: number
           preferred_staff_id?: string | null
           queue_number?: string
           service_id?: string | null

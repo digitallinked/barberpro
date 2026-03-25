@@ -157,6 +157,9 @@ function QueueBoardContent() {
                         <p className="text-lg font-bold text-white">
                           {q.customer?.full_name ?? "Walk-in Guest"}
                         </p>
+                        {q.party_size > 1 && (
+                          <p className="text-xs font-semibold text-[#D4AF37]">Party of {q.party_size}</p>
+                        )}
                         <p className="text-sm text-gray-400">{q.service?.name ?? "—"}</p>
                         <p className="mt-1 text-sm font-medium text-orange-400">
                           ~{formatWait(q.created_at)} wait
@@ -190,6 +193,9 @@ function QueueBoardContent() {
                     <p className="text-sm font-bold text-white truncate">
                       {q.customer?.full_name ?? "Walk-in Guest"}
                     </p>
+                    {q.party_size > 1 && (
+                      <p className="text-[10px] font-semibold text-[#D4AF37]">Party of {q.party_size}</p>
+                    )}
                     <p className="text-xs text-gray-500">{q.service?.name ?? "—"}</p>
                   </div>
                   <span className="text-sm font-medium text-gray-400">

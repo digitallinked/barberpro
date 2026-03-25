@@ -6,6 +6,12 @@ import { paymentMethodForDb, TRANSACTION_PAYMENT_METHODS } from "@/lib/payment-m
 
 import { getAuthContext } from "./_helpers";
 
+function hasNonEmptyProof(p: unknown): p is File | Blob {
+  if (typeof p !== "object" || p === null) return false;
+  if (!(p instanceof File) && !(p instanceof Blob)) return false;
+  return p.size > 0;
+}
+
 type TransactionItem = {
   itemType: string;
   serviceId: string | null;
@@ -159,7 +165,7 @@ export async function recordQuickPayment(formData: FormData) {
     if (paymentMethod !== "cash" && paymentMethod !== "duitnow_qr") {
       return { success: false, error: "Invalid payment method" };
     }
-    if (paymentMethod === "duitnow_qr" && (!(paymentProof instanceof File) || paymentProof.size === 0)) {
+    if (paymentMethod === "duitnow_qr" && !hasNonEmptyProof(paymentProof)) {
       return { success: false, error: "Add a photo of the payment (QR / transfer receipt)" };
     }
 
@@ -175,19 +181,25 @@ export async function recordQuickPayment(formData: FormData) {
       return { success: false, error: "Branch not found or inactive" };
     }
 
-    const { data: staffRow, error: staffError } = await supabase
+    const { data: staffProfile, error: staffProfileError } = await supabase
       .from("staff_profiles")
-      .select("id, app_users(full_name)")
+      .select("id, user_id")
       .eq("id", staffProfileId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
 
-    if (staffError || !staffRow) {
+    if (staffProfileError || !staffProfile?.user_id) {
       return { success: false, error: "Staff member not found" };
     }
 
-    const appUsers = staffRow.app_users as { full_name: string | null } | { full_name: string | null }[] | null;
-    const barberName = Array.isArray(appUsers) ? appUsers[0]?.full_name : appUsers?.full_name;
+    const { data: barberUser } = await supabase
+      .from("app_users")
+      .select("full_name")
+      .eq("id", staffProfile.user_id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    const barberName = barberUser?.full_name ?? null;
     const lineName = barberName ? `Payment — ${barberName}` : "Client payment";
 
     const { data: transaction, error: txError } = await supabase
@@ -229,15 +241,19 @@ export async function recordQuickPayment(formData: FormData) {
     if (itemError) return { success: false, error: itemError.message };
 
     let warning: string | null = null;
-    if (paymentProof instanceof File && paymentProof.size > 0) {
-      const safeName = paymentProof.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-      const path = `${tenantId}/${transaction.id}/${Date.now()}-${safeName}`;
+    if (hasNonEmptyProof(paymentProof)) {
+      const safeBase =
+        paymentProof instanceof File
+          ? paymentProof.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")
+          : "receipt.jpg";
+      const path = `${tenantId}/${transaction.id}/${Date.now()}-${safeBase || "receipt.jpg"}`;
+      const contentType = (paymentProof as File | Blob).type || "image/jpeg";
       const { error: uploadError } = await supabase.storage
         .from("payment-proofs")
         .upload(path, paymentProof, {
           cacheControl: "3600",
           upsert: false,
-          contentType: paymentProof.type || "image/jpeg",
+          contentType,
         });
 
       if (uploadError) {
@@ -246,9 +262,13 @@ export async function recordQuickPayment(formData: FormData) {
       }
     }
 
-    revalidatePath("/pos");
-    revalidatePath("/queue");
-    revalidatePath("/dashboard");
+    try {
+      revalidatePath("/pos");
+      revalidatePath("/queue");
+      revalidatePath("/dashboard");
+    } catch {
+      /* non-fatal */
+    }
     return { success: true, warning };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
