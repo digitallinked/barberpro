@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
+  Banknote,
   BarChart3,
   Bell,
   CalendarCheck2,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import { QuickPaymentSheet } from "@/components/quick-payment-sheet";
 import { useTenant } from "@/components/tenant-provider";
 import { signOut } from "@/actions/auth";
 
@@ -34,9 +36,9 @@ type NavItem = { label: string; href: string; icon: React.ElementType };
 const NAV_MAIN: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: Home },
   { label: "Queue", href: "/queue", icon: ClipboardList },
+  { label: "POS", href: "/pos", icon: CreditCard },
   { label: "Appointments", href: "/appointments", icon: CalendarCheck2 },
   { label: "Services", href: "/services", icon: Scissors },
-  { label: "POS", href: "/pos", icon: CreditCard },
   { label: "Customers", href: "/customers", icon: Contact2 },
   { label: "Staff", href: "/staff", icon: Users },
 ];
@@ -53,6 +55,15 @@ const NAV_MANAGEMENT: NavItem[] = [
 const NAV_BUSINESS: NavItem[] = [
   { label: "Commissions", href: "/commissions", icon: Scissors },
   { label: "Settings", href: "/settings", icon: Settings },
+];
+
+/** Mobile tab bar: center FAB opens quick payment; Services stays in More / POS */
+const NAV_MOBILE_LEFT: NavItem[] = [
+  { label: "Home", href: "/dashboard", icon: Home },
+  { label: "Queue", href: "/queue", icon: ClipboardList },
+];
+const NAV_MOBILE_RIGHT: NavItem[] = [
+  { label: "Appts", href: "/appointments", icon: CalendarCheck2 },
 ];
 
 function NavLink({
@@ -202,12 +213,107 @@ function SidebarContent({
   );
 }
 
+function MobileTabLink({
+  item,
+  active,
+}: {
+  item: NavItem;
+  active: boolean;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={`flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-0 transition-colors active:scale-[0.97] active:opacity-90 ${
+        active ? "text-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
+      }`}
+      style={{ touchAction: "manipulation" }}
+    >
+      <span
+        className={`flex h-8 w-11 items-center justify-center rounded-lg transition-colors ${
+          active ? "bg-[#D4AF37]/15" : ""
+        }`}
+      >
+        <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={active ? 2.25 : 1.75} />
+      </span>
+      <span className="max-w-full truncate px-0.5 text-[10px] font-semibold leading-none tracking-wide">
+        {item.label}
+      </span>
+    </Link>
+  );
+}
+
+function MobileBottomNav({
+  pathname,
+  onOpenMenu,
+  menuOpen,
+  onReceivePayment,
+}: {
+  pathname: string;
+  onOpenMenu: () => void;
+  menuOpen: boolean;
+  onReceivePayment: () => void;
+}) {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden" aria-label="Primary">
+      <div className="relative w-full border-t border-white/10 bg-[#1a1a1a]/92 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150">
+        <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-[45%]">
+          <button
+            type="button"
+            onClick={onReceivePayment}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D4AF37] text-[#111111] shadow-[0_6px_28px_rgba(212,175,55,0.42)] ring-[5px] ring-[#1a1a1a] transition active:scale-95"
+            aria-label="Receive payment from client"
+          >
+            <Plus className="h-7 w-7" strokeWidth={2.5} />
+          </button>
+        </div>
+
+        <div className="flex h-[60px] items-end justify-between gap-0 px-1.5 pt-2 box-border">
+          <div className="flex min-w-0 flex-1 justify-around gap-0.5">
+            {NAV_MOBILE_LEFT.map((item) => (
+              <MobileTabLink key={item.href} item={item} active={pathname === item.href} />
+            ))}
+          </div>
+          <div className="w-16 shrink-0 sm:w-[4.5rem]" aria-hidden />
+          <div className="flex min-w-0 flex-1 justify-around gap-0.5">
+            {NAV_MOBILE_RIGHT.map((item) => (
+              <MobileTabLink key={item.href} item={item} active={pathname === item.href} />
+            ))}
+            <button
+              type="button"
+              onClick={onOpenMenu}
+              aria-expanded={menuOpen}
+              aria-label="Open full menu"
+              className={`flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-0 transition-colors active:scale-[0.97] active:opacity-90 ${
+                menuOpen ? "text-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
+              }`}
+              style={{ touchAction: "manipulation" }}
+            >
+              <span
+                className={`flex h-8 w-11 items-center justify-center rounded-lg transition-colors ${
+                  menuOpen ? "bg-[#D4AF37]/15" : ""
+                }`}
+              >
+                <Menu className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={menuOpen ? 2.25 : 1.75} />
+              </span>
+              <span className="max-w-full truncate px-0.5 text-[10px] font-semibold leading-none tracking-wide">
+                More
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 type AppShellProps = { children: ReactNode };
 
 export function AppShell({ children }: AppShellProps) {
   const [open, setOpen] = useState(false);
+  const [quickPayOpen, setQuickPayOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
 
   let userName = "User";
   let userRole = "owner";
@@ -264,16 +370,8 @@ export function AppShell({ children }: AppShellProps) {
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-white/5 bg-[#1a1a1a]/80 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-white/5 bg-[#1a1a1a]/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <button
-              className="rounded-md p-2 text-gray-400 hover:text-white lg:hidden"
-              type="button"
-              onClick={() => setOpen(true)}
-              aria-label="Open sidebar"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
             <button
               type="button"
               className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40"
@@ -285,7 +383,15 @@ export function AppShell({ children }: AppShellProps) {
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setQuickPayOpen(true)}
+              className="hidden items-center gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20 lg:inline-flex"
+            >
+              <Banknote className="h-4 w-4" />
+              Receive payment
+            </button>
             <button
               type="button"
               className="relative rounded-md p-2 text-gray-400 transition hover:text-white"
@@ -294,17 +400,26 @@ export function AppShell({ children }: AppShellProps) {
             </button>
             <Link
               href="/queue"
-              className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110"
+              className="hidden items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110 lg:inline-flex"
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New Walk-in</span>
+              <Plus className="h-4 w-4 shrink-0" />
+              New Walk-in
             </Link>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
           {children}
         </main>
+
+        <MobileBottomNav
+          pathname={pathname}
+          menuOpen={open}
+          onOpenMenu={() => setOpen(true)}
+          onReceivePayment={() => setQuickPayOpen(true)}
+        />
+
+        <QuickPaymentSheet open={quickPayOpen} onOpenChange={setQuickPayOpen} />
       </div>
     </div>
   );

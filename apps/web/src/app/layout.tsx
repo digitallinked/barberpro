@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans } from "next/font/google";
 import { type ReactNode } from "react";
 
@@ -17,6 +17,10 @@ export const metadata: Metadata = {
   title: APP_NAME,
   description: APP_DESCRIPTION,
   metadataBase: new URL(env.NEXT_PUBLIC_APP_URL)
+};
+
+export const viewport: Viewport = {
+  viewportFit: "cover"
 };
 
 type RootLayoutProps = {
