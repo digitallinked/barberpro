@@ -2,8 +2,12 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { shopDayUtcBounds } from "@/lib/shop-day";
+import { shopCalendarDateString } from "@/lib/shop-day";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+function isUniqueViolation(err: { code?: string; message?: string }): boolean {
+  return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
+}
 
 const bodySchema = z.object({
   token: z.string().uuid(),
@@ -62,38 +66,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: custError?.message ?? "Could not save your details" }, { status: 500 });
   }
 
-  const { start, end } = shopDayUtcBounds();
+  const queueDay = shopCalendarDateString();
+  let lastTicketError: string | null = null;
 
-  const { count } = await admin
-    .from("queue_tickets")
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", branch.tenant_id)
-    .eq("branch_id", branch.id)
-    .gte("created_at", start)
-    .lte("created_at", end);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { count } = await admin
+      .from("queue_tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", branch.tenant_id)
+      .eq("branch_id", branch.id)
+      .eq("queue_day", queueDay);
 
-  const queue_number = "Q" + String((count ?? 0) + 1).padStart(4, "0");
+    const queue_number = "Q" + String((count ?? 0) + 1).padStart(4, "0");
 
-  const { data: ticket, error: ticketError } = await admin
-    .from("queue_tickets")
-    .insert({
-      tenant_id: branch.tenant_id,
-      branch_id: branch.id,
-      customer_id: customer.id,
-      queue_number,
-      status: "waiting",
-      party_size,
-    })
-    .select("id, queue_number")
-    .single();
+    const { data: ticket, error: ticketError } = await admin
+      .from("queue_tickets")
+      .insert({
+        tenant_id: branch.tenant_id,
+        branch_id: branch.id,
+        customer_id: customer.id,
+        queue_number,
+        queue_day: queueDay,
+        status: "waiting",
+        party_size,
+      })
+      .select("id, queue_number")
+      .single();
 
-  if (ticketError || !ticket) {
-    return NextResponse.json({ error: ticketError?.message ?? "Could not join queue" }, { status: 500 });
+    if (!ticketError && ticket) {
+      return NextResponse.json({
+        success: true,
+        queue_number: ticket.queue_number,
+        branch_name: branch.name,
+      });
+    }
+
+    lastTicketError = ticketError?.message ?? "Could not join queue";
+    if (ticketError && isUniqueViolation(ticketError)) {
+      continue;
+    }
+    return NextResponse.json({ error: lastTicketError }, { status: 500 });
   }
 
-  return NextResponse.json({
-    success: true,
-    queue_number: ticket.queue_number,
-    branch_name: branch.name,
-  });
+  return NextResponse.json({ error: lastTicketError ?? "Could not join queue" }, { status: 500 });
 }

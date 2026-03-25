@@ -1,6 +1,16 @@
 "use client";
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
+
+function clampPartySize(n: number): number {
+  return Math.min(20, Math.max(1, n));
+}
+
+function parsedPartySize(raw: string): number {
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? 1 : n;
+}
 
 type Props = {
   branchName: string;
@@ -9,7 +19,8 @@ type Props = {
 
 export function CheckInForm({ branchName, token }: Props) {
   const [fullName, setFullName] = useState("");
-  const [partySize, setPartySize] = useState(1);
+  /** String so the field can be cleared while typing (number state + `|| 1` forced "12" when editing). */
+  const [partySizeInput, setPartySizeInput] = useState("1");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +30,7 @@ export function CheckInForm({ branchName, token }: Props) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    const partySize = Math.min(20, Math.max(1, parseInt(partySizeInput, 10) || 1));
     try {
       const res = await fetch("/api/check-in", {
         method: "POST",
@@ -81,16 +93,58 @@ export function CheckInForm({ branchName, token }: Props) {
           <label htmlFor="party_size" className="mb-1 block text-xs font-medium text-gray-400">
             How many haircuts? <span className="text-red-400">*</span>
           </label>
-          <input
-            id="party_size"
-            type="number"
-            min={1}
-            max={20}
-            required
-            value={partySize}
-            onChange={(e) => setPartySize(Number(e.target.value) || 1)}
-            className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-4 py-3 text-sm text-white outline-none focus:border-[#D4AF37]/50"
-          />
+          <div className="flex overflow-hidden rounded-lg border border-white/10 bg-[#0a0a0a] focus-within:border-[#D4AF37]/50 focus-within:ring-1 focus-within:ring-[#D4AF37]/30">
+            <input
+              id="party_size"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              value={partySizeInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") {
+                  setPartySizeInput("");
+                  return;
+                }
+                if (!/^\d+$/.test(v)) return;
+                const n = Number(v);
+                if (n > 20) return;
+                setPartySizeInput(v);
+              }}
+              onBlur={() => {
+                if (partySizeInput === "" || Number(partySizeInput) < 1) {
+                  setPartySizeInput("1");
+                }
+              }}
+              className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm text-white outline-none"
+              placeholder="1"
+            />
+            <div className="flex w-11 shrink-0 flex-col border-l border-white/10">
+              <button
+                type="button"
+                aria-label="Increase number of haircuts"
+                disabled={parsedPartySize(partySizeInput) >= 20}
+                onClick={() =>
+                  setPartySizeInput(String(clampPartySize(parsedPartySize(partySizeInput) + 1)))
+                }
+                className="flex flex-1 items-center justify-center border-b border-white/10 py-1.5 text-[#D4AF37] transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <ChevronUp className="h-4 w-4" strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                aria-label="Decrease number of haircuts"
+                disabled={parsedPartySize(partySizeInput) <= 1}
+                onClick={() =>
+                  setPartySizeInput(String(clampPartySize(parsedPartySize(partySizeInput) - 1)))
+                }
+                className="flex flex-1 items-center justify-center py-1.5 text-[#D4AF37] transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <ChevronDown className="h-4 w-4" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
         </div>
         <div>
           <label htmlFor="phone" className="mb-1 block text-xs font-medium text-gray-400">

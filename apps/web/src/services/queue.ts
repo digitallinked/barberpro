@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
-import { shopDayUtcBounds } from "@/lib/shop-day";
+import { shopCalendarDateString } from "@/lib/shop-day";
 
 type Client = SupabaseClient<Database>;
 
@@ -61,7 +61,7 @@ export async function getQueueTickets(
   tenantId: string,
   branchId: string
 ): Promise<{ data: QueueTicketWithRelations[] | null; error: Error | null }> {
-  const { start, end } = shopDayUtcBounds();
+  const queueDay = shopCalendarDateString();
 
   const { data, error } = await client
     .from("queue_tickets")
@@ -88,8 +88,7 @@ export async function getQueueTickets(
     )
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .gte("created_at", start)
-    .lte("created_at", end)
+    .eq("queue_day", queueDay)
     .order("created_at", { ascending: true });
 
   if (!error) {
@@ -122,8 +121,7 @@ export async function getQueueTickets(
     )
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
-    .gte("created_at", start)
-    .lte("created_at", end)
+    .eq("queue_day", queueDay)
     .order("created_at", { ascending: true });
 
   if (baseError) {
@@ -161,7 +159,7 @@ export async function getQueueStats(
   data: { waiting: number; inProgress: number; completed: number } | null;
   error: Error | null;
 }> {
-  const { start, end } = shopDayUtcBounds();
+  const queueDay = shopCalendarDateString();
 
   const { count: waiting, error: waitingError } = await client
     .from("queue_tickets")
@@ -169,8 +167,7 @@ export async function getQueueStats(
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
     .eq("status", "waiting")
-    .gte("created_at", start)
-    .lte("created_at", end);
+    .eq("queue_day", queueDay);
 
   if (waitingError) {
     return { data: null, error: new Error(waitingError.message) };
@@ -182,8 +179,7 @@ export async function getQueueStats(
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
     .eq("status", "in_service")
-    .gte("created_at", start)
-    .lte("created_at", end);
+    .eq("queue_day", queueDay);
 
   if (inProgressError) {
     return { data: null, error: new Error(inProgressError.message) };
@@ -195,8 +191,7 @@ export async function getQueueStats(
     .eq("tenant_id", tenantId)
     .eq("branch_id", branchId)
     .eq("status", "completed")
-    .gte("created_at", start)
-    .lte("created_at", end);
+    .eq("queue_day", queueDay);
 
   if (completedError) {
     return { data: null, error: new Error(completedError.message) };
@@ -215,7 +210,7 @@ export async function getQueueStats(
 export async function getQueueTicketsForBranch(
   client: Client,
   branchId: string,
-  dayBounds: { start: string; end: string } = shopDayUtcBounds()
+  queueDay: string = shopCalendarDateString()
 ): Promise<{
   data: QueueTicketWithRelations[] | null;
   branchName: string | null;
@@ -226,8 +221,6 @@ export async function getQueueTicketsForBranch(
     .select("name")
     .eq("id", branchId)
     .maybeSingle();
-
-  const { start, end } = dayBounds;
 
   const { data, error } = await client
     .from("queue_tickets")
@@ -253,8 +246,7 @@ export async function getQueueTicketsForBranch(
     `
     )
     .eq("branch_id", branchId)
-    .gte("created_at", start)
-    .lte("created_at", end)
+    .eq("queue_day", queueDay)
     .order("created_at", { ascending: true });
 
   let tickets: QueueTicketWithRelations[] = [];
@@ -284,8 +276,7 @@ export async function getQueueTicketsForBranch(
       `
       )
       .eq("branch_id", branchId)
-      .gte("created_at", start)
-      .lte("created_at", end)
+      .eq("queue_day", queueDay)
       .order("created_at", { ascending: true });
 
     if (baseError) {

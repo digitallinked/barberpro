@@ -5,11 +5,15 @@ import { revalidatePath } from "next/cache";
 
 import { paymentMethodForDb } from "@/lib/payment-method";
 import { env } from "@/lib/env";
-import { shopDayUtcBounds } from "@/lib/shop-day";
+import { shopCalendarDateString } from "@/lib/shop-day";
 
 import { resolveEffectiveBranchId } from "@/lib/supabase/branch-resolution";
 
 import { getAuthContext } from "./_helpers";
+
+function isUniqueViolation(err: { code?: string; message?: string }): boolean {
+  return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
+}
 
 export async function createQueueTicket(formData: FormData) {
   try {
@@ -32,33 +36,43 @@ export async function createQueueTicket(formData: FormData) {
       return { success: false, error: "No active branch found. Add a branch or contact support." };
     }
 
-    const { start, end } = shopDayUtcBounds();
+    const queueDay = shopCalendarDateString();
+    let lastError: string | null = null;
 
-    const { count } = await supabase
-      .from("queue_tickets")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .eq("branch_id", branch_id)
-      .gte("created_at", start)
-      .lte("created_at", end);
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const { count } = await supabase
+        .from("queue_tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("branch_id", branch_id)
+        .eq("queue_day", queueDay);
 
-    const queue_number = "Q" + String((count ?? 0) + 1).padStart(4, "0");
+      const queue_number = "Q" + String((count ?? 0) + 1).padStart(4, "0");
 
-    const { error } = await supabase.from("queue_tickets").insert({
-      tenant_id: tenantId,
-      branch_id,
-      customer_id: customer_id || null,
-      service_id: service_id || null,
-      preferred_staff_id: preferred_staff_id || null,
-      queue_number,
-      status: "waiting",
-      party_size,
-    });
+      const { error } = await supabase.from("queue_tickets").insert({
+        tenant_id: tenantId,
+        branch_id,
+        customer_id: customer_id || null,
+        service_id: service_id || null,
+        preferred_staff_id: preferred_staff_id || null,
+        queue_number,
+        queue_day: queueDay,
+        status: "waiting",
+        party_size,
+      });
 
-    if (error) return { success: false, error: error.message };
+      if (!error) {
+        revalidatePath("/queue");
+        return { success: true };
+      }
 
-    revalidatePath("/queue");
-    return { success: true };
+      lastError = error.message;
+      if (!isUniqueViolation(error)) {
+        return { success: false, error: error.message };
+      }
+    }
+
+    return { success: false, error: lastError ?? "Could not allocate queue number" };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }
@@ -230,7 +244,7 @@ export async function cancelStaleWaitingQueueTickets(requestedBranchId?: string 
     );
     if (!branchId) return { success: false, error: "No active branch found" };
 
-    const { start } = shopDayUtcBounds();
+    const today = shopCalendarDateString();
     const now = new Date().toISOString();
 
     const { error } = await supabase
@@ -239,7 +253,7 @@ export async function cancelStaleWaitingQueueTickets(requestedBranchId?: string 
       .eq("tenant_id", tenantId)
       .eq("branch_id", branchId)
       .eq("status", "waiting")
-      .lt("created_at", start);
+      .lt("queue_day", today);
 
     if (error) return { success: false, error: error.message };
 

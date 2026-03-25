@@ -11,6 +11,11 @@ export function shopDayUtcBounds(now: Date = new Date()): { start: string; end: 
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+/** YYYY-MM-DD in shop timezone; use for queue_day and daily queue filters. */
+export function shopCalendarDateString(now: Date = new Date()): string {
+  return formatInTimeZone(now, SHOP_TIMEZONE, "yyyy-MM-dd");
+}
+
 export function formatShopDateLabel(now: Date): string {
   return new Intl.DateTimeFormat("en-MY", {
     timeZone: SHOP_TIMEZONE,

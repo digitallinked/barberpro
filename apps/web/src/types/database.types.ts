@@ -718,6 +718,7 @@ export type Database = {
           id: string
           party_size: number
           preferred_staff_id: string | null
+          queue_day: string
           queue_number: string
           service_id: string | null
           status: string
@@ -735,6 +736,7 @@ export type Database = {
           id?: string
           party_size?: number
           preferred_staff_id?: string | null
+          queue_day?: string
           queue_number: string
           service_id?: string | null
           status?: string
@@ -752,6 +754,7 @@ export type Database = {
           id?: string
           party_size?: number
           preferred_staff_id?: string | null
+          queue_day?: string
           queue_number?: string
           service_id?: string | null
           status?: string
