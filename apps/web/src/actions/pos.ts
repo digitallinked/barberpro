@@ -6,11 +6,23 @@ import { paymentMethodForDb, TRANSACTION_PAYMENT_METHODS } from "@/lib/payment-m
 
 import { getAuthContext } from "./_helpers";
 
-function hasNonEmptyProof(p: unknown): p is File | Blob {
-  if (typeof p !== "object" || p === null) return false;
-  if (!(p instanceof File) && !(p instanceof Blob)) return false;
-  return p.size > 0;
+/** Client uploads to this path first; must stay under the signed-in tenant prefix. */
+function proofPathBelongsToTenant(path: string | null | undefined, tenantId: string): boolean {
+  if (!path || typeof path !== "string") return false;
+  if (path.includes("..") || path.startsWith("/")) return false;
+  const first = path.split("/").filter(Boolean)[0];
+  return first === tenantId;
 }
+
+export type SubmitQuickPaymentInput = {
+  branchId: string;
+  staffProfileId: string;
+  /** UI values e.g. `cash` | `qr` */
+  paymentMethodRaw: string;
+  amount: number;
+  /** Object key in `payment-proofs` after client-side upload */
+  proofStoragePath?: string | null;
+};
 
 type TransactionItem = {
   itemType: string;
@@ -145,17 +157,20 @@ export async function createTransaction(data: CreateTransactionData) {
   }
 }
 
-/** Walk-in / QR payment from the mobile “Receive” flow (no queue ticket). */
-export async function recordQuickPayment(formData: FormData) {
+/**
+ * Walk-in / QR payment from the mobile “Receive” flow (no queue ticket).
+ * Receipt images are uploaded from the browser to Storage first — this action only receives JSON.
+ */
+export async function submitQuickPayment(input: SubmitQuickPaymentInput) {
   try {
     const { supabase, tenantId, appUserId } = await getAuthContext();
 
-    const branchId = (formData.get("branch_id") as string) || "";
-    const staffProfileId = (formData.get("staff_profile_id") as string) || "";
-    const rawMethod = ((formData.get("payment_method") as string) || "cash").toLowerCase();
+    const branchId = input.branchId?.trim() ?? "";
+    const staffProfileId = input.staffProfileId?.trim() ?? "";
+    const rawMethod = (input.paymentMethodRaw || "cash").toLowerCase();
     const paymentMethod = paymentMethodForDb(rawMethod);
-    const amount = Number(formData.get("amount"));
-    const paymentProof = formData.get("payment_proof");
+    const amount = Number(input.amount);
+    const proofStoragePath = input.proofStoragePath?.trim() || null;
 
     if (!branchId) return { success: false, error: "Branch is required" };
     if (!staffProfileId) return { success: false, error: "Choose which barber received this payment" };
@@ -165,8 +180,15 @@ export async function recordQuickPayment(formData: FormData) {
     if (paymentMethod !== "cash" && paymentMethod !== "duitnow_qr") {
       return { success: false, error: "Invalid payment method" };
     }
-    if (paymentMethod === "duitnow_qr" && !hasNonEmptyProof(paymentProof)) {
-      return { success: false, error: "Add a photo of the payment (QR / transfer receipt)" };
+    if (paymentMethod === "duitnow_qr") {
+      if (!proofStoragePath || !proofPathBelongsToTenant(proofStoragePath, tenantId)) {
+        return {
+          success: false,
+          error: "Add a photo of the payment (QR / transfer receipt)",
+        };
+      }
+    } else if (proofStoragePath && !proofPathBelongsToTenant(proofStoragePath, tenantId)) {
+      return { success: false, error: "Invalid receipt path" };
     }
 
     const { data: branch, error: branchError } = await supabase
@@ -240,28 +262,6 @@ export async function recordQuickPayment(formData: FormData) {
 
     if (itemError) return { success: false, error: itemError.message };
 
-    let warning: string | null = null;
-    if (hasNonEmptyProof(paymentProof)) {
-      const safeBase =
-        paymentProof instanceof File
-          ? paymentProof.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")
-          : "receipt.jpg";
-      const path = `${tenantId}/${transaction.id}/${Date.now()}-${safeBase || "receipt.jpg"}`;
-      const contentType = (paymentProof as File | Blob).type || "image/jpeg";
-      const { error: uploadError } = await supabase.storage
-        .from("payment-proofs")
-        .upload(path, paymentProof, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType,
-        });
-
-      if (uploadError) {
-        warning =
-          "Payment saved, but the photo could not be uploaded. Ask your admin to enable the payment-proofs storage bucket.";
-      }
-    }
-
     try {
       revalidatePath("/pos");
       revalidatePath("/queue");
@@ -269,7 +269,7 @@ export async function recordQuickPayment(formData: FormData) {
     } catch {
       /* non-fatal */
     }
-    return { success: true, warning };
+    return { success: true as const };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }

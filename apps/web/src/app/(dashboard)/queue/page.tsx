@@ -137,9 +137,13 @@ export default function QueuePage() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [rotatingQr, setRotatingQr] = useState(false);
   const [staleSubmitting, setStaleSubmitting] = useState(false);
+  /** Avoid hydration mismatch: server vs client `new Date()` differ; show clock only after mount. */
+  const [clockReady, setClockReady] = useState(false);
   const [clock, setClock] = useState(() => new Date());
 
   useEffect(() => {
+    setClock(new Date());
+    setClockReady(true);
     const id = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
@@ -323,8 +327,17 @@ export default function QueuePage() {
             Today&apos;s queue (Malaysia time) — oldest tickets appear first.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
-            <span className="font-medium text-white">{formatShopDateLabel(clock)}</span>
-            <span className="font-mono text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
+            {clockReady ? (
+              <>
+                <span className="font-medium text-white">{formatShopDateLabel(clock)}</span>
+                <span className="font-mono text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-white/40">—</span>
+                <span className="font-mono text-[#D4AF37]/35 tabular-nums">--:--:-- --</span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">

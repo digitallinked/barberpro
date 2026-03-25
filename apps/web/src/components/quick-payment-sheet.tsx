@@ -4,11 +4,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Banknote, Camera, QrCode, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { recordQuickPayment } from "@/actions/pos";
+import { submitQuickPayment } from "@/actions/pos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTenant } from "@/components/tenant-provider";
-import { useStaffMembers } from "@/hooks";
+import { useStaffMembers, useSupabase } from "@/hooks";
+
+function safeProofFileName(file: File): string {
+  const base = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(0, 96);
+  return base || "receipt.jpg";
+}
 
 type QuickPaymentSheetProps = {
   open: boolean;
@@ -17,7 +22,8 @@ type QuickPaymentSheetProps = {
 
 export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps) {
   const queryClient = useQueryClient();
-  const { branchId } = useTenant();
+  const supabase = useSupabase();
+  const { branchId, tenantId } = useTenant();
   const { data: staffData, isLoading: staffLoading } = useStaffMembers();
   const staffMembers = staffData?.data ?? [];
 
@@ -29,7 +35,6 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
 
   const barbers = useMemo(() => {
     const active = staffMembers.filter((s) => s.is_active);
@@ -45,7 +50,6 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
     setProofFile(null);
     setPreviewUrl(null);
     setError(null);
-    setWarning(null);
     if (fileRef.current) fileRef.current.value = "";
   }, [open]);
 
@@ -96,6 +100,10 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
       setError("No branch selected. Open the full menu and check your account.");
       return;
     }
+    if (!tenantId) {
+      setError("Session not ready. Refresh the page and try again.");
+      return;
+    }
     const num = Number.parseFloat(amount.replace(/,/g, ""));
     if (!Number.isFinite(num) || num <= 0) {
       setError("Enter the amount the client paid.");
@@ -112,16 +120,39 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
 
     setSubmitting(true);
     setError(null);
-    setWarning(null);
     try {
-      const fd = new FormData();
-      fd.append("branch_id", branchId);
-      fd.append("amount", String(num));
-      fd.append("staff_profile_id", staffProfileId);
-      fd.append("payment_method", paymentMethod);
-      if (proofFile) fd.append("payment_proof", proofFile);
+      let proofStoragePath: string | null = null;
+      if (proofFile) {
+        const objectPath = `${tenantId}/quick-pay/${globalThis.crypto.randomUUID()}-${safeProofFileName(proofFile)}`;
+        const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(objectPath, proofFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: proofFile.type || "image/jpeg",
+        });
+        if (uploadError) {
+          setError(
+            uploadError.message.includes("Bucket not found")
+              ? "Receipt storage is not set up yet. Ask an admin to enable the payment-proofs bucket."
+              : `Could not upload photo: ${uploadError.message}`
+          );
+          return;
+        }
+        proofStoragePath = objectPath;
+      }
 
-      const result = await recordQuickPayment(fd);
+      if (paymentMethod === "qr" && !proofStoragePath) {
+        setError("QR / transfer payments need a photo of the receipt or screenshot.");
+        return;
+      }
+
+      const result = await submitQuickPayment({
+        branchId,
+        staffProfileId,
+        paymentMethodRaw: paymentMethod,
+        amount: num,
+        proofStoragePath: proofStoragePath ?? undefined,
+      });
+
       if (!result || typeof result !== "object") {
         setError("No response from server. Check your connection and try again.");
         return;
@@ -133,21 +164,13 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
         } catch {
           /* cache refresh is best-effort */
         }
-        if (result.warning) setWarning(result.warning);
-        else onOpenChange(false);
+        onOpenChange(false);
       } else {
         setError(result.error ?? "Could not save payment");
       }
     } catch (err) {
-      console.error("recordQuickPayment", err);
-      const msg = err instanceof Error ? err.message : "";
-      if (msg === "Failed to fetch" || /failed to fetch/i.test(msg)) {
-        setError(
-          "Could not reach the server—receipt photos are often too large. Try a smaller picture, check your connection, and restart the dev server after config changes (`pnpm dev`)."
-        );
-      } else {
-        setError(msg || "Something went wrong. Try again.");
-      }
+      console.error("submitQuickPayment", err);
+      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -294,15 +317,6 @@ export function QuickPaymentSheet({ open, onOpenChange }: QuickPaymentSheetProps
               {error}
             </p>
           )}
-          {warning && (
-            <div className="mb-3 space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-              <p>{warning}</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-            </div>
-          )}
-
           <div className="mt-auto flex gap-2 pt-2">
             <Button
               type="button"

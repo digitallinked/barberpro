@@ -7,13 +7,21 @@ import { paymentMethodForDb } from "@/lib/payment-method";
 import { env } from "@/lib/env";
 import { shopDayUtcBounds } from "@/lib/shop-day";
 
+import { resolveEffectiveBranchId } from "@/lib/supabase/branch-resolution";
+
 import { getAuthContext } from "./_helpers";
 
 export async function createQueueTicket(formData: FormData) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
+    const { supabase, tenantId, appUser } = await getAuthContext();
 
-    const branch_id = formData.get("branch_id") as string;
+    const formBranchId = (formData.get("branch_id") as string) || null;
+    const branch_id = await resolveEffectiveBranchId(
+      supabase,
+      tenantId,
+      appUser.branch_id ?? null,
+      formBranchId
+    );
     const customer_id = (formData.get("customer_id") as string) || null;
     const service_id = (formData.get("service_id") as string) || null;
     const preferred_staff_id = (formData.get("preferred_staff_id") as string) || null;
@@ -21,7 +29,7 @@ export async function createQueueTicket(formData: FormData) {
     const party_size = Number.isFinite(rawParty) ? Math.min(20, Math.max(1, Math.floor(rawParty))) : 1;
 
     if (!branch_id) {
-      return { success: false, error: "Branch is required" };
+      return { success: false, error: "No active branch found. Add a branch or contact support." };
     }
 
     const { start, end } = shopDayUtcBounds();
@@ -210,19 +218,17 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
   }
 }
 
-export async function cancelStaleWaitingQueueTickets(branchId: string) {
+export async function cancelStaleWaitingQueueTickets(requestedBranchId?: string | null) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
-    if (!branchId) return { success: false, error: "Branch is required" };
+    const { supabase, tenantId, appUser } = await getAuthContext();
 
-    const { data: branch } = await supabase
-      .from("branches")
-      .select("id")
-      .eq("id", branchId)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-
-    if (!branch) return { success: false, error: "Branch not found" };
+    const branchId = await resolveEffectiveBranchId(
+      supabase,
+      tenantId,
+      appUser.branch_id ?? null,
+      requestedBranchId ?? null
+    );
+    if (!branchId) return { success: false, error: "No active branch found" };
 
     const { start } = shopDayUtcBounds();
     const now = new Date().toISOString();
@@ -244,10 +250,19 @@ export async function cancelStaleWaitingQueueTickets(branchId: string) {
   }
 }
 
-export async function getQueueCheckinUrl(branchId: string) {
+export async function getQueueCheckinUrl(requestedBranchId?: string | null) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
-    if (!branchId) return { success: false, error: "Branch is required" as const };
+    const { supabase, tenantId, appUser } = await getAuthContext();
+
+    const branchId = await resolveEffectiveBranchId(
+      supabase,
+      tenantId,
+      appUser.branch_id ?? null,
+      requestedBranchId ?? null
+    );
+    if (!branchId) {
+      return { success: false, error: "No active branch found. Add your shop branch under Branches." };
+    }
 
     const { data: branch, error } = await supabase
       .from("branches")
@@ -256,7 +271,15 @@ export async function getQueueCheckinUrl(branchId: string) {
       .eq("tenant_id", tenantId)
       .maybeSingle();
 
-    if (error || !branch) return { success: false, error: "Branch not found" as const };
+    if (error) {
+      const msg = error.message;
+      const migrationHint =
+        /checkin_token|column|schema cache/i.test(msg)
+          ? " Run the SQL migration that adds branches.checkin_token (see supabase/migrations in the repo)."
+          : "";
+      return { success: false, error: `${msg}${migrationHint}` };
+    }
+    if (!branch) return { success: false, error: "Branch not found for this account." };
 
     let token = branch.checkin_token;
     if (!token) {
@@ -278,10 +301,17 @@ export async function getQueueCheckinUrl(branchId: string) {
   }
 }
 
-export async function rotateQueueCheckinToken(branchId: string) {
+export async function rotateQueueCheckinToken(requestedBranchId?: string | null) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
-    if (!branchId) return { success: false, error: "Branch is required" };
+    const { supabase, tenantId, appUser } = await getAuthContext();
+
+    const branchId = await resolveEffectiveBranchId(
+      supabase,
+      tenantId,
+      appUser.branch_id ?? null,
+      requestedBranchId ?? null
+    );
+    if (!branchId) return { success: false, error: "No active branch found" };
 
     const token = randomUUID();
     const { error } = await supabase
