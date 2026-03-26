@@ -143,7 +143,7 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
 
     const { data: ticket, error: ticketError } = await supabase
       .from("queue_tickets")
-      .select("id, branch_id, customer_id, service_id, assigned_staff_id, status")
+      .select("id, branch_id, customer_id, service_id, assigned_staff_id, status, party_size")
       .eq("id", ticketId)
       .eq("tenant_id", tenantId)
       .single();
@@ -152,16 +152,15 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
       return { success: false, error: ticketError?.message ?? "Queue ticket not found" };
     }
 
-    let serviceName = "Walk-in Service";
-    if (ticket.service_id) {
-      const { data: service } = await supabase
-        .from("services")
-        .select("name")
-        .eq("id", ticket.service_id)
-        .eq("tenant_id", tenantId)
-        .single();
-      if (service?.name) serviceName = service.name;
-    }
+    // Fetch seat members for group tickets.
+    const { data: seatMembers } = await supabase
+      .from("queue_ticket_seats")
+      .select("id, staff_id, service_id, status")
+      .eq("ticket_id", ticketId)
+      .eq("tenant_id", tenantId)
+      .neq("status", "cancelled");
+
+    const isGroupTicket = (seatMembers ?? []).length > 0;
 
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
@@ -184,20 +183,80 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
 
     if (txError || !transaction) return { success: false, error: txError?.message ?? "Failed to create payment" };
 
-    const { error: itemError } = await supabase.from("transaction_items").insert({
-      tenant_id: tenantId,
-      transaction_id: transaction.id,
-      item_type: "service",
-      service_id: ticket.service_id,
-      inventory_item_id: null,
-      staff_id: ticket.assigned_staff_id,
-      name: serviceName,
-      quantity: 1,
-      unit_price: amountDue,
-      line_total: amountDue,
-    });
+    if (isGroupTicket) {
+      // Create one transaction_item per seated member, each attributed to their barber.
+      // This feeds commission calculations correctly per-barber.
+      for (const member of seatMembers!) {
+        let memberServiceName = "Walk-in Service";
+        let memberUnitPrice = amountDue / seatMembers!.length; // fallback: split evenly
 
-    if (itemError) return { success: false, error: itemError.message };
+        if (member.service_id) {
+          const { data: svc } = await supabase
+            .from("services")
+            .select("name, price")
+            .eq("id", member.service_id)
+            .eq("tenant_id", tenantId)
+            .single();
+          if (svc) {
+            memberServiceName = svc.name;
+            memberUnitPrice = Number(svc.price ?? memberUnitPrice);
+          }
+        }
+
+        const { error: itemError } = await supabase.from("transaction_items").insert({
+          tenant_id: tenantId,
+          transaction_id: transaction.id,
+          item_type: "service",
+          service_id: member.service_id,
+          inventory_item_id: null,
+          staff_id: member.staff_id,
+          name: memberServiceName,
+          quantity: 1,
+          unit_price: memberUnitPrice,
+          line_total: memberUnitPrice,
+        });
+
+        if (itemError) return { success: false, error: itemError.message };
+      }
+
+      // Mark all members completed.
+      const now = new Date().toISOString();
+      const { error: membersError } = await supabase
+        .from("queue_ticket_seats")
+        .update({ status: "completed", completed_at: now, updated_at: now })
+        .eq("ticket_id", ticketId)
+        .eq("tenant_id", tenantId)
+        .neq("status", "cancelled");
+
+      if (membersError) return { success: false, error: membersError.message };
+    } else {
+      // Single-person ticket: one transaction_item attributed to the assigned barber.
+      let serviceName = "Walk-in Service";
+      if (ticket.service_id) {
+        const { data: service } = await supabase
+          .from("services")
+          .select("name")
+          .eq("id", ticket.service_id)
+          .eq("tenant_id", tenantId)
+          .single();
+        if (service?.name) serviceName = service.name;
+      }
+
+      const { error: itemError } = await supabase.from("transaction_items").insert({
+        tenant_id: tenantId,
+        transaction_id: transaction.id,
+        item_type: "service",
+        service_id: ticket.service_id,
+        inventory_item_id: null,
+        staff_id: ticket.assigned_staff_id,
+        name: serviceName,
+        quantity: 1,
+        unit_price: amountDue,
+        line_total: amountDue,
+      });
+
+      if (itemError) return { success: false, error: itemError.message };
+    }
 
     let warning: string | null = null;
     if (paymentProof instanceof File && paymentProof.size > 0) {
@@ -232,6 +291,98 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     revalidatePath("/pos");
     revalidatePath("/dashboard");
     return { success: true, warning };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+/** Seat a single party member within a group ticket.
+ *  Creates a queue_ticket_seats row and moves the parent ticket to "in_service". */
+export async function addTicketSeatMember(
+  ticketId: string,
+  staffId: string | null,
+  seatId: string | null,
+  serviceId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+
+    const now = new Date().toISOString();
+
+    const { error: insertError } = await supabase.from("queue_ticket_seats").insert({
+      tenant_id: tenantId,
+      ticket_id: ticketId,
+      seat_id: seatId || null,
+      staff_id: staffId || null,
+      service_id: serviceId || null,
+      status: "in_service",
+      started_at: now,
+    });
+
+    if (insertError) return { success: false, error: insertError.message };
+
+    // Move the parent ticket to in_service (if not already).
+    const { error: ticketError } = await supabase
+      .from("queue_tickets")
+      .update({
+        status: "in_service",
+        called_at: now,
+        updated_at: now,
+      })
+      .eq("id", ticketId)
+      .eq("tenant_id", tenantId)
+      .eq("status", "waiting"); // only transition from waiting
+
+    if (ticketError) return { success: false, error: ticketError.message };
+
+    revalidatePath("/queue");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+/** Mark one party member's cut as done — frees the seat for the next customer.
+ *  The parent ticket stays in_service until payment is received. */
+export async function completeTicketSeatMember(
+  memberId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("queue_ticket_seats")
+      .update({ status: "completed", completed_at: now, updated_at: now })
+      .eq("id", memberId)
+      .eq("tenant_id", tenantId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/queue");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+/** Remove an unstarted or cancelled party member seat assignment. */
+export async function removeTicketSeatMember(
+  memberId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+
+    const { error } = await supabase
+      .from("queue_ticket_seats")
+      .delete()
+      .eq("id", memberId)
+      .eq("tenant_id", tenantId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/queue");
+    return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }

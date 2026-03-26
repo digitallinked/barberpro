@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -762,6 +762,84 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      queue_ticket_seats: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          seat_id: string | null
+          service_id: string | null
+          staff_id: string | null
+          started_at: string
+          status: string
+          tenant_id: string
+          ticket_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          seat_id?: string | null
+          service_id?: string | null
+          staff_id?: string | null
+          started_at?: string
+          status?: string
+          tenant_id: string
+          ticket_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          seat_id?: string | null
+          service_id?: string | null
+          staff_id?: string | null
+          started_at?: string
+          status?: string
+          tenant_id?: string
+          ticket_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queue_ticket_seats_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "branch_seats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queue_ticket_seats_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queue_ticket_seats_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queue_ticket_seats_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queue_ticket_seats_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "queue_tickets"
             referencedColumns: ["id"]
           },
         ]

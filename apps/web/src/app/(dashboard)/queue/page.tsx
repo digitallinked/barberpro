@@ -40,7 +40,10 @@ import {
   createQueueTicket,
   getQueueCheckinUrl,
   rotateQueueCheckinToken,
-  updateQueueStatus
+  updateQueueStatus,
+  addTicketSeatMember,
+  completeTicketSeatMember,
+  removeTicketSeatMember,
 } from "@/actions/queue";
 import { upsertSeat, deleteSeat, assignBarberToSeat, type BranchSeat } from "@/actions/seats";
 import { formatShopDateLabel, formatShopTimeLabel } from "@/lib/shop-day";
@@ -107,17 +110,31 @@ export default function QueuePage() {
   const nextWaitingId = [...tickets]
     .filter((t) => t.status === "waiting")
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]?.id;
-  const inServiceIds = new Set(
-    activeTickets.filter((t) => t.status === "in_service").map((t) => t.assigned_staff_id)
+  // Collect barber IDs busy via group ticket seat members.
+  const busyViaMembers = new Set(
+    activeTickets.flatMap((t) =>
+      t.ticket_seats
+        .filter((m) => m.status === "in_service" && m.staff_id)
+        .map((m) => m.staff_id as string)
+    )
   );
+  // Collect seat IDs occupied via group ticket seat members.
+  const occupiedSeatsByMembers = new Set(
+    activeTickets.flatMap((t) =>
+      t.ticket_seats
+        .filter((m) => m.status === "in_service" && m.seat_id)
+        .map((m) => m.seat_id as string)
+    )
+  );
+
   const barberStatus = barbers.map((b) => {
     const staffProfileId = b.staff_profile_id;
-    const isBusy = activeTickets.some(
-      (t) => t.assigned_staff_id === staffProfileId && t.status === "in_service"
-    );
+    const isBusy =
+      activeTickets.some((t) => t.assigned_staff_id === staffProfileId && t.status === "in_service" && t.party_size === 1) ||
+      busyViaMembers.has(staffProfileId);
     const serving = activeTickets.find(
-      (t) => t.assigned_staff_id === staffProfileId && t.status === "in_service"
-    );
+      (t) => t.assigned_staff_id === staffProfileId && t.status === "in_service" && t.party_size === 1
+    ) ?? activeTickets.find((t) => t.ticket_seats.some((m) => m.staff_id === staffProfileId && m.status === "in_service"));
     return {
       ...b,
       status: isBusy ? "busy" : "available",
@@ -125,11 +142,12 @@ export default function QueuePage() {
     };
   });
   const availableCount = barberStatus.filter((b) => b.status === "available").length;
-  const busyStaffIds = new Set(
-    activeTickets
-      .filter((t) => t.status === "in_service" && t.assigned_staff_id)
-      .map((t) => t.assigned_staff_id)
-  );
+  const busyStaffIds = new Set([
+    ...activeTickets
+      .filter((t) => t.status === "in_service" && t.assigned_staff_id && t.party_size === 1)
+      .map((t) => t.assigned_staff_id as string),
+    ...busyViaMembers,
+  ]);
 
   const [activeTab, setActiveTab] = useState(0);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -155,9 +173,16 @@ export default function QueuePage() {
   const [seatFormBarber, setSeatFormBarber] = useState("");
   const [seatFormSubmitting, setSeatFormSubmitting] = useState(false);
   const [seatFormError, setSeatFormError] = useState<string | null>(null);
-  // Assign modal: selected barber + seat
+  // Assign modal: selected barber + seat (single tickets)
   const [assignSelectedBarber, setAssignSelectedBarber] = useState<string>("");
   const [assignSelectedSeat, setAssignSelectedSeat] = useState<string>("");
+  // Party member assignment modal (group tickets)
+  const [showMemberModal, setShowMemberModal] = useState<QueueTicketWithRelations | null>(null);
+  const [memberStaffId, setMemberStaffId] = useState<string>("");
+  const [memberSeatId, setMemberSeatId] = useState<string>("");
+  const [memberServiceId, setMemberServiceId] = useState<string>("");
+  const [memberSubmitting, setMemberSubmitting] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
   /** Avoid hydration mismatch: server vs client `new Date()` differ; show clock only after mount. */
   const [clockReady, setClockReady] = useState(false);
   const [clock, setClock] = useState(() => new Date());
@@ -227,6 +252,50 @@ export default function QueuePage() {
       setShowAssignModal(null);
       setAssignSelectedBarber("");
       setAssignSelectedSeat("");
+    }
+  }
+
+  function closeMemberModal() {
+    setShowMemberModal(null);
+    setMemberStaffId("");
+    setMemberSeatId("");
+    setMemberServiceId("");
+    setMemberError(null);
+  }
+
+  async function handleAddMember() {
+    if (!showMemberModal) return;
+    if (!memberSeatId) { setMemberError("Please select a seat."); return; }
+    setMemberError(null);
+    setMemberSubmitting(true);
+    const result = await addTicketSeatMember(
+      showMemberModal.id,
+      memberStaffId || null,
+      memberSeatId,
+      memberServiceId || null
+    );
+    setMemberSubmitting(false);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+      closeMemberModal();
+    } else {
+      setMemberError(result.error ?? "Failed to seat member");
+    }
+  }
+
+  async function handleCompleteMember(memberId: string) {
+    const result = await completeTicketSeatMember(memberId);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+    }
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    const result = await removeTicketSeatMember(memberId);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
     }
   }
 
@@ -794,6 +863,81 @@ export default function QueuePage() {
                       </div>
                     </div>
 
+                    {/* Party member rows for group tickets */}
+                    {q.party_size > 1 && (
+                      <div className="mt-3 border-t border-white/5 pt-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                            Party members · {q.ticket_seats.length}/{q.party_size} seated
+                          </p>
+                          {!["completed", "cancelled"].includes(q.status) && q.ticket_seats.length < q.party_size && (
+                            <button
+                              type="button"
+                              onClick={() => { setShowMemberModal(q); setMemberServiceId(q.service_id ?? ""); }}
+                              className="flex items-center gap-1 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/20 transition"
+                            >
+                              <Plus className="h-3 w-3" /> Seat member
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          {q.ticket_seats.map((m, idx) => (
+                            <div key={m.id} className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs ${
+                              m.status === "completed"
+                                ? "bg-emerald-500/5 border border-emerald-500/15"
+                                : "bg-blue-500/5 border border-blue-500/15"
+                            }`}>
+                              <span className={`shrink-0 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${
+                                m.status === "completed" ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-500/20 text-blue-400"
+                              }`}>{idx + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-white">{m.staff?.full_name ?? "—"}</span>
+                                {m.seat && <span className="text-gray-500 ml-1.5">· {m.seat.label || `Seat ${m.seat.seat_number}`}</span>}
+                                {m.service && <span className="ml-1.5 rounded bg-[#1a1a1a] px-1.5 py-0.5 text-[9px] text-gray-400">{m.service.name}</span>}
+                              </div>
+                              {m.status === "completed" ? (
+                                <span className="shrink-0 rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9px] font-bold text-gray-500 uppercase tracking-wide">Done</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleCompleteMember(m.id)}
+                                  className="shrink-0 rounded-full bg-[#D4AF37] px-2.5 py-0.5 text-[9px] font-bold text-[#111] hover:brightness-110 transition"
+                                  title="Mark cut done — frees this seat"
+                                >
+                                  ✓ Done
+                                </button>
+                              )}
+                              {!["completed", "cancelled"].includes(q.status) && m.status !== "completed" && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRemoveMember(m.id)}
+                                  className="shrink-0 rounded p-0.5 text-gray-700 hover:text-red-400 transition"
+                                  title="Remove this member"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {/* Empty slots for unassigned members */}
+                          {!["completed", "cancelled"].includes(q.status) &&
+                            Array.from({ length: q.party_size - q.ticket_seats.length }).map((_, i) => (
+                              <button
+                                key={`empty-${i}`}
+                                type="button"
+                                onClick={() => { setShowMemberModal(q); setMemberServiceId(q.service_id ?? ""); }}
+                                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/10 px-2.5 py-1.5 text-xs text-gray-600 hover:border-[#D4AF37]/30 hover:text-[#D4AF37]/60 transition"
+                              >
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-white/15 text-[9px]">
+                                  {q.ticket_seats.length + i + 1}
+                                </span>
+                                <span>Waiting for seat…</span>
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Action buttons */}
                     {!["completed", "cancelled"].includes(q.status) && (
                       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
@@ -806,13 +950,15 @@ export default function QueuePage() {
                             >
                               <Banknote className="h-3.5 w-3.5" /> Receive payment
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowAssignModal(q)}
-                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
-                            >
-                              Reassign
-                            </button>
+                            {q.party_size === 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowAssignModal(q)}
+                                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
+                              >
+                                Reassign
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
@@ -821,7 +967,7 @@ export default function QueuePage() {
                               <XCircle className="mr-1 inline h-3 w-3" /> Cancel
                             </button>
                           </>
-                        ) : q.status === "waiting" && q.assigned_staff_id ? (
+                        ) : q.status === "waiting" && q.assigned_staff_id && q.party_size === 1 ? (
                           <>
                             <button
                               type="button"
@@ -849,6 +995,15 @@ export default function QueuePage() {
                               <XCircle className="mr-1 inline h-3 w-3" /> Remove
                             </button>
                           </>
+                        ) : q.party_size > 1 ? (
+                          /* Group ticket waiting — seat members individually */
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(q.id, "cancelled")}
+                            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
+                          >
+                            <XCircle className="mr-1 inline h-3 w-3" /> Cancel Group
+                          </button>
                         ) : (
                           <>
                             <button
@@ -907,12 +1062,13 @@ export default function QueuePage() {
             ) : (
               <div className="space-y-1.5">
                 {(seatsData?.data ?? []).map((seat) => {
-                  const isOccupied = tickets.some(
-                    (t) => t.seat_id === seat.id && t.status === "in_service"
-                  );
-                  const servingTicket = tickets.find(
-                    (t) => t.seat_id === seat.id && t.status === "in_service"
-                  );
+                  const isOccupied =
+                    tickets.some((t) => t.seat_id === seat.id && t.status === "in_service") ||
+                    occupiedSeatsByMembers.has(seat.id);
+                  const servingTicket =
+                    tickets.find((t) => t.seat_id === seat.id && t.status === "in_service") ??
+                    tickets.find((t) => t.ticket_seats.some((m) => m.seat_id === seat.id && m.status === "in_service"));
+                  const servingMember = servingTicket?.ticket_seats.find((m) => m.seat_id === seat.id && m.status === "in_service");
                   return (
                     <div
                       key={seat.id}
@@ -935,7 +1091,11 @@ export default function QueuePage() {
                         <p className="text-xs font-semibold text-white truncate">{seat.label || `Seat ${seat.seat_number}`}</p>
                         <p className="text-[10px] truncate">
                           {isOccupied && servingTicket ? (
-                            <span className="text-blue-400">{servingTicket.customer?.full_name ?? "Walk-in"}</span>
+                            <span className="text-blue-400">
+                              {servingMember
+                                ? `${servingTicket.queue_number} · ${servingMember.staff?.full_name ?? servingTicket.customer?.full_name ?? "Walk-in"}`
+                                : servingTicket.customer?.full_name ?? "Walk-in"}
+                            </span>
                           ) : seat.barber_name ? (
                             <span className="text-gray-500">{seat.barber_name}</span>
                           ) : (
@@ -1322,7 +1482,9 @@ export default function QueuePage() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Assign Seat <span className="normal-case font-normal text-gray-600">(optional)</span></p>
                 <div className="grid grid-cols-3 gap-1.5 mb-4">
                   {(seatsData?.data ?? []).filter((s) => s.is_active).map((seat) => {
-                    const occupied = tickets.some((t) => t.seat_id === seat.id && t.status === "in_service" && t.id !== showAssignModal.id);
+                    const occupied =
+                      (tickets.some((t) => t.seat_id === seat.id && t.status === "in_service" && t.id !== showAssignModal.id)) ||
+                      occupiedSeatsByMembers.has(seat.id);
                     return (
                       <button
                         key={seat.id}
@@ -1366,6 +1528,122 @@ export default function QueuePage() {
                 className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-40"
               >
                 {showAssignModal.status === "in_service" ? "Reassign" : "Assign"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Seat Party Member Modal */}
+      {showMemberModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">Seat Party Member</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {showMemberModal.queue_number} · {showMemberModal.customer?.full_name ?? "Walk-in Guest"} · member {showMemberModal.ticket_seats.length + 1} of {showMemberModal.party_size}
+                </p>
+              </div>
+              <button type="button" onClick={closeMemberModal} className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-white/5 transition">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {memberError && (
+              <div className="mb-3 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">{memberError}</div>
+            )}
+
+            {/* Service selection */}
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Service</p>
+            <div className="mb-4 grid grid-cols-2 gap-1.5">
+              {activeServices.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setMemberServiceId(s.id)}
+                  className={`rounded-lg border p-2.5 text-left transition ${
+                    memberServiceId === s.id
+                      ? "border-[#D4AF37]/50 bg-[#D4AF37]/10"
+                      : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
+                  }`}
+                >
+                  <p className={`text-xs font-semibold ${memberServiceId === s.id ? "text-[#D4AF37]" : "text-white"}`}>{s.name}</p>
+                  <p className="text-[10px] text-gray-500">RM {s.price}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* Seat selection — required */}
+            {(seatsData?.data ?? []).length > 0 && (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Seat</p>
+                <div className="grid grid-cols-2 gap-1.5 mb-4">
+                  {(seatsData?.data ?? []).filter((s) => s.is_active).map((seat) => {
+                    const occupied =
+                      tickets.some((t) => t.seat_id === seat.id && t.status === "in_service") ||
+                      occupiedSeatsByMembers.has(seat.id);
+                    const isSelected = memberSeatId === seat.id;
+                    return (
+                      <button
+                        key={seat.id}
+                        type="button"
+                        disabled={occupied}
+                        onClick={() => {
+                          if (isSelected) {
+                            setMemberSeatId("");
+                          } else {
+                            setMemberSeatId(seat.id);
+                            // Auto-assign the barber pre-assigned to this seat (if any)
+                            if (seat.staff_profile_id) {
+                              setMemberStaffId(seat.staff_profile_id);
+                            }
+                          }
+                        }}
+                        className={`rounded-lg border p-2.5 text-left transition ${
+                          occupied
+                            ? "border-red-500/20 bg-red-500/5 opacity-50 cursor-not-allowed"
+                            : isSelected
+                              ? "border-[#D4AF37]/50 bg-[#D4AF37]/15"
+                              : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-black ${isSelected ? "bg-[#D4AF37] text-[#111]" : "bg-white/5 text-gray-300"}`}>
+                            {seat.seat_number}
+                          </span>
+                          <div className="min-w-0">
+                            <p className={`text-xs font-semibold truncate ${isSelected ? "text-[#D4AF37]" : "text-white"}`}>
+                              {seat.label || `Seat ${seat.seat_number}`}
+                            </p>
+                            <p className="text-[10px] truncate">
+                              {occupied
+                                ? <span className="text-red-400">Busy</span>
+                                : seat.barber_name
+                                  ? <span className="text-gray-400">{seat.barber_name}</span>
+                                  : <span className="text-gray-600">No barber</span>
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-2">
+              <button type="button" onClick={closeMemberModal} className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition">
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={memberSubmitting || !memberSeatId || !memberServiceId}
+                onClick={() => void handleAddMember()}
+                className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50 transition"
+              >
+                {memberSubmitting ? "Seating…" : "Seat Member"}
               </button>
             </div>
           </div>
@@ -1435,98 +1713,130 @@ export default function QueuePage() {
       )}
 
       {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">Receive payment</h3>
-              <button
-                type="button"
-                onClick={() => setShowPaymentModal(null)}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {showPaymentModal && (() => {
+        const members = showPaymentModal.ticket_seats.filter((m) => m.status !== "cancelled");
+        const isGroup = members.length > 0;
+        const groupTotal = members.reduce((sum, m) => sum + (m.service?.price ?? 0), 0);
+        const defaultAmount = isGroup
+          ? groupTotal.toFixed(2)
+          : (showPaymentModal.service?.price ?? 0).toFixed(2);
 
-            <p className="mb-4 text-sm text-gray-400">
-              {showPaymentModal.queue_number} - {showPaymentModal.customer?.full_name ?? "Walk-in Guest"}
-            </p>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">Receive payment</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(null)}
+                  className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-            <form onSubmit={handleCompleteWithPayment} className="space-y-4">
-              {paymentError && (
-                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{paymentError}</div>
+              <p className="mb-4 text-sm text-gray-400">
+                {showPaymentModal.queue_number} · {showPaymentModal.customer?.full_name ?? "Walk-in Guest"}
+                {isGroup && <span className="ml-1.5 rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#D4AF37]">Party of {members.length}</span>}
+              </p>
+
+              {/* Group ticket: per-member breakdown */}
+              {isGroup && (
+                <div className="mb-4 rounded-xl border border-white/5 bg-[#111] divide-y divide-white/5">
+                  {members.map((m, idx) => (
+                    <div key={m.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[9px] font-black text-blue-400">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white">{m.service?.name ?? "Walk-in Service"}</p>
+                        <p className="text-[10px] text-gray-500">{m.staff?.full_name ?? "—"}{m.seat ? ` · ${m.seat.label || `Seat ${m.seat.seat_number}`}` : ""}</p>
+                      </div>
+                      <p className="text-xs font-bold text-[#D4AF37]">RM {(m.service?.price ?? 0).toFixed(2)}</p>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
+                    <p className="text-xs font-bold text-white">Total</p>
+                    <p className="text-sm font-black text-[#D4AF37]">RM {groupTotal.toFixed(2)}</p>
+                  </div>
+                </div>
               )}
 
-              <input type="hidden" name="ticket_id" value={showPaymentModal.id} />
+              <form onSubmit={handleCompleteWithPayment} className="space-y-4">
+                {paymentError && (
+                  <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{paymentError}</div>
+                )}
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Amount Due (RM)</label>
-                <input
-                  name="amount_due"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  defaultValue={(showPaymentModal.service?.price ?? 0).toFixed(2)}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  required
-                />
-              </div>
+                <input type="hidden" name="ticket_id" value={showPaymentModal.id} />
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Amount Received (RM)</label>
-                <input
-                  name="amount_received"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  defaultValue={(showPaymentModal.service?.price ?? 0).toFixed(2)}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  required
-                />
-              </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">
+                    {isGroup ? "Total Amount Due (RM)" : "Amount Due (RM)"}
+                  </label>
+                  <input
+                    name="amount_due"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    defaultValue={defaultAmount}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Payment Method</label>
-                <select
-                  name="payment_method"
-                  defaultValue="qr"
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Amount Received (RM)</label>
+                  <input
+                    name="amount_received"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    defaultValue={defaultAmount}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Payment Method</label>
+                  <select
+                    name="payment_method"
+                    defaultValue="qr"
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="ewallet">E-Wallet</option>
+                    <option value="qr">QR Transfer</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">
+                    Payment Proof (for QR/online)
+                  </label>
+                  <input
+                    name="payment_proof"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-[#D4AF37] file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-[#111]"
+                  />
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    Upload a screenshot/photo from customer's banking app after successful payment.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={paymentSubmitting}
+                  className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
                 >
-                  <option value="cash">Cash</option>
-                  <option value="card">Card</option>
-                  <option value="ewallet">E-Wallet</option>
-                  <option value="qr">QR Transfer</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">
-                  Payment Proof (for QR/online)
-                </label>
-                <input
-                  name="payment_proof"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-[#D4AF37] file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-[#111]"
-                />
-                <p className="mt-1 text-[10px] text-gray-500">
-                  Upload a screenshot/photo from customer's banking app after successful payment.
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={paymentSubmitting}
-                className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
-              >
-                {paymentSubmitting ? "Processing..." : "Confirm Payment & Complete Ticket"}
-              </button>
-            </form>
+                  {paymentSubmitting ? "Processing..." : "Confirm Payment & Complete Ticket"}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
