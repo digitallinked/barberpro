@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  AlertTriangle,
   Banknote,
   CheckCircle2,
   Clock,
+  Download,
   MoveRight,
   QrCode,
   RefreshCw,
@@ -17,8 +19,8 @@ import {
   XCircle
 } from "lucide-react";
 import Link from "next/link";
-import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -78,7 +80,7 @@ function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
 
 export default function QueuePage() {
   const queryClient = useQueryClient();
-  const { branchId } = useTenant();
+  const { branchId, branchName, tenantName } = useTenant();
   const { data: ticketsData, isLoading: ticketsLoading } = useQueueTickets();
   const { data: statsData } = useQueueStats();
   const { data: staffData } = useStaffMembers();
@@ -136,6 +138,8 @@ export default function QueuePage() {
   const [qrLoading, setQrLoading] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [rotatingQr, setRotatingQr] = useState(false);
+  const [showRotateConfirm, setShowRotateConfirm] = useState(false);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [staleSubmitting, setStaleSubmitting] = useState(false);
   /** Avoid hydration mismatch: server vs client `new Date()` differ; show clock only after mount. */
   const [clockReady, setClockReady] = useState(false);
@@ -220,12 +224,189 @@ export default function QueuePage() {
 
   async function handleRotateQr() {
     if (!branchId) return;
+    setShowRotateConfirm(false);
     setRotatingQr(true);
     setQrError(null);
     const result = await rotateQueueCheckinToken(branchId);
     setRotatingQr(false);
     if (result.success && typeof result.url === "string") setCheckinUrl(result.url);
     else setQrError(typeof result.error === "string" ? result.error : "Could not rotate link");
+  }
+
+  function handleDownloadPdf() {
+    const canvas = qrCanvasRef.current;
+    if (!canvas || !checkinUrl) return;
+
+    const qrDataUrl = canvas.toDataURL("image/png");
+    const shopName = tenantName;
+    const branch = branchName ?? "Main Branch";
+    const today = new Date().toLocaleDateString("en-MY", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${shopName} – Customer Check-in QR</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .card {
+      width: 520px;
+      border: 2px solid #D4AF37;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+    }
+    .header {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      padding: 36px 40px 28px;
+      text-align: center;
+      position: relative;
+    }
+    .scissors-icon {
+      color: #D4AF37;
+      font-size: 28px;
+      letter-spacing: 4px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .shop-name {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 30px;
+      font-weight: 900;
+      color: #D4AF37;
+      letter-spacing: 1px;
+      line-height: 1.1;
+    }
+    .branch-name {
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 500;
+    }
+    .divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+      margin: 20px 40px 0;
+    }
+    .body {
+      background: #fff;
+      padding: 36px 40px;
+      text-align: center;
+    }
+    .scan-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+    .qr-wrapper {
+      display: inline-flex;
+      padding: 16px;
+      background: #fff;
+      border: 2px solid #e8e8e8;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+    }
+    .qr-wrapper img { display: block; border-radius: 4px; }
+    .instruction {
+      font-size: 15px;
+      color: #333;
+      font-weight: 500;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .instruction-sub {
+      font-size: 12px;
+      color: #999;
+      line-height: 1.5;
+    }
+    .url-box {
+      margin-top: 20px;
+      background: #f7f5ef;
+      border: 1px dashed #D4AF37;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 10px;
+      color: #888;
+      word-break: break-all;
+      font-family: monospace;
+    }
+    .footer {
+      background: #f9f9f9;
+      border-top: 1px solid #eee;
+      padding: 16px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-logo {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    .footer-logo span { color: #D4AF37; }
+    .footer-date {
+      font-size: 10px;
+      color: #aaa;
+      text-align: right;
+    }
+    @media print {
+      body { padding: 0; display: block; }
+      .card { width: 100%; border: none; box-shadow: none; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <span class="scissors-icon">✂ ✂</span>
+      <div class="shop-name">${shopName}</div>
+      <div class="branch-name">${branch}</div>
+      <div class="divider"></div>
+    </div>
+    <div class="body">
+      <div class="scan-label">Scan to Join the Queue</div>
+      <div class="qr-wrapper">
+        <img src="${qrDataUrl}" width="220" height="220" alt="Check-in QR Code" />
+      </div>
+      <p class="instruction">Scan with your phone camera<br/>to enter the walk-in queue</p>
+      <p class="instruction-sub">Enter your name and number of haircuts — no app required.</p>
+      <div class="url-box">${checkinUrl}</div>
+    </div>
+    <div class="footer">
+      <div class="footer-logo"><span>✦</span> ${shopName}</div>
+      <div class="footer-date">Printed ${today}</div>
+    </div>
+  </div>
+  <script>window.onload = function() { setTimeout(function(){ window.print(); }, 400); };<\/script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
   }
 
   async function handleClearStale() {
@@ -671,51 +852,140 @@ export default function QueuePage() {
       </div>
 
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Customer check-in QR</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowQrModal(false);
-                  setCheckinUrl(null);
-                  setQrError(null);
-                }}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Customers scan to enter their name, how many cuts, and optional phone. Queue numbers reset each
-              calendar day (Malaysia time).
-            </p>
-            {qrLoading && (
-              <div className="flex justify-center py-12">
-                <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
-              </div>
-            )}
-            {!qrLoading && qrError && (
-              <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{qrError}</div>
-            )}
-            {!qrLoading && checkinUrl && (
-              <div className="flex flex-col items-center gap-4">
-                <div className="rounded-xl bg-white p-3">
-                  <QRCodeSVG value={checkinUrl} size={200} level="M" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141414] shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="relative bg-gradient-to-br from-[#1e1e1e] to-[#141414] px-6 pt-6 pb-4 border-b border-white/5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <QrCode className="h-4 w-4 text-[#D4AF37]" />
+                    <h3 className="text-base font-bold text-white">Customer Check-in QR</h3>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {tenantName}
+                    {branchName ? <span className="text-gray-600"> · {branchName}</span> : null}
+                  </p>
                 </div>
-                <p className="break-all text-center text-[11px] text-gray-500">{checkinUrl}</p>
                 <button
                   type="button"
-                  disabled={rotatingQr}
-                  onClick={() => void handleRotateQr()}
-                  className="flex items-center gap-2 text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
+                  onClick={() => {
+                    setShowQrModal(false);
+                    setShowRotateConfirm(false);
+                    setCheckinUrl(null);
+                    setQrError(null);
+                  }}
+                  className="rounded-lg p-1.5 text-gray-500 transition hover:bg-white/5 hover:text-white"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${rotatingQr ? "animate-spin" : ""}`} />
-                  Generate new link (invalidates old QR)
+                  <X className="h-4.5 w-4.5" />
                 </button>
               </div>
-            )}
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5">
+              {qrLoading && (
+                <div className="flex flex-col items-center justify-center py-14 gap-3">
+                  <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+                  <p className="text-xs text-gray-500">Loading QR code…</p>
+                </div>
+              )}
+              {!qrLoading && qrError && (
+                <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+                  {qrError}
+                </div>
+              )}
+              {!qrLoading && checkinUrl && !showRotateConfirm && (
+                <div className="flex flex-col items-center gap-5">
+                  {/* QR Display */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-3 py-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Scan to queue</span>
+                    </div>
+                    <div className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-black/5">
+                      <QRCodeCanvas
+                        value={checkinUrl}
+                        size={220}
+                        level="H"
+                        ref={qrCanvasRef}
+                      />
+                    </div>
+                  </div>
+
+                  {/* URL pill */}
+                  <div className="mt-2 w-full rounded-lg bg-white/5 border border-white/5 px-3 py-2">
+                    <p className="break-all text-center text-[10px] text-gray-500 font-mono leading-relaxed">
+                      {checkinUrl}
+                    </p>
+                  </div>
+
+                  {/* Info note */}
+                  <p className="text-[11px] text-gray-600 text-center leading-relaxed px-2">
+                    Customers scan to enter their name, number of haircuts, and optional phone number.
+                    This QR code remains valid until you reset it.
+                  </p>
+
+                  {/* Action buttons */}
+                  <div className="flex w-full flex-col gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-3 text-sm font-semibold text-black transition hover:bg-[#c9a430] active:scale-[0.98]"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download &amp; Print PDF
+                    </button>
+                    <button
+                      type="button"
+                      disabled={rotatingQr}
+                      onClick={() => setShowRotateConfirm(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/25 bg-red-500/5 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${rotatingQr ? "animate-spin" : ""}`} />
+                      Reset QR Code
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Rotate Confirmation Panel */}
+              {!qrLoading && checkinUrl && showRotateConfirm && (
+                <div className="flex flex-col items-center gap-5 py-2">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/30">
+                    <AlertTriangle className="h-7 w-7 text-amber-400" />
+                  </div>
+                  <div className="text-center space-y-1.5">
+                    <h4 className="text-base font-bold text-white">Generate New QR Code?</h4>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      The current QR code will be <span className="text-red-400 font-medium">permanently invalidated</span>. Anyone who scans the old code will see an error.
+                    </p>
+                  </div>
+                  <div className="w-full rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex gap-2.5">
+                    <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-300/80 leading-relaxed">
+                      After resetting, <strong className="text-amber-300">download and print the new QR code</strong> before placing it at your entrance. Any printed copies of the old code must be replaced.
+                    </p>
+                  </div>
+                  <div className="flex w-full gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowRotateConfirm(false)}
+                      className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/10"
+                    >
+                      Keep Current QR
+                    </button>
+                    <button
+                      type="button"
+                      disabled={rotatingQr}
+                      onClick={() => void handleRotateQr()}
+                      className="flex-1 rounded-xl bg-red-500/90 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+                    >
+                      {rotatingQr ? "Resetting…" : "Yes, Reset QR"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
