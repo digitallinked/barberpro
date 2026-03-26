@@ -28,3 +28,6 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase (local CLI cache — recreated by `supabase link` / CLI)
+supabase/.temp/
