@@ -128,6 +128,22 @@ export async function getQueueTickets(
     return { data: null, error: new Error(baseError.message) };
   }
 
+  // Fetch customer names separately to recover from the join RLS block.
+  const customerIds = (baseData ?? [])
+    .map((r) => (r as Record<string, unknown>).customer_id as string | null)
+    .filter((id): id is string => !!id);
+
+  const customerMap = new Map<string, { full_name: string; phone: string }>();
+  if (customerIds.length > 0) {
+    const { data: customers } = await client
+      .from("customers")
+      .select("id, full_name, phone")
+      .in("id", customerIds);
+    for (const c of customers ?? []) {
+      customerMap.set(c.id, { full_name: c.full_name, phone: c.phone ?? "" });
+    }
+  }
+
   const tickets: QueueTicketWithRelations[] = (baseData ?? []).map((row: Record<string, unknown>) => ({
     id: row.id as string,
     queue_number: row.queue_number as string,
@@ -143,7 +159,7 @@ export async function getQueueTickets(
     completed_at: row.completed_at as string | null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
-    customer: null,
+    customer: customerMap.get(row.customer_id as string) ?? null,
     assigned_staff: null,
     service: null,
   }));

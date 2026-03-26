@@ -500,101 +500,113 @@ export default function QueuePage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Walk-in Queue</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Today&apos;s queue (Malaysia time) — oldest tickets appear first.
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-300">
-            {clockReady ? (
-              <>
-                <span className="font-medium text-white">{formatShopDateLabel(clock)}</span>
-                <span className="font-mono text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
-              </>
-            ) : (
-              <>
-                <span className="font-medium text-white/40">—</span>
-                <span className="font-mono text-[#D4AF37]/35 tabular-nums">--:--:-- --</span>
-              </>
-            )}
+    <div className="space-y-4">
+      {/* Compact header row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-white leading-tight">Walk-in Queue</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              {clockReady ? (
+                <>
+                  <span className="text-xs text-gray-500">{formatShopDateLabel(clock)}</span>
+                  <span className="font-mono text-xs text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
+                </>
+              ) : (
+                <span className="text-xs text-gray-600">—</span>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => void openQrModal()}
-            className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/40 bg-[#1a1a1a] px-3 py-2 text-sm font-medium text-[#D4AF37] transition hover:bg-[#D4AF37]/10"
+            className="flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/40 bg-[#1a1a1a] px-2.5 py-1.5 text-xs font-medium text-[#D4AF37] transition hover:bg-[#D4AF37]/10"
           >
-            <QrCode className="h-4 w-4" /> Customer QR
-          </button>
-          <button
-            type="button"
-            onClick={handleClearStale}
-            disabled={staleSubmitting}
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-gray-400 transition hover:border-amber-500/30 hover:text-amber-200 disabled:opacity-50"
-          >
-            <Trash2 className="h-4 w-4" /> Clear stale
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
-          >
-            <Scissors className="h-4 w-4" /> New Walk-in
+            <QrCode className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Customer QR</span>
           </button>
           <Link
             href={queueBoardHref}
             target="_blank"
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40"
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-gray-400 transition hover:border-[#D4AF37]/40 hover:text-white"
           >
-            <Scissors className="h-4 w-4" />
+            <MoveRight className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Queue Board</span>
           </Link>
+          <button
+            type="button"
+            onClick={handleClearStale}
+            disabled={staleSubmitting}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-gray-400 transition hover:border-amber-500/30 hover:text-amber-200 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Clear stale</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowNewModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+          >
+            <Scissors className="h-3.5 w-3.5" /> New Walk-in
+          </button>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Stats bar — single compact row */}
+      <div className="grid grid-cols-4 gap-2">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (
-            <Card key={s.label} className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">{s.label}</p>
-                <span className={`rounded-lg p-2 ${s.iconBg}`}>
-                  <Icon className={`h-4 w-4 ${s.iconColor}`} />
-                </span>
+            <div key={s.label} className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#1a1a1a] px-4 py-3">
+              <span className={`flex-shrink-0 rounded-lg p-1.5 ${s.iconBg}`}>
+                <Icon className={`h-3.5 w-3.5 ${s.iconColor}`} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-white leading-none">{s.value}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5 truncate">{s.label}</p>
               </div>
-              <h3 className="text-2xl font-bold text-white">{s.value}</h3>
-              <p className="text-xs text-gray-500 mt-1">{s.hint}</p>
-            </Card>
+            </div>
           );
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-none">
         {tabLabels.map((label, i) => (
           <button
             key={label}
             type="button"
             onClick={() => setActiveTab(i)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               activeTab === i
                 ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30"
                 : "border border-white/5 bg-[#1a1a1a] text-gray-400 hover:text-white"
             }`}
           >
-            {label} <span className="ml-1 opacity-70">({tabCounts[i]})</span>
+            {label}
+            {tabCounts[i] > 0 && (
+              <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                activeTab === i ? "bg-[#D4AF37]/30 text-[#D4AF37]" : "bg-white/5 text-gray-500"
+              }`}>
+                {tabCounts[i]}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-4 xl:col-span-2">
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="space-y-3 xl:col-span-2">
           {ticketsLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-white/5 bg-[#1a1a1a] py-16">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+            <div className="flex items-center justify-center rounded-xl border border-white/5 bg-[#1a1a1a] py-12">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+            </div>
+          ) : filteredTickets.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-[#1a1a1a] py-14 gap-2">
+              <Users className="h-8 w-8 text-gray-700" />
+              <p className="text-sm text-gray-500">No tickets in this view</p>
             </div>
           ) : (
             filteredTickets.map((q) => {
@@ -603,129 +615,134 @@ export default function QueuePage() {
                 q.status === "in_service" && q.called_at
                   ? formatServiceTime(q.called_at)
                   : formatWaitTime(q.created_at);
-              const timerLabel = q.status === "in_service" ? "in service" : "waiting time";
+              const timerLabel = q.status === "in_service" ? "in service" : "wait";
               const preferredName = q.preferred_staff_id
                 ? barbers.find((b) => b.staff_profile_id === q.preferred_staff_id)?.full_name ?? null
                 : null;
 
               return (
-                <Card key={q.id} className="relative overflow-hidden">
-                  {q.status === "waiting" && isNext && (
-                    <div className="absolute right-0 top-0 rounded-bl-lg bg-orange-500 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#111]">
-                      Next
-                    </div>
-                  )}
-                  {q.status === "in_service" && (
-                    <div className="absolute right-0 top-0 flex items-center gap-1 rounded-bl-lg bg-blue-500 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
-                      <Clock className="h-3 w-3" /> In Service
-                    </div>
-                  )}
-
-                  <div className="p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-xl text-2xl font-bold ${
-                            q.status === "in_service"
-                              ? "border-2 border-blue-500 bg-[#2a2a2a] text-white"
-                              : isNext
-                                ? "bg-[#D4AF37] text-[#111] shadow-lg"
-                                : "border border-white/10 bg-[#2a2a2a] text-gray-400"
-                          }`}
-                        >
+                <Card key={q.id} className="relative">
+                  <div className="p-4">
+                    <div className="flex items-center gap-4">
+                      {/* Queue number badge */}
+                      <div
+                        className={`shrink-0 flex items-center justify-center rounded-xl px-3 py-2.5 min-w-[56px] text-center ${
+                          q.status === "in_service"
+                            ? "border-2 border-blue-500 bg-[#2a2a2a]"
+                            : isNext
+                              ? "bg-[#D4AF37] shadow-lg shadow-[#D4AF37]/20"
+                              : q.status === "completed"
+                                ? "bg-emerald-500/10 border border-emerald-500/20"
+                                : q.status === "cancelled"
+                                  ? "bg-red-500/10 border border-red-500/20"
+                                  : "border border-white/10 bg-[#2a2a2a]"
+                        }`}
+                      >
+                        <span className={`text-lg font-black tracking-tight leading-none ${
+                          q.status === "in_service"
+                            ? "text-white"
+                            : isNext
+                              ? "text-[#111]"
+                              : q.status === "completed"
+                                ? "text-emerald-400"
+                                : q.status === "cancelled"
+                                  ? "text-red-400"
+                                  : "text-gray-300"
+                        }`}>
                           {q.queue_number}
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-white mb-1">
-                            {q.customer?.full_name ?? "Walk-in Guest"}
-                          </h3>
-                          <p className="text-sm text-gray-400 mb-2">
-                            {q.customer?.phone ?? "No phone"}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            {q.party_size > 1 && (
-                              <span className="rounded-md border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-0.5 text-xs font-medium text-[#D4AF37]">
-                                Party of {q.party_size}
-                              </span>
-                            )}
-                            {q.service && (
-                              <span className="rounded-md bg-[#111] border border-white/5 px-2 py-0.5 text-xs text-gray-300">
-                                {q.service.name}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            {preferredName && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-gray-500">Preferred:</span>
-                                <span className="text-[#D4AF37] font-medium">{preferredName}</span>
-                              </div>
-                            )}
-                            {q.assigned_staff && (
-                              <>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-gray-500">Barber:</span>
-                                  <span className="text-blue-400 font-medium">{q.assigned_staff.full_name}</span>
-                                </div>
-                                {q.called_at && (
-                                  <span className="text-gray-500">
-                                    Started: {new Date(q.called_at).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                            {!preferredName && !q.assigned_staff && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-gray-500">Preferred:</span>
-                                <span className="text-gray-400">Any available</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        </span>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p
-                          className={`text-2xl font-bold mb-1 ${
-                            q.status === "in_service"
-                              ? "text-blue-500"
-                              : isNext
-                                ? "text-orange-500"
-                                : "text-gray-400"
-                          }`}
-                        >
-                          {timer}
-                        </p>
-                        <p className="text-xs text-gray-500">{timerLabel}</p>
+
+                      {/* Main info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {/* Name + status chips */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-base font-bold text-white leading-tight">
+                                {q.customer?.full_name ?? "Walk-in Guest"}
+                              </p>
+                              {isNext && (
+                                <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#111]">
+                                  Next
+                                </span>
+                              )}
+                              {q.status === "in_service" && (
+                                <span className="flex items-center gap-0.5 rounded-full bg-blue-500/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                                  <Clock className="h-2.5 w-2.5" /> In Service
+                                </span>
+                              )}
+                              {q.status === "completed" && (
+                                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-400">
+                                  Done
+                                </span>
+                              )}
+                              {q.status === "cancelled" && (
+                                <span className="rounded-full bg-red-500/20 border border-red-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-red-400">
+                                  Cancelled
+                                </span>
+                              )}
+                            </div>
+                            {/* Meta row */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5">
+                              {q.customer?.phone && (
+                                <span className="text-[11px] text-gray-500">{q.customer.phone}</span>
+                              )}
+                              {q.party_size > 1 && (
+                                <span className="rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#D4AF37]">
+                                  ×{q.party_size} cuts
+                                </span>
+                              )}
+                              {q.service && (
+                                <span className="rounded border border-white/5 bg-[#111] px-1.5 py-0.5 text-[10px] text-gray-400">
+                                  {q.service.name}
+                                </span>
+                              )}
+                              {q.assigned_staff ? (
+                                <span className="text-[11px] text-blue-400 font-medium">→ {q.assigned_staff.full_name}</span>
+                              ) : preferredName ? (
+                                <span className="text-[11px] text-[#D4AF37]/70">Prefers: {preferredName}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                          {/* Timer */}
+                          <div className="shrink-0 text-right">
+                            <p className={`text-base font-bold font-mono tabular-nums ${
+                              q.status === "in_service" ? "text-blue-400" : isNext ? "text-orange-400" : "text-gray-500"
+                            }`}>
+                              {timer}
+                            </p>
+                            <p className="text-[10px] text-gray-600">{timerLabel}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
+                    {/* Action buttons */}
                     {!["completed", "cancelled"].includes(q.status) && (
-                      <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
+                      <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
                         {q.status === "in_service" ? (
                           <>
                             <button
                               type="button"
-                              onClick={() => {
-                                setPaymentError(null);
-                                setShowPaymentModal(q);
-                              }}
-                              className="inline-flex items-center gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
+                              onClick={() => { setPaymentError(null); setShowPaymentModal(q); }}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
                             >
-                              <Banknote className="h-4 w-4 shrink-0" /> Receive payment
+                              <Banknote className="h-3.5 w-3.5" /> Receive payment
                             </button>
                             <button
                               type="button"
                               onClick={() => setShowAssignModal(q)}
-                              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-gray-400 transition hover:text-white"
+                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
                             >
                               Reassign
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-red-400 transition hover:text-red-300"
+                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                             >
-                              <XCircle className="mr-1 inline h-3.5 w-3.5" /> Cancel
+                              <XCircle className="mr-1 inline h-3 w-3" /> Cancel
                             </button>
                           </>
                         ) : q.status === "waiting" && q.assigned_staff_id ? (
@@ -733,23 +750,23 @@ export default function QueuePage() {
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "in_service")}
-                              className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110"
+                              className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                             >
                               Start Service
                             </button>
                             <button
                               type="button"
                               onClick={() => setShowAssignModal(q)}
-                              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-gray-400 transition hover:text-white"
+                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
                             >
                               Reassign
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-red-400 transition hover:text-red-300"
+                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                             >
-                              <XCircle className="mr-1 inline h-3.5 w-3.5" /> Remove
+                              <XCircle className="mr-1 inline h-3 w-3" /> Remove
                             </button>
                           </>
                         ) : (
@@ -757,26 +774,26 @@ export default function QueuePage() {
                             <button
                               type="button"
                               onClick={() => setShowAssignModal(q)}
-                              className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110"
+                              className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                             >
                               Assign Barber
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-red-400 transition hover:text-red-300"
+                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                             >
-                              <XCircle className="mr-1 inline h-3.5 w-3.5" /> Remove
+                              <XCircle className="mr-1 inline h-3 w-3" /> Remove
                             </button>
                           </>
                         )}
                       </div>
                     )}
                     {q.status === "completed" && (
-                      <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
+                      <div className="mt-3 flex gap-1.5 border-t border-white/5 pt-3">
                         <Link
                           href={buildPosPaymentHref(q)}
-                          className="rounded-lg bg-[#D4AF37] px-4 py-2 text-xs font-bold text-[#111] transition hover:brightness-110"
+                          className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                         >
                           Proceed to Payment
                         </Link>
@@ -789,63 +806,49 @@ export default function QueuePage() {
           )}
         </div>
 
-        <div className="space-y-6">
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold text-white">Barber Availability</h3>
-            </div>
-            <div className="space-y-3">
+        <div className="space-y-4">
+          <Card className="p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Barber Availability</h3>
+            <div className="space-y-2">
               {barberStatus.map((b) => (
                 <div
                   key={b.id}
-                  className={`rounded-lg border p-4 transition ${statusBadge[b.status]}`}
+                  className="flex items-center gap-3 rounded-lg border border-white/5 bg-[#111] p-3"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-sm font-bold text-white">
-                      {b.full_name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-white">{b.full_name}</p>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge[b.status]}`}
-                        >
-                          {b.status === "available" ? "Available" : b.status === "busy" ? "Serving" : "On Break"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">{b.role}</p>
-                    </div>
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-xs font-bold text-white">
+                    {b.full_name.charAt(0)}
                   </div>
-                  <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="text-gray-400">
-                      {b.servingCustomer ? `Serving: ${b.servingCustomer}` : `Today: ${b.role}`}
-                    </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{b.full_name}</p>
+                    <p className="text-[11px] text-gray-500">
+                      {b.servingCustomer ? `Serving ${b.servingCustomer}` : b.role}
+                    </p>
                   </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${statusBadge[b.status]}`}>
+                    {b.status === "available" ? "Free" : b.status === "busy" ? "Busy" : "Break"}
+                  </span>
                 </div>
               ))}
             </div>
           </Card>
 
           {nowServing && (
-            <Card className="border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/10 to-transparent p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#D4AF37]">Now Serving</h3>
-              <div className="mt-3 flex items-end justify-between">
-                <p className="text-5xl font-black text-[#D4AF37]">{nowServing.queue_number}</p>
-                <Users className="h-6 w-6 text-[#D4AF37]/60" />
+            <Card className="border-[#D4AF37]/25 bg-gradient-to-br from-[#D4AF37]/8 to-transparent p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Now Serving</h3>
+                <Users className="h-3.5 w-3.5 text-[#D4AF37]/50" />
               </div>
-              <p className="mt-2 text-lg font-semibold text-white">
-                {nowServing.customer?.full_name ?? "Walk-in Guest"}
-              </p>
-              <p className="text-sm text-gray-400 mt-1">
-                Barber: {nowServing.assigned_staff?.full_name ?? "—"}
-              </p>
-              <Link
-                href={queueBoardHref}
-                target="_blank"
-                className="mt-4 flex items-center gap-1 text-xs font-medium text-[#D4AF37] transition hover:text-[#D4AF37]/80"
-              >
-                Open queue board <MoveRight className="h-3.5 w-3.5" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <p className="text-4xl font-black text-[#D4AF37] leading-none">{nowServing.queue_number}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">
+                    {nowServing.customer?.full_name ?? "Walk-in Guest"}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {nowServing.assigned_staff?.full_name ?? "Unassigned"}
+                  </p>
+                </div>
+              </div>
             </Card>
           )}
         </div>
