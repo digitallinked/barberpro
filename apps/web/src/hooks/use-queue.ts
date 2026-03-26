@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
 import { getQueueTickets, getQueueStats, getQueueTicketsForBranch } from "@/services/queue";
+import { getSeats } from "@/actions/seats";
 
 export function useQueueTickets() {
   const supabase = useSupabase();
@@ -26,6 +27,17 @@ export function useQueueStats() {
     queryFn: () => getQueueStats(supabase, tenantId, branchId!),
     enabled: !!branchId,
     refetchInterval: 10_000,
+  });
+}
+
+export function useSeats() {
+  const { branchId } = useTenant();
+
+  return useQuery({
+    queryKey: ["branch-seats", branchId],
+    queryFn: () => getSeats(branchId),
+    enabled: !!branchId,
+    refetchInterval: 15_000,
   });
 }
 

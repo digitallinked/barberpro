@@ -12,11 +12,11 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
 
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from("branches").select("name").eq("checkin_token", token).maybeSingle();
+    const { data } = await admin.from("branches").select("id, name").eq("checkin_token", token).maybeSingle();
     if (!data?.name) notFound();
     return (
       <div className="min-h-screen bg-[#0a0a0a] px-4 py-12">
-        <CheckInForm branchName={data.name} token={token} />
+        <CheckInForm branchName={data.name} branchId={data.id} token={token} />
       </div>
     );
   } catch {

@@ -3,7 +3,7 @@ export { useCustomers, useCustomerStats } from "./use-customers";
 export { useStaffMembers, useStaffMember, useStaffStats } from "./use-staff";
 export { useBranches, useBranch } from "./use-branches";
 export { useServices, useServiceCategories } from "./use-catalog";
-export { useQueueTickets, useQueueStats, useQueueBoard } from "./use-queue";
+export { useQueueTickets, useQueueStats, useQueueBoard, useSeats } from "./use-queue";
 export { useTransactions, useDashboardStats, useDailyRevenue } from "./use-transactions";
 export { useExpenses, useExpenseStats } from "./use-expenses";
 export { useInventoryItems, useInventoryStats } from "./use-inventory";

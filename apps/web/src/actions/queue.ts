@@ -81,7 +81,8 @@ export async function createQueueTicket(formData: FormData) {
 export async function updateQueueStatus(
   id: string,
   status: string,
-  assignedStaffId?: string
+  assignedStaffId?: string,
+  seatId?: string | null
 ) {
   try {
     const { supabase, tenantId } = await getAuthContext();
@@ -93,6 +94,10 @@ export async function updateQueueStatus(
 
     if (assignedStaffId !== undefined) {
       updateData.assigned_staff_id = assignedStaffId || null;
+    }
+
+    if (seatId !== undefined) {
+      updateData.seat_id = seatId || null;
     }
 
     if (status === "in_service") {

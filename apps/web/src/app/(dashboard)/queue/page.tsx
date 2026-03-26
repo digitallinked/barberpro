@@ -6,7 +6,10 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  Armchair,
   MoveRight,
+  Pencil,
+  Plus,
   QrCode,
   RefreshCw,
   Scissors,
@@ -26,6 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useQueueTickets,
   useQueueStats,
+  useSeats,
   useStaffMembers,
   useServices
 } from "@/hooks";
@@ -38,6 +42,7 @@ import {
   rotateQueueCheckinToken,
   updateQueueStatus
 } from "@/actions/queue";
+import { upsertSeat, deleteSeat, assignBarberToSeat, type BranchSeat } from "@/actions/seats";
 import { formatShopDateLabel, formatShopTimeLabel } from "@/lib/shop-day";
 import type { QueueTicketWithRelations } from "@/services/queue";
 
@@ -85,6 +90,7 @@ export default function QueuePage() {
   const { data: statsData } = useQueueStats();
   const { data: staffData } = useStaffMembers();
   const { data: servicesData } = useServices();
+  const { data: seatsData, refetch: refetchSeats } = useSeats();
 
   const tickets = ticketsData?.data ?? [];
   const stats = statsData?.data ?? { waiting: 0, inProgress: 0, completed: 0 };
@@ -141,6 +147,17 @@ export default function QueuePage() {
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [staleSubmitting, setStaleSubmitting] = useState(false);
+  // Seat management state
+  const [showSeatForm, setShowSeatForm] = useState(false);
+  const [editingSeat, setEditingSeat] = useState<BranchSeat | null>(null);
+  const [seatFormNumber, setSeatFormNumber] = useState("");
+  const [seatFormLabel, setSeatFormLabel] = useState("");
+  const [seatFormBarber, setSeatFormBarber] = useState("");
+  const [seatFormSubmitting, setSeatFormSubmitting] = useState(false);
+  const [seatFormError, setSeatFormError] = useState<string | null>(null);
+  // Assign modal: selected barber + seat
+  const [assignSelectedBarber, setAssignSelectedBarber] = useState<string>("");
+  const [assignSelectedSeat, setAssignSelectedSeat] = useState<string>("");
   /** Avoid hydration mismatch: server vs client `new Date()` differ; show clock only after mount. */
   const [clockReady, setClockReady] = useState(false);
   const [clock, setClock] = useState(() => new Date());
@@ -200,14 +217,73 @@ export default function QueuePage() {
   async function handleUpdateStatus(
     ticketId: string,
     status: string,
-    assignedStaffId?: string
+    assignedStaffId?: string,
+    seatId?: string | null
   ) {
-    const result = await updateQueueStatus(ticketId, status, assignedStaffId);
+    const result = await updateQueueStatus(ticketId, status, assignedStaffId, seatId);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
       setShowAssignModal(null);
+      setAssignSelectedBarber("");
+      setAssignSelectedSeat("");
     }
+  }
+
+  async function handleSeatFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!branchId) return;
+    setSeatFormError(null);
+    setSeatFormSubmitting(true);
+    const result = await upsertSeat({
+      id: editingSeat?.id,
+      branchId,
+      seatNumber: parseInt(seatFormNumber, 10),
+      label: seatFormLabel,
+      staffProfileId: seatFormBarber || null,
+    });
+    setSeatFormSubmitting(false);
+    if (result.success) {
+      void refetchSeats();
+      setShowSeatForm(false);
+      setEditingSeat(null);
+      setSeatFormNumber("");
+      setSeatFormLabel("");
+      setSeatFormBarber("");
+    } else {
+      setSeatFormError(result.error ?? "Failed to save seat");
+    }
+  }
+
+  function openNewSeatForm() {
+    setEditingSeat(null);
+    const seats = seatsData?.data ?? [];
+    const nextNum = seats.length > 0 ? Math.max(...seats.map((s) => s.seat_number)) + 1 : 1;
+    setSeatFormNumber(String(nextNum));
+    setSeatFormLabel(`Seat ${nextNum}`);
+    setSeatFormBarber("");
+    setSeatFormError(null);
+    setShowSeatForm(true);
+  }
+
+  function openEditSeatForm(seat: BranchSeat) {
+    setEditingSeat(seat);
+    setSeatFormNumber(String(seat.seat_number));
+    setSeatFormLabel(seat.label || `Seat ${seat.seat_number}`);
+    setSeatFormBarber(seat.staff_profile_id ?? "");
+    setSeatFormError(null);
+    setShowSeatForm(true);
+  }
+
+  async function handleDeleteSeat(seatId: string) {
+    if (!confirm("Remove this seat? This cannot be undone.")) return;
+    await deleteSeat(seatId);
+    void refetchSeats();
+  }
+
+  async function handleAssignBarberToSeat(seatId: string, staffProfileId: string | null) {
+    await assignBarberToSeat(seatId, staffProfileId);
+    void refetchSeats();
   }
 
   async function openQrModal() {
@@ -749,7 +825,11 @@ export default function QueuePage() {
                           <>
                             <button
                               type="button"
-                              onClick={() => handleUpdateStatus(q.id, "in_service")}
+                              onClick={() => {
+                                setAssignSelectedBarber(q.assigned_staff_id ?? "");
+                                setAssignSelectedSeat(q.seat_id ?? "");
+                                setShowAssignModal(q);
+                              }}
                               className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                             >
                               Start Service
@@ -807,6 +887,95 @@ export default function QueuePage() {
         </div>
 
         <div className="space-y-4">
+          {/* Seats card */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <Armchair className="h-3.5 w-3.5 text-[#D4AF37]" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Seats</h3>
+              </div>
+              <button
+                type="button"
+                onClick={openNewSeatForm}
+                className="flex items-center gap-1 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/20 transition"
+              >
+                <Plus className="h-3 w-3" /> Add Seat
+              </button>
+            </div>
+            {(seatsData?.data ?? []).length === 0 ? (
+              <p className="text-[11px] text-gray-600 text-center py-3">No seats configured. Add seats to track barber stations.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {(seatsData?.data ?? []).map((seat) => {
+                  const isOccupied = tickets.some(
+                    (t) => t.seat_id === seat.id && t.status === "in_service"
+                  );
+                  const servingTicket = tickets.find(
+                    (t) => t.seat_id === seat.id && t.status === "in_service"
+                  );
+                  return (
+                    <div
+                      key={seat.id}
+                      className={`flex items-center gap-2.5 rounded-lg border p-2.5 ${
+                        !seat.is_active
+                          ? "border-white/5 bg-[#111] opacity-50"
+                          : isOccupied
+                            ? "border-blue-500/30 bg-blue-500/5"
+                            : seat.staff_profile_id
+                              ? "border-white/5 bg-[#111]"
+                              : "border-dashed border-white/10 bg-[#0d0d0d]"
+                      }`}
+                    >
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
+                        isOccupied ? "bg-blue-500 text-white" : seat.is_active ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "bg-[#2a2a2a] text-gray-600"
+                      }`}>
+                        {seat.seat_number}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">{seat.label || `Seat ${seat.seat_number}`}</p>
+                        <p className="text-[10px] truncate">
+                          {isOccupied && servingTicket ? (
+                            <span className="text-blue-400">{servingTicket.customer?.full_name ?? "Walk-in"}</span>
+                          ) : seat.barber_name ? (
+                            <span className="text-gray-500">{seat.barber_name}</span>
+                          ) : (
+                            <span className="text-gray-700">No barber assigned</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isOccupied ? (
+                          <span className="rounded-full bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-400">Live</span>
+                        ) : !seat.is_active ? (
+                          <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-600">Off</span>
+                        ) : seat.staff_profile_id ? (
+                          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400">Free</span>
+                        ) : (
+                          <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-500">Empty</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openEditSeatForm(seat)}
+                          className="rounded p-1 text-gray-600 hover:text-gray-300 hover:bg-white/5 transition"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteSeat(seat.id)}
+                          className="rounded p-1 text-gray-600 hover:text-red-400 hover:bg-red-500/5 transition"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Barber Availability */}
           <Card className="p-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Barber Availability</h3>
             <div className="space-y-2">
@@ -845,7 +1014,11 @@ export default function QueuePage() {
                     {nowServing.customer?.full_name ?? "Walk-in Guest"}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
-                    {nowServing.assigned_staff?.full_name ?? "Unassigned"}
+                    {nowServing.assigned_staff?.full_name
+                      ? nowServing.assigned_staff.full_name
+                      : nowServing.seat
+                        ? (nowServing.seat.label || `Seat ${nowServing.seat.seat_number}`)
+                        : "No barber assigned"}
                   </p>
                 </div>
               </div>
@@ -1091,50 +1264,172 @@ export default function QueuePage() {
         </div>
       )}
 
-      {/* Assign Barber Modal */}
+      {/* Assign Barber + Seat Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-white">Assign Barber</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  {showAssignModal.status === "in_service" ? "Reassign" : "Assign Barber & Seat"}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {showAssignModal.queue_number} · {showAssignModal.customer?.full_name ?? "Walk-in Guest"}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowAssignModal(null)}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                onClick={() => { setShowAssignModal(null); setAssignSelectedBarber(""); setAssignSelectedSeat(""); }}
+                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-white/5 hover:text-white"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="mb-4 text-sm text-gray-400">
-              {showAssignModal.queue_number} – {showAssignModal.customer?.full_name ?? "Walk-in"}
-            </p>
-            <div className="space-y-2">
+
+            {/* Barber selection */}
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Select Barber</p>
+            <div className="space-y-1.5 mb-4">
               {barbers.map((b) => (
                 <button
                   key={b.id}
                   type="button"
-                  onClick={() => {
-                    const status = showAssignModal.status === "in_service" ? "in_service" : "waiting";
-                    handleUpdateStatus(showAssignModal.id, status, b.staff_profile_id);
-                    setShowAssignModal(null);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-[#111] p-3 text-left transition hover:border-[#D4AF37]/30"
+                  onClick={() => setAssignSelectedBarber(b.staff_profile_id)}
+                  className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${
+                    assignSelectedBarber === b.staff_profile_id
+                      ? "border-[#D4AF37]/50 bg-[#D4AF37]/10"
+                      : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
+                  }`}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/10 text-sm font-bold text-[#D4AF37]">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    assignSelectedBarber === b.staff_profile_id ? "bg-[#D4AF37] text-[#111]" : "bg-[#D4AF37]/10 text-[#D4AF37]"
+                  }`}>
                     {b.full_name.charAt(0)}
                   </div>
-                  <div>
-                    <p className="font-medium text-white">{b.full_name}</p>
-                    <p className="text-xs text-gray-500">{b.role}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">{b.full_name}</p>
+                    <p className="text-[10px] text-gray-500">{b.role}</p>
                   </div>
                   {busyStaffIds.has(b.staff_profile_id) && (
-                    <span className="ml-auto rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] text-red-400">
-                      Busy
-                    </span>
+                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] text-red-400">Busy</span>
                   )}
                 </button>
               ))}
             </div>
+
+            {/* Seat selection (only shown when starting service and seats exist) */}
+            {(seatsData?.data ?? []).length > 0 && (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Assign Seat <span className="normal-case font-normal text-gray-600">(optional)</span></p>
+                <div className="grid grid-cols-3 gap-1.5 mb-4">
+                  {(seatsData?.data ?? []).filter((s) => s.is_active).map((seat) => {
+                    const occupied = tickets.some((t) => t.seat_id === seat.id && t.status === "in_service" && t.id !== showAssignModal.id);
+                    return (
+                      <button
+                        key={seat.id}
+                        type="button"
+                        disabled={occupied}
+                        onClick={() => setAssignSelectedSeat(assignSelectedSeat === seat.id ? "" : seat.id)}
+                        className={`rounded-lg border p-2 text-center transition ${
+                          occupied
+                            ? "border-red-500/20 bg-red-500/5 opacity-50 cursor-not-allowed"
+                            : assignSelectedSeat === seat.id
+                              ? "border-[#D4AF37]/50 bg-[#D4AF37]/15"
+                              : "border-white/10 bg-[#111] hover:border-white/20"
+                        }`}
+                      >
+                        <p className={`text-base font-black ${assignSelectedSeat === seat.id ? "text-[#D4AF37]" : "text-white"}`}>{seat.seat_number}</p>
+                        <p className="text-[9px] text-gray-500 truncate">{seat.label || `Seat ${seat.seat_number}`}</p>
+                        {occupied && <p className="text-[8px] text-red-400">Busy</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowAssignModal(null); setAssignSelectedBarber(""); setAssignSelectedSeat(""); }}
+                className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!assignSelectedBarber}
+                onClick={() => {
+                  if (!assignSelectedBarber) return;
+                  const status = showAssignModal.status === "in_service" ? "in_service" : "waiting";
+                  void handleUpdateStatus(showAssignModal.id, status, assignSelectedBarber, assignSelectedSeat || null);
+                }}
+                className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-40"
+              >
+                {showAssignModal.status === "in_service" ? "Reassign" : "Assign"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Seat Form Modal */}
+      {showSeatForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-white">{editingSeat ? "Edit Seat" : "Add Seat"}</h3>
+              <button type="button" onClick={() => setShowSeatForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-white/5 transition">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={(e) => void handleSeatFormSubmit(e)} className="space-y-4">
+              {seatFormError && (
+                <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">{seatFormError}</div>
+              )}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Seat Number</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  required
+                  value={seatFormNumber}
+                  onChange={(e) => setSeatFormNumber(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Label</label>
+                <input
+                  type="text"
+                  maxLength={40}
+                  required
+                  value={seatFormLabel}
+                  onChange={(e) => setSeatFormLabel(e.target.value)}
+                  placeholder="e.g. Seat 1 or VIP Chair"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Assigned Barber <span className="text-gray-600">(optional)</span></label>
+                <select
+                  value={seatFormBarber}
+                  onChange={(e) => setSeatFormBarber(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                >
+                  <option value="">— No barber —</option>
+                  {barbers.map((b) => (
+                    <option key={b.id} value={b.staff_profile_id}>{b.full_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setShowSeatForm(false)} className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition">Cancel</button>
+                <button type="submit" disabled={seatFormSubmitting} className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50 transition">
+                  {seatFormSubmitting ? "Saving…" : editingSeat ? "Save Changes" : "Add Seat"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

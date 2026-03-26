@@ -177,12 +177,13 @@ export async function POST(request: Request) {
         status: "waiting",
         party_size,
       })
-      .select("id, queue_number")
+      .select("id, queue_number, branch_id")
       .single();
 
     if (!ticketError && ticket) {
       return NextResponse.json({
         success: true,
+        ticket_id: ticket.id,
         queue_number: ticket.queue_number,
         branch_name: branch.name,
       });

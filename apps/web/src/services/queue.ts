@@ -13,6 +13,7 @@ export type QueueTicketWithRelations = {
   service_id: string | null;
   assigned_staff_id: string | null;
   preferred_staff_id: string | null;
+  seat_id: string | null;
   estimated_wait_min: number | null;
   party_size: number;
   called_at: string | null;
@@ -22,6 +23,7 @@ export type QueueTicketWithRelations = {
   customer: { full_name: string; phone: string } | null;
   assigned_staff: { full_name: string } | null;
   service: { name: string; price: number } | null;
+  seat: { seat_number: number; label: string } | null;
 };
 
 function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations {
@@ -30,6 +32,7 @@ function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations 
   const appUser = staffProfile?.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
   const staffName = Array.isArray(appUser) ? appUser[0] : appUser;
   const service = row.services as Record<string, unknown> | null;
+  const seat = row.branch_seats as Record<string, unknown> | null;
 
   return {
     id: row.id as string,
@@ -40,6 +43,7 @@ function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations 
     service_id: row.service_id as string | null,
     assigned_staff_id: row.assigned_staff_id as string | null,
     preferred_staff_id: row.preferred_staff_id as string | null,
+    seat_id: row.seat_id as string | null,
     estimated_wait_min: row.estimated_wait_min as number | null,
     party_size: typeof row.party_size === "number" ? row.party_size : 1,
     called_at: row.called_at as string | null,
@@ -53,6 +57,7 @@ function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations 
       ? { full_name: (staffName as Record<string, unknown>).full_name as string }
       : null,
     service: service ? { name: service.name as string, price: Number(service.price ?? 0) } : null,
+    seat: seat ? { seat_number: seat.seat_number as number, label: seat.label as string } : null,
   };
 }
 
@@ -75,6 +80,7 @@ export async function getQueueTickets(
       service_id,
       assigned_staff_id,
       preferred_staff_id,
+      seat_id,
       estimated_wait_min,
       party_size,
       called_at,
@@ -83,7 +89,8 @@ export async function getQueueTickets(
       updated_at,
       customers (full_name, phone),
       staff_profiles (app_users (full_name)),
-      services (name, price)
+      services (name, price),
+      branch_seats (seat_number, label)
     `
     )
     .eq("tenant_id", tenantId)
@@ -111,6 +118,7 @@ export async function getQueueTickets(
       service_id,
       assigned_staff_id,
       preferred_staff_id,
+      seat_id,
       estimated_wait_min,
       party_size,
       called_at,
@@ -144,6 +152,25 @@ export async function getQueueTickets(
     }
   }
 
+  // Fetch staff names separately (staff_profiles → app_users join may be RLS-blocked).
+  const staffIds = (baseData ?? [])
+    .map((r) => (r as Record<string, unknown>).assigned_staff_id as string | null)
+    .filter((id): id is string => !!id);
+
+  const staffMap = new Map<string, string>();
+  if (staffIds.length > 0) {
+    const { data: staffRows } = await client
+      .from("staff_profiles")
+      .select("id, app_users (full_name)")
+      .in("id", staffIds);
+    for (const s of staffRows ?? []) {
+      const row = s as Record<string, unknown>;
+      const au = row.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
+      const appUser = Array.isArray(au) ? au[0] : au;
+      if (appUser?.full_name) staffMap.set(s.id, appUser.full_name as string);
+    }
+  }
+
   const tickets: QueueTicketWithRelations[] = (baseData ?? []).map((row: Record<string, unknown>) => ({
     id: row.id as string,
     queue_number: row.queue_number as string,
@@ -153,6 +180,7 @@ export async function getQueueTickets(
     service_id: row.service_id as string | null,
     assigned_staff_id: row.assigned_staff_id as string | null,
     preferred_staff_id: row.preferred_staff_id as string | null,
+    seat_id: row.seat_id as string | null,
     estimated_wait_min: row.estimated_wait_min as number | null,
     party_size: typeof row.party_size === "number" ? row.party_size : 1,
     called_at: row.called_at as string | null,
@@ -160,8 +188,11 @@ export async function getQueueTickets(
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     customer: customerMap.get(row.customer_id as string) ?? null,
-    assigned_staff: null,
+    assigned_staff: staffMap.has(row.assigned_staff_id as string)
+      ? { full_name: staffMap.get(row.assigned_staff_id as string)! }
+      : null,
     service: null,
+    seat: null,
   }));
 
   return { data: tickets, error: null };
