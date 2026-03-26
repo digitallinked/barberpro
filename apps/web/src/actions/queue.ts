@@ -132,12 +132,13 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     const paymentMethod = paymentMethodForDb(rawPaymentMethod);
     const amountDue = Number(formData.get("amount_due")) || 0;
     const amountReceived = Number(formData.get("amount_received")) || 0;
-    const paymentProof = formData.get("payment_proof");
+    // proof_storage_path is a string set by the client after uploading the file directly to Supabase Storage
+    const proofStoragePath = (formData.get("proof_storage_path") as string) || null;
 
     if (!ticketId) return { success: false, error: "Ticket is required" };
     if (amountDue <= 0) return { success: false, error: "Amount due must be greater than 0" };
     if (amountReceived < amountDue) return { success: false, error: "Amount received is less than amount due" };
-    if (paymentMethod === "duitnow_qr" && (!(paymentProof instanceof File) || paymentProof.size === 0)) {
+    if (paymentMethod === "duitnow_qr" && !proofStoragePath) {
       return { success: false, error: "Payment proof image is required for QR payment" };
     }
 
@@ -258,22 +259,8 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
       if (itemError) return { success: false, error: itemError.message };
     }
 
-    let warning: string | null = null;
-    if (paymentProof instanceof File && paymentProof.size > 0) {
-      const safeName = paymentProof.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-      const path = `${tenantId}/${transaction.id}/${Date.now()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("payment-proofs")
-        .upload(path, paymentProof, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: paymentProof.type || "image/jpeg",
-        });
-
-      if (uploadError) {
-        warning = "Payment saved, but proof upload failed. Create Supabase bucket 'payment-proofs'.";
-      }
-    }
+    // The proof file was already uploaded client-side; proofStoragePath holds its storage key.
+    const warning: string | null = null;
 
     const { error: queueError } = await supabase
       .from("queue_tickets")

@@ -31,7 +31,8 @@ import {
   useQueueStats,
   useSeats,
   useStaffMembers,
-  useServices
+  useServices,
+  useSupabase,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import {
@@ -88,7 +89,8 @@ function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
 
 export default function QueuePage() {
   const queryClient = useQueryClient();
-  const { branchId, branchName, tenantName } = useTenant();
+  const supabase = useSupabase();
+  const { branchId, branchName, tenantName, tenantId } = useTenant();
   const { data: ticketsData, isLoading: ticketsLoading } = useQueueTickets();
   const { data: statsData } = useQueueStats();
   const { data: staffData } = useStaffMembers();
@@ -581,13 +583,41 @@ export default function QueuePage() {
 
     const fd = new FormData(e.currentTarget);
     const method = (fd.get("payment_method") as string) || "cash";
-    const proof = fd.get("payment_proof");
+    const proofFile = fd.get("payment_proof");
 
-    if (method === "qr" && (!(proof instanceof File) || proof.size === 0)) {
+    if (method === "qr" && (!(proofFile instanceof File) || proofFile.size === 0)) {
       setPaymentSubmitting(false);
       setPaymentError("Please upload payment proof for QR payment.");
       return;
     }
+
+    // Upload the proof image client-side to avoid sending a large file through the server action.
+    if (proofFile instanceof File && proofFile.size > 0) {
+      const safeName = proofFile.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(0, 96) || "receipt.jpg";
+      const objectPath = `${tenantId}/queue-pay/${globalThis.crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("payment-proofs")
+        .upload(objectPath, proofFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: proofFile.type || "image/jpeg",
+        });
+
+      if (uploadError) {
+        setPaymentSubmitting(false);
+        setPaymentError(
+          uploadError.message.includes("Bucket not found")
+            ? "Receipt storage is not set up. Ask an admin to create the payment-proofs bucket."
+            : `Could not upload proof: ${uploadError.message}`
+        );
+        return;
+      }
+
+      fd.set("proof_storage_path", objectPath);
+    }
+
+    // Remove the raw File so it isn't serialized through the server action body.
+    fd.delete("payment_proof");
 
     const result = await completeQueueTicketWithPayment(fd);
     setPaymentSubmitting(false);
