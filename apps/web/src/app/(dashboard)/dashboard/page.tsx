@@ -1,26 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import {
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
   BarChart2,
   BookOpen,
   CalendarPlus,
   CircleDollarSign,
   CreditCard,
   PlusCircle,
-  Receipt,
   ShoppingCart,
   Timer,
-  TrendingDown,
-  TrendingUp,
   Users
 } from "lucide-react";
 import Link from "next/link";
 
 import {
   useDashboardStats,
+  useDailyRevenue,
   useTransactions,
   useStaffMembers,
   useInventoryItems,
@@ -29,6 +26,7 @@ import {
   useQueueStats
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
+import type { Period } from "@/services/transactions";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -64,21 +62,30 @@ function formatDate(iso: string): string {
 
 // ─── Mini bar chart ───────────────────────────────────────────────────────────
 
-function MiniChart() {
-  const bars = [60, 82, 55, 90, 78, 95, 70];
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
+  const maxRevenue = Math.max(...bars.map((b) => b.revenue), 1);
   const maxH = 80;
+  const today = new Date();
+  const myNow = new Date(today.getTime() + 8 * 60 * 60 * 1000);
+  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const myDayOfWeek = myNow.getUTCDay();
+  const todayLabel = dayLabels[myDayOfWeek === 0 ? 6 : myDayOfWeek - 1];
+
   return (
     <div className="flex h-28 items-end gap-2">
-      {bars.map((v, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1">
-          <div
-            style={{ height: `${(v / 100) * maxH}px` }}
-            className={`w-full rounded-t transition-all ${i === 5 ? "bg-[#D4AF37]" : "bg-[#D4AF37]/20"}`}
-          />
-          <span className="text-[9px] text-gray-600">{days[i]}</span>
-        </div>
-      ))}
+      {bars.map((b, i) => {
+        const isToday = b.label === todayLabel || (bars.length > 7 && i === bars.length - 1);
+        const height = Math.max((b.revenue / maxRevenue) * maxH, b.revenue > 0 ? 4 : 2);
+        return (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <div
+              style={{ height: `${height}px` }}
+              className={`w-full rounded-t transition-all ${isToday ? "bg-[#D4AF37]" : "bg-[#D4AF37]/20"}`}
+            />
+            <span className="text-[9px] text-gray-600">{b.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -94,9 +101,38 @@ const QUICK_ACTIONS = [
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
+const PERIODS: { label: string; value: Period }[] = [
+  { label: "Today", value: "today" },
+  { label: "Week", value: "week" },
+  { label: "Month", value: "month" },
+];
+
+const PERIOD_LABELS: Record<Period, { revenue: string; customers: string; transactions: string; chart: string }> = {
+  today: {
+    revenue: "Today's Revenue",
+    customers: "Customers Today",
+    transactions: "Total Transactions",
+    chart: "Daily revenue comparison with last week",
+  },
+  week: {
+    revenue: "This Week's Revenue",
+    customers: "Customers This Week",
+    transactions: "Transactions This Week",
+    chart: "Daily revenue for this week",
+  },
+  month: {
+    revenue: "This Month's Revenue",
+    customers: "Customers This Month",
+    transactions: "Transactions This Month",
+    chart: "Daily revenue for this month",
+  },
+};
+
 export default function DashboardPage() {
+  const [period, setPeriod] = useState<Period>("today");
   const { userName, branchName } = useTenant();
-  const { data: statsData, isLoading: statsLoading } = useDashboardStats();
+  const { data: statsData, isLoading: statsLoading } = useDashboardStats(period);
+  const { data: chartData } = useDailyRevenue(period);
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
   const { data: staffData, isLoading: staffLoading } = useStaffMembers();
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
@@ -116,6 +152,7 @@ export default function DashboardPage() {
     (i) => i.stock_qty != null && i.reorder_level != null && i.stock_qty <= i.reorder_level
   );
   const barbers = staffMembers.filter((s) => /barber/i.test(s.role ?? ""));
+  const chartBars = chartData?.data ?? [];
 
   const isLoading =
     statsLoading ||
@@ -143,19 +180,23 @@ export default function DashboardPage() {
           </h2>
           <p className="mt-1 text-sm text-gray-400">
             Here&apos;s what&apos;s happening at{" "}
-            <span className="font-medium text-[#D4AF37]">{branchName ?? "your branch"}</span> today.
+            <span className="font-medium text-[#D4AF37]">{branchName ?? "your branch"}</span>{" "}
+            {period === "today" ? "today" : period === "week" ? "this week" : "this month"}.
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-white/5 bg-[#1a1a1a] p-1">
-          {["Today", "Week", "Month"].map((p, i) => (
+          {PERIODS.map(({ label, value }) => (
             <button
-              key={p}
+              key={value}
               type="button"
+              onClick={() => setPeriod(value)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                i === 0 ? "bg-[#2a2a2a] text-white shadow-sm" : "text-gray-400 hover:text-white"
+                period === value
+                  ? "bg-[#2a2a2a] text-white shadow-sm"
+                  : "text-gray-400 hover:text-white"
               }`}
             >
-              {p}
+              {label}
             </button>
           ))}
         </div>
@@ -166,7 +207,7 @@ export default function DashboardPage() {
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
           <div className="flex items-start justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Today&apos;s Revenue
+              {PERIOD_LABELS[period].revenue}
             </p>
             <span className="rounded-lg p-2 bg-emerald-500/10">
               <CircleDollarSign className="h-4 w-4 text-emerald-400" />
@@ -177,13 +218,13 @@ export default function DashboardPage() {
               {stats ? formatAmount(stats.todayRevenue) : "RM 0.00"}
             </h3>
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">Today&apos;s total sales</p>
+          <p className="mt-1.5 text-xs text-gray-500">Total sales</p>
         </Card>
 
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
           <div className="flex items-start justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Customers Today
+              {PERIOD_LABELS[period].customers}
             </p>
             <span className="rounded-lg p-2 bg-blue-500/10">
               <Users className="h-4 w-4 text-blue-400" />
@@ -200,7 +241,7 @@ export default function DashboardPage() {
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
           <div className="flex items-start justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Total Transactions
+              {PERIOD_LABELS[period].transactions}
             </p>
             <span className="rounded-lg p-2 bg-purple-500/10">
               <CircleDollarSign className="h-4 w-4 text-purple-400" />
@@ -211,7 +252,9 @@ export default function DashboardPage() {
               {stats?.totalTransactions ?? 0}
             </h3>
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">Today</p>
+          <p className="mt-1.5 text-xs text-gray-500">
+            {period === "today" ? "Today" : period === "week" ? "This week" : "This month"}
+          </p>
         </Card>
 
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
@@ -246,20 +289,26 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bold text-white">Sales &amp; Revenue</h3>
                 <p className="mt-0.5 text-sm text-gray-500">
-                  Daily revenue comparison with last week
+                  {PERIOD_LABELS[period].chart}
                 </p>
               </div>
               <BarChart2 className="h-5 w-5 text-[#D4AF37]" />
             </div>
-            <MiniChart />
+            {chartBars.length > 0 ? (
+              <MiniChart bars={chartBars} />
+            ) : (
+              <div className="flex h-28 items-center justify-center text-sm text-gray-600">
+                No data yet
+              </div>
+            )}
             <div className="mt-3 flex items-center gap-4 border-t border-white/5 pt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#D4AF37]" />
-                This week
+                {period === "today" ? "Today" : period === "week" ? "This week" : "This month"}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#D4AF37]/20" />
-                Last week
+                Other days
               </span>
             </div>
           </Card>

@@ -33,6 +33,47 @@ export type DashboardStats = {
   totalTransactions: number;
 };
 
+export type DailyRevenue = {
+  label: string;
+  revenue: number;
+};
+
+export type Period = "today" | "week" | "month";
+
+const MY_OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
+
+function getMalaysiaDateRange(period: Period): { start: Date; end: Date } {
+  const now = new Date();
+  // Shift to Malaysia local time using UTC fields
+  const myNow = new Date(now.getTime() + MY_OFFSET_MS);
+  const myStartOfDay = new Date(
+    Date.UTC(myNow.getUTCFullYear(), myNow.getUTCMonth(), myNow.getUTCDate())
+  );
+  // Convert MY midnight back to UTC
+  const startOfTodayUTC = new Date(myStartOfDay.getTime() - MY_OFFSET_MS);
+  const endOfTodayUTC = new Date(startOfTodayUTC.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+  if (period === "today") {
+    return { start: startOfTodayUTC, end: endOfTodayUTC };
+  }
+
+  if (period === "week") {
+    const dayOfWeek = myStartOfDay.getUTCDay(); // 0 = Sun
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const startOfWeekUTC = new Date(
+      startOfTodayUTC.getTime() - daysFromMonday * 24 * 60 * 60 * 1000
+    );
+    return { start: startOfWeekUTC, end: endOfTodayUTC };
+  }
+
+  // month
+  const myStartOfMonth = new Date(
+    Date.UTC(myNow.getUTCFullYear(), myNow.getUTCMonth(), 1)
+  );
+  const startOfMonthUTC = new Date(myStartOfMonth.getTime() - MY_OFFSET_MS);
+  return { start: startOfMonthUTC, end: endOfTodayUTC };
+}
+
 export async function getTransactions(
   client: Client,
   tenantId: string,
@@ -110,29 +151,29 @@ export async function getTransactions(
 export async function getDashboardStats(
   client: Client,
   tenantId: string,
-  branchId?: string
+  branchId?: string,
+  period: Period = "today"
 ): Promise<{ data: DashboardStats | null; error: Error | null }> {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+  const { start, end } = getMalaysiaDateRange(period);
 
-  const query = client
+  let query = client
     .from("transactions")
     .select("id, total_amount, customer_id")
     .eq("tenant_id", tenantId)
-    .gte("created_at", startOfToday.toISOString())
-    .lte("created_at", endOfToday.toISOString());
+    .gte("created_at", start.toISOString())
+    .lte("created_at", end.toISOString());
 
-  const { data: todayTransactions, error: todayError } = branchId
-    ? await query.eq("branch_id", branchId)
-    : await query;
-
-  if (todayError) {
-    return { data: null, error: new Error(todayError.message) };
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
   }
 
-  const transactions = todayTransactions ?? [];
+  const { data, error } = await query;
+
+  if (error) {
+    return { data: null, error: new Error(error.message) };
+  }
+
+  const transactions = data ?? [];
   const todayRevenue = transactions.reduce(
     (sum: number, t: { total_amount?: number }) => sum + (t.total_amount ?? 0),
     0
@@ -143,11 +184,75 @@ export async function getDashboardStats(
   const totalTransactions = transactions.length;
 
   return {
-    data: {
-      todayRevenue,
-      todayCustomers,
-      totalTransactions,
-    },
+    data: { todayRevenue, todayCustomers, totalTransactions },
     error: null,
   };
+}
+
+export async function getDailyRevenue(
+  client: Client,
+  tenantId: string,
+  branchId?: string,
+  period: Period = "today"
+): Promise<{ data: DailyRevenue[] | null; error: Error | null }> {
+  const { start, end } = getMalaysiaDateRange(period);
+
+  let query = client
+    .from("transactions")
+    .select("created_at, total_amount")
+    .eq("tenant_id", tenantId)
+    .gte("created_at", start.toISOString())
+    .lte("created_at", end.toISOString());
+
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return { data: null, error: new Error(error.message) };
+  }
+
+  // Aggregate by day in Malaysia timezone
+  const dayMap: Record<string, number> = {};
+  for (const t of data ?? []) {
+    const myDate = new Date(new Date(t.created_at).getTime() + MY_OFFSET_MS);
+    const dayKey = `${myDate.getUTCFullYear()}-${String(myDate.getUTCMonth() + 1).padStart(2, "0")}-${String(myDate.getUTCDate()).padStart(2, "0")}`;
+    dayMap[dayKey] = (dayMap[dayKey] ?? 0) + (t.total_amount ?? 0);
+  }
+
+  const now = new Date();
+  const myNow = new Date(now.getTime() + MY_OFFSET_MS);
+  const result: DailyRevenue[] = [];
+
+  if (period === "today" || period === "week") {
+    // Build Mon–Sun labels for the current week
+    const myStartOfDay = new Date(
+      Date.UTC(myNow.getUTCFullYear(), myNow.getUTCMonth(), myNow.getUTCDate())
+    );
+    const dayOfWeek = myStartOfDay.getUTCDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(myStartOfDay.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekStart.getTime() + i * 24 * 60 * 60 * 1000);
+      const dayKey = `${day.getUTCFullYear()}-${String(day.getUTCMonth() + 1).padStart(2, "0")}-${String(day.getUTCDate()).padStart(2, "0")}`;
+      result.push({ label: dayLabels[i], revenue: dayMap[dayKey] ?? 0 });
+    }
+  } else {
+    // Month: one entry per day (up to today)
+    const year = myNow.getUTCFullYear();
+    const month = myNow.getUTCMonth();
+    const today = myNow.getUTCDate();
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+    for (let d = 1; d <= Math.min(daysInMonth, today); d++) {
+      const dayKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      result.push({ label: String(d), revenue: dayMap[dayKey] ?? 0 });
+    }
+  }
+
+  return { data: result, error: null };
 }

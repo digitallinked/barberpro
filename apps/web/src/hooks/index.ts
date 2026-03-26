@@ -4,7 +4,7 @@ export { useStaffMembers, useStaffMember, useStaffStats } from "./use-staff";
 export { useBranches, useBranch } from "./use-branches";
 export { useServices, useServiceCategories } from "./use-catalog";
 export { useQueueTickets, useQueueStats, useQueueBoard } from "./use-queue";
-export { useTransactions, useDashboardStats } from "./use-transactions";
+export { useTransactions, useDashboardStats, useDailyRevenue } from "./use-transactions";
 export { useExpenses, useExpenseStats } from "./use-expenses";
 export { useInventoryItems, useInventoryStats } from "./use-inventory";
 export { usePayrollPeriods, usePayrollEntries } from "./use-payroll";
