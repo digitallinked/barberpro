@@ -281,6 +281,7 @@ export async function getQueueTicketsForBranch(
       service_id,
       assigned_staff_id,
       preferred_staff_id,
+      seat_id,
       estimated_wait_min,
       party_size,
       called_at,
@@ -289,7 +290,8 @@ export async function getQueueTicketsForBranch(
       updated_at,
       customers (full_name, phone),
       staff_profiles (app_users (full_name)),
-      services (name, price)
+      services (name, price),
+      branch_seats (seat_number, label)
     `
     )
     .eq("branch_id", branchId)
@@ -314,6 +316,7 @@ export async function getQueueTicketsForBranch(
         service_id,
         assigned_staff_id,
         preferred_staff_id,
+        seat_id,
         estimated_wait_min,
         party_size,
         called_at,
@@ -338,6 +341,7 @@ export async function getQueueTicketsForBranch(
         service_id: row.service_id as string | null,
         assigned_staff_id: row.assigned_staff_id as string | null,
         preferred_staff_id: row.preferred_staff_id as string | null,
+        seat_id: row.seat_id as string | null,
         estimated_wait_min: row.estimated_wait_min as number | null,
         party_size: typeof row.party_size === "number" ? row.party_size : 1,
         called_at: row.called_at as string | null,
@@ -347,6 +351,7 @@ export async function getQueueTicketsForBranch(
         customer: null,
         assigned_staff: null,
         service: null,
+        seat: null,
       }));
     }
   } else {
