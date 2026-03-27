@@ -16,6 +16,7 @@ import {
   X
 } from "lucide-react";
 import { usePayrollPeriods, usePayrollEntries, useStaffMembers, useBranches } from "@/hooks";
+import { useT } from "@/lib/i18n/language-context";
 import { createPayrollPeriod, createPayrollEntry, updatePayrollPeriodStatus } from "@/actions/payroll";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -53,6 +54,7 @@ function getInitials(name: string): string {
 }
 
 export default function PayrollPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: periodsResult, isLoading: periodsLoading } = usePayrollPeriods();
   const { data: branchesResult } = useBranches();
@@ -143,8 +145,8 @@ export default function PayrollPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Payroll &amp; Commissions</h2>
-          <p className="mt-1 text-sm text-gray-400">Manage staff salaries, commissions and payouts</p>
+          <h2 className="text-2xl font-bold text-white">{t.payroll.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.payroll.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button

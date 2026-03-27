@@ -34,41 +34,48 @@ import {
   useWalkInQueueModal,
 } from "@/components/walk-in-queue-modal-context";
 import { signOut } from "@/actions/auth";
+import { useT } from "@/lib/i18n/language-context";
 
-type NavItem = { label: string; href: string; icon: React.ElementType };
+type NavItem = { labelKey: string; href: string; icon: React.ElementType };
 
-const NAV_MAIN: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: Home },
-  { label: "Queue", href: "/queue", icon: ClipboardList },
-  { label: "POS", href: "/pos", icon: CreditCard },
-  { label: "Appointments", href: "/appointments", icon: CalendarCheck2 },
-  { label: "Services", href: "/services", icon: Scissors },
-  { label: "Customers", href: "/customers", icon: Contact2 },
-  { label: "Staff", href: "/staff", icon: Users },
-];
+function useNavItems() {
+  const t = useT();
 
-const NAV_MANAGEMENT: NavItem[] = [
-  { label: "Payroll & Comm.", href: "/payroll", icon: CircleDollarSign },
-  { label: "Inventory", href: "/inventory", icon: Package },
-  { label: "Expenses", href: "/expenses", icon: Wallet },
-  { label: "Promotions", href: "/promotions", icon: Megaphone },
-  { label: "Reports", href: "/reports", icon: BarChart3 },
-  { label: "Branches", href: "/branches", icon: Store },
-];
+  const NAV_MAIN: NavItem[] = [
+    { labelKey: t.nav.dashboard, href: "/dashboard", icon: Home },
+    { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList },
+    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard },
+    { labelKey: t.nav.appointments, href: "/appointments", icon: CalendarCheck2 },
+    { labelKey: t.nav.services, href: "/services", icon: Scissors },
+    { labelKey: t.nav.customers, href: "/customers", icon: Contact2 },
+    { labelKey: t.nav.staff, href: "/staff", icon: Users },
+  ];
 
-const NAV_BUSINESS: NavItem[] = [
-  { label: "Commissions", href: "/commissions", icon: Scissors },
-  { label: "Settings", href: "/settings", icon: Settings },
-];
+  const NAV_MANAGEMENT: NavItem[] = [
+    { labelKey: t.nav.payroll, href: "/payroll", icon: CircleDollarSign },
+    { labelKey: t.nav.inventory, href: "/inventory", icon: Package },
+    { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet },
+    { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone },
+    { labelKey: t.nav.reports, href: "/reports", icon: BarChart3 },
+    { labelKey: t.nav.branches, href: "/branches", icon: Store },
+  ];
 
-/** Mobile tab bar: center FAB opens quick payment; Services stays in More / POS */
-const NAV_MOBILE_LEFT: NavItem[] = [
-  { label: "Home", href: "/dashboard", icon: Home },
-  { label: "Queue", href: "/queue", icon: ClipboardList },
-];
-const NAV_MOBILE_RIGHT: NavItem[] = [
-  { label: "Appts", href: "/appointments", icon: CalendarCheck2 },
-];
+  const NAV_BUSINESS: NavItem[] = [
+    { labelKey: t.nav.commissions, href: "/commissions", icon: Scissors },
+    { labelKey: t.nav.settings, href: "/settings", icon: Settings },
+  ];
+
+  const NAV_MOBILE_LEFT: NavItem[] = [
+    { labelKey: t.nav.home, href: "/dashboard", icon: Home },
+    { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList },
+  ];
+
+  const NAV_MOBILE_RIGHT: NavItem[] = [
+    { labelKey: t.nav.appts, href: "/appointments", icon: CalendarCheck2 },
+  ];
+
+  return { NAV_MAIN, NAV_MANAGEMENT, NAV_BUSINESS, NAV_MOBILE_LEFT, NAV_MOBILE_RIGHT };
+}
 
 function NavLink({
   item,
@@ -91,7 +98,7 @@ function NavLink({
       }`}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      {item.label}
+      {item.labelKey}
     </Link>
   );
 }
@@ -139,6 +146,9 @@ function SidebarContent({
   userRole: string;
   branchName: string;
 }) {
+  const t = useT();
+  const { NAV_MAIN, NAV_MANAGEMENT, NAV_BUSINESS } = useNavItems();
+
   const initials = userName
     .split(" ")
     .map((w) => w[0])
@@ -159,7 +169,7 @@ function SidebarContent({
             BarberPro<span className="text-[#D4AF37]">.my</span>
           </p>
           <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-            {roleLabel} Dashboard
+            {roleLabel} {t.common.dashboard}
           </p>
         </div>
       </div>
@@ -167,7 +177,7 @@ function SidebarContent({
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-0.5">
           <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            Main
+            {t.nav.main}
           </p>
           {NAV_MAIN.map((item) => (
             <NavLink
@@ -179,13 +189,13 @@ function SidebarContent({
           ))}
         </div>
         <NavGroup
-          label="Management"
+          label={t.nav.management}
           items={NAV_MANAGEMENT}
           pathname={pathname}
           onNav={onNav}
         />
         <NavGroup
-          label="Business"
+          label={t.nav.business}
           items={NAV_BUSINESS}
           pathname={pathname}
           onNav={onNav}
@@ -242,7 +252,7 @@ function MobileTabLink({
         <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={active ? 2.25 : 1.75} />
       </span>
       <span className="max-w-full truncate px-0.5 text-[10px] font-semibold leading-none tracking-wide">
-        {item.label}
+        {item.labelKey}
       </span>
     </Link>
   );
@@ -259,6 +269,9 @@ function MobileBottomNav({
   menuOpen: boolean;
   onReceivePayment: () => void;
 }) {
+  const t = useT();
+  const { NAV_MOBILE_LEFT, NAV_MOBILE_RIGHT } = useNavItems();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden" aria-label="Primary">
       <div className="relative w-full border-t border-white/10 bg-[#1a1a1a]/92 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150">
@@ -267,7 +280,7 @@ function MobileBottomNav({
             type="button"
             onClick={onReceivePayment}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D4AF37] text-[#111111] shadow-[0_6px_28px_rgba(212,175,55,0.42)] ring-[5px] ring-[#1a1a1a] transition active:scale-95"
-            aria-label="Receive payment from client"
+            aria-label={t.common.receivePayment}
           >
             <Plus className="h-7 w-7" strokeWidth={2.5} />
           </button>
@@ -288,7 +301,7 @@ function MobileBottomNav({
               type="button"
               onClick={onOpenMenu}
               aria-expanded={menuOpen}
-              aria-label="Open full menu"
+              aria-label={t.nav.more}
               className={`flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-0 transition-colors active:scale-[0.97] active:opacity-90 ${
                 menuOpen ? "text-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
               }`}
@@ -302,7 +315,7 @@ function MobileBottomNav({
                 <Menu className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={menuOpen ? 2.25 : 1.75} />
               </span>
               <span className="max-w-full truncate px-0.5 text-[10px] font-semibold leading-none tracking-wide">
-                More
+                {t.nav.more}
               </span>
             </button>
           </div>
@@ -323,6 +336,7 @@ export function AppShell({ children }: AppShellProps) {
 }
 
 function AppShellInner({ children }: AppShellProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [quickPayOpen, setQuickPayOpen] = useState(false);
   const pathname = usePathname();
@@ -368,14 +382,14 @@ function AppShellInner({ children }: AppShellProps) {
             className="absolute inset-0 bg-black/60"
             onClick={() => setOpen(false)}
             type="button"
-            aria-label="Close sidebar"
+            aria-label={t.common.close}
           />
           <aside className="relative h-full w-64 border-r border-white/5 bg-[#1a1a1a]">
             <button
               className="absolute right-3 top-4 rounded-md p-1.5 text-gray-400 hover:text-white"
               onClick={() => setOpen(false)}
               type="button"
-              aria-label="Close"
+              aria-label={t.common.close}
             >
               <X className="h-5 w-5" />
             </button>
@@ -411,7 +425,7 @@ function AppShellInner({ children }: AppShellProps) {
               className="hidden items-center gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20 lg:inline-flex"
             >
               <Banknote className="h-4 w-4" />
-              Receive payment
+              {t.common.receivePayment}
             </button>
             <button
               type="button"
@@ -425,7 +439,7 @@ function AppShellInner({ children }: AppShellProps) {
               className="hidden items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110 lg:inline-flex"
             >
               <Plus className="h-4 w-4 shrink-0" />
-              New Walk-in
+              {t.common.newWalkIn}
             </button>
           </div>
         </header>

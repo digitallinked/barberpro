@@ -11,6 +11,7 @@ import {
   Target,
   Users
 } from "lucide-react";
+import { useT } from "@/lib/i18n/language-context";
 
 // ─── Placeholder stats ────────────────────────────────────────────────────────
 
@@ -72,21 +73,20 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
 }
 
 export default function PromotionsPage() {
+  const t = useT();
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Promotions &amp; Campaigns</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Create campaigns, send messages and grow your business
-          </p>
+          <h2 className="text-2xl font-bold text-white">{t.promotions.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.promotions.subtitle}</p>
         </div>
         <button
           type="button"
           disabled
           className="flex items-center gap-2 rounded-lg bg-[#D4AF37]/50 px-4 py-2 text-sm font-bold text-[#111] cursor-not-allowed opacity-70"
         >
-          <Plus className="h-4 w-4" /> Create Campaign
+          <Plus className="h-4 w-4" /> {t.promotions.addPromotion}
         </button>
       </div>
 

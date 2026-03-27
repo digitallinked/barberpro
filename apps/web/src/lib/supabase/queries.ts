@@ -2,12 +2,14 @@
 
 import { createClient } from "./server";
 import { pickEffectiveBranchId } from "./branch-resolution";
+import type { Language } from "@/lib/i18n/translations";
 
 export type TenantContext = {
   tenantId: string;
   tenantName: string;
   tenantSlug: string;
   tenantPlan: string;
+  preferredLanguage: Language;
   userId: string;
   appUserId: string;
   userName: string;
@@ -37,7 +39,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug, plan")
+    .select("id, name, slug, plan, preferred_language")
     .eq("id", appUser.tenant_id)
     .single();
 
@@ -54,11 +56,14 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
   const activeBranchId = pickEffectiveBranchId(branchList, appUser.branch_id, null);
   const activeBranch = branchList.find((b) => b.id === activeBranchId) ?? null;
 
+  const preferredLanguage = (tenant.preferred_language === "en" ? "en" : "ms") as Language;
+
   return {
     tenantId: tenant.id,
     tenantName: tenant.name,
     tenantSlug: tenant.slug,
     tenantPlan: tenant.plan ?? "starter",
+    preferredLanguage,
     userId: user.id,
     appUserId: appUser.id,
     userName: appUser.full_name,

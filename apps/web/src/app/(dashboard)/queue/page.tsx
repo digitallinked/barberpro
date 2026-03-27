@@ -35,6 +35,7 @@ import {
   useSupabase,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
+import { useT } from "@/lib/i18n/language-context";
 import { useWalkInQueueModal } from "@/components/walk-in-queue-modal-context";
 import {
   cancelStaleWaitingQueueTickets,
@@ -89,6 +90,7 @@ function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
 }
 
 export default function QueuePage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const supabase = useSupabase();
   const { branchId, branchName, tenantName, tenantId } = useTenant();
@@ -228,7 +230,7 @@ export default function QueuePage() {
     tickets.filter((t) => t.status === "completed").length,
     tickets.filter((t) => t.status === "cancelled").length
   ];
-  const tabLabels = ["All", "Waiting", "Assigned", "In Service", "Completed", "Cancelled"];
+  const tabLabels = [t.queue.all, t.queue.waiting, t.queue.assigned, t.queue.inService, t.queue.completed, t.queue.cancelled];
 
   const nowServing = activeTickets.find((t) => t.status === "in_service");
   const queueBoardHref = branchId ? `/queue-board?branch=${branchId}` : "/queue-board";
@@ -279,7 +281,7 @@ export default function QueuePage() {
 
   async function handleAddMember() {
     if (!showMemberModal) return;
-    if (!memberSeatId) { setMemberError("Please select a seat."); return; }
+    if (!memberSeatId) { setMemberError(t.queue.selectSeatRequired); return; }
     setMemberError(null);
     setMemberSubmitting(true);
     const result = await addTicketSeatMember(
@@ -294,7 +296,7 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
       closeMemberModal();
     } else {
-      setMemberError(result.error ?? "Failed to seat member");
+      setMemberError(result.error ?? t.queue.seatMemberBtn);
     }
   }
 
@@ -334,7 +336,7 @@ export default function QueuePage() {
       setSeatFormLabel("");
       setSeatFormBarber("");
     } else {
-      setSeatFormError(result.error ?? "Failed to save seat");
+      setSeatFormError(result.error ?? t.queue.saving);
     }
   }
 
@@ -343,7 +345,7 @@ export default function QueuePage() {
     const seats = seatsData?.data ?? [];
     const nextNum = seats.length > 0 ? Math.max(...seats.map((s) => s.seat_number)) + 1 : 1;
     setSeatFormNumber(String(nextNum));
-    setSeatFormLabel(`Seat ${nextNum}`);
+    setSeatFormLabel(`${t.queue.seat} ${nextNum}`);
     setSeatFormBarber("");
     setSeatFormError(null);
     setShowSeatForm(true);
@@ -352,14 +354,14 @@ export default function QueuePage() {
   function openEditSeatForm(seat: BranchSeat) {
     setEditingSeat(seat);
     setSeatFormNumber(String(seat.seat_number));
-    setSeatFormLabel(seat.label || `Seat ${seat.seat_number}`);
+    setSeatFormLabel(seat.label || `${t.queue.seat} ${seat.seat_number}`);
     setSeatFormBarber(seat.staff_profile_id ?? "");
     setSeatFormError(null);
     setShowSeatForm(true);
   }
 
   async function handleDeleteSeat(seatId: string) {
-    if (!confirm("Remove this seat? This cannot be undone.")) return;
+    if (!confirm(t.queue.removeTicketConfirm)) return;
     await deleteSeat(seatId);
     void refetchSeats();
   }
@@ -545,12 +547,12 @@ export default function QueuePage() {
       <div class="divider"></div>
     </div>
     <div class="body">
-      <div class="scan-label">Scan to Join the Queue</div>
+      <div class="scan-label">${t.queue.scanToQueue}</div>
       <div class="qr-wrapper">
         <img src="${qrDataUrl}" width="220" height="220" alt="Check-in QR Code" />
       </div>
-      <p class="instruction">Scan with your phone camera<br/>to enter the walk-in queue</p>
-      <p class="instruction-sub">Enter your name and number of haircuts — no app required.</p>
+      <p class="instruction">${t.queue.scanToQueue}</p>
+      <p class="instruction-sub">${t.queue.customersScan}</p>
       <div class="url-box">${checkinUrl}</div>
     </div>
     <div class="footer">
@@ -570,11 +572,7 @@ export default function QueuePage() {
 
   async function handleClearStale() {
     if (!branchId) return;
-    if (
-      !confirm(
-        "Cancel all waiting tickets from before today? This cannot be undone. Completed history is kept."
-      )
-    ) {
+    if (!confirm(t.queue.clearStaleConfirm)) {
       return;
     }
     setStaleSubmitting(true);
@@ -584,7 +582,7 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
     } else {
-      alert(result.error ?? "Failed");
+      alert(result.error ?? t.common.error);
     }
   }
 
@@ -599,7 +597,7 @@ export default function QueuePage() {
 
     if (method === "qr" && (!(proofFile instanceof File) || proofFile.size === 0)) {
       setPaymentSubmitting(false);
-      setPaymentError("Please upload payment proof for QR payment.");
+      setPaymentError(t.queue.uploadProofRequired);
       return;
     }
 
@@ -620,7 +618,7 @@ export default function QueuePage() {
         setPaymentError(
           uploadError.message.includes("Bucket not found")
             ? "Receipt storage is not set up. Ask an admin to create the payment-proofs bucket."
-            : `Could not upload proof: ${uploadError.message}`
+            : `${t.queue.paymentProof}: ${uploadError.message}`
         );
         return;
       }
@@ -640,47 +638,47 @@ export default function QueuePage() {
       setProofPreview(null);
       setShowPaymentModal(null);
     } else {
-      setPaymentError(result.error ?? "Failed to complete payment");
+      setPaymentError(result.error ?? t.common.error);
     }
   }
 
   if (!branchId) {
     return (
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-6 text-amber-400">
-        <p>Please select a branch to manage the queue.</p>
+        <p>{t.queue.selectBranch}</p>
       </div>
     );
   }
 
   const STATS = [
     {
-      label: "Waiting",
+      label: t.queue.waiting,
       value: String(stats.waiting),
-      hint: "In queue today",
+      hint: t.queue.inQueueToday,
       icon: Timer,
       iconBg: "bg-orange-500/10",
       iconColor: "text-orange-400"
     },
     {
-      label: "In Service",
+      label: t.queue.inService,
       value: String(stats.inProgress),
-      hint: "Serving today",
+      hint: t.queue.servingToday,
       icon: UserCheck,
       iconBg: "bg-blue-500/10",
       iconColor: "text-blue-400"
     },
     {
-      label: "Completed",
+      label: t.queue.completed,
       value: String(stats.completed),
-      hint: "Completed today",
+      hint: t.queue.completedToday,
       icon: CheckCircle2,
       iconBg: "bg-emerald-500/10",
       iconColor: "text-emerald-400"
     },
     {
-      label: "Available",
+      label: t.queue.available,
       value: String(availableCount),
-      hint: "Barbers ready",
+      hint: t.queue.barbersReady,
       icon: UserRound,
       iconBg: "bg-purple-500/10",
       iconColor: "text-purple-400"
@@ -693,7 +691,7 @@ export default function QueuePage() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white leading-tight">Walk-in Queue</h2>
+            <h2 className="text-lg font-bold text-white leading-tight">{t.queue.walkInQueue}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               {clockReady ? (
                 <>
@@ -713,7 +711,7 @@ export default function QueuePage() {
             className="flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/40 bg-[#1a1a1a] px-2.5 py-1.5 text-xs font-medium text-[#D4AF37] transition hover:bg-[#D4AF37]/10"
           >
             <QrCode className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Customer QR</span>
+            <span className="hidden sm:inline">{t.queue.customerQr}</span>
           </button>
           <Link
             href={queueBoardHref}
@@ -721,7 +719,7 @@ export default function QueuePage() {
             className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-gray-400 transition hover:border-[#D4AF37]/40 hover:text-white"
           >
             <MoveRight className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Queue Board</span>
+            <span className="hidden sm:inline">{t.queue.queueBoard}</span>
           </Link>
           <button
             type="button"
@@ -730,14 +728,14 @@ export default function QueuePage() {
             className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#1a1a1a] px-2.5 py-1.5 text-xs text-gray-400 transition hover:border-amber-500/30 hover:text-amber-200 disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Clear stale</span>
+            <span className="hidden sm:inline">{t.queue.clearStale}</span>
           </button>
           <button
             type="button"
             onClick={() => setShowNewModal(true)}
             className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
           >
-            <Scissors className="h-3.5 w-3.5" /> New Walk-in
+            <Scissors className="h-3.5 w-3.5" /> {t.queue.newWalkIn}
           </button>
         </div>
       </div>
@@ -794,7 +792,7 @@ export default function QueuePage() {
           ) : filteredTickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-[#1a1a1a] py-14 gap-2">
               <Users className="h-8 w-8 text-gray-700" />
-              <p className="text-sm text-gray-500">No tickets in this view</p>
+              <p className="text-sm text-gray-500">{t.queue.noTickets}</p>
             </div>
           ) : (
             filteredTickets.map((q) => {
@@ -803,7 +801,7 @@ export default function QueuePage() {
                 q.status === "in_service" && q.called_at
                   ? formatServiceTime(q.called_at)
                   : formatWaitTime(q.created_at);
-              const timerLabel = q.status === "in_service" ? "in service" : "wait";
+              const timerLabel = q.status === "in_service" ? t.queue.inServiceLabel : t.queue.wait;
               const preferredName = q.preferred_staff_id
                 ? barbers.find((b) => b.staff_profile_id === q.preferred_staff_id)?.full_name ?? null
                 : null;
@@ -848,26 +846,26 @@ export default function QueuePage() {
                             {/* Name + status chips */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-base font-bold text-white leading-tight">
-                                {q.customer?.full_name ?? "Walk-in Guest"}
+                                {q.customer?.full_name ?? t.queue.walkInGuest}
                               </p>
                               {isNext && (
                                 <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#111]">
-                                  Next
+                                  {t.queue.next}
                                 </span>
                               )}
                               {q.status === "in_service" && (
                                 <span className="flex items-center gap-0.5 rounded-full bg-blue-500/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-                                  <Clock className="h-2.5 w-2.5" /> In Service
+                                  <Clock className="h-2.5 w-2.5" /> {t.queue.inService}
                                 </span>
                               )}
                               {q.status === "completed" && (
                                 <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-                                  Done
+                                  {t.queue.completed}
                                 </span>
                               )}
                               {q.status === "cancelled" && (
                                 <span className="rounded-full bg-red-500/20 border border-red-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-red-400">
-                                  Cancelled
+                                  {t.queue.cancelled}
                                 </span>
                               )}
                             </div>
@@ -878,7 +876,7 @@ export default function QueuePage() {
                               )}
                               {q.party_size > 1 && (
                                 <span className="rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#D4AF37]">
-                                  ×{q.party_size} cuts
+                                  ×{q.party_size} {t.queue.cuts}
                                 </span>
                               )}
                               {q.service ? (
@@ -893,7 +891,7 @@ export default function QueuePage() {
                               {q.assigned_staff ? (
                                 <span className="text-[11px] text-blue-400 font-medium">→ {q.assigned_staff.full_name}</span>
                               ) : preferredName ? (
-                                <span className="text-[11px] text-[#D4AF37]/70">Prefers: {preferredName}</span>
+                                <span className="text-[11px] text-[#D4AF37]/70">{t.queue.prefers} {preferredName}</span>
                               ) : null}
                             </div>
                           </div>
@@ -915,7 +913,7 @@ export default function QueuePage() {
                       <div className="mt-3 border-t border-white/5 pt-3">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                            Party members · {q.ticket_seats.length}/{q.party_size} seated
+                            {t.queue.partyMembers} · {q.ticket_seats.length}/{q.party_size} {t.queue.seated}
                           </p>
                           {!["completed", "cancelled"].includes(q.status) && q.ticket_seats.length < q.party_size && (
                             <button
@@ -928,7 +926,7 @@ export default function QueuePage() {
                               }}
                               className="flex items-center gap-1 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/20 transition"
                             >
-                              <Plus className="h-3 w-3" /> Seat member
+                              <Plus className="h-3 w-3" /> {t.queue.seatMember}
                             </button>
                           )}
                         </div>
@@ -948,15 +946,15 @@ export default function QueuePage() {
                                 {m.service && <span className="ml-1.5 rounded bg-[#1a1a1a] px-1.5 py-0.5 text-[9px] text-gray-400">{m.service.name}</span>}
                               </div>
                               {m.status === "completed" ? (
-                                <span className="shrink-0 rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9px] font-bold text-gray-500 uppercase tracking-wide">Done</span>
+                                <span className="shrink-0 rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[9px] font-bold text-gray-500 uppercase tracking-wide">{t.queue.completed}</span>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => void handleCompleteMember(m.id)}
                                   className="shrink-0 rounded-full bg-[#D4AF37] px-2.5 py-0.5 text-[9px] font-bold text-[#111] hover:brightness-110 transition"
-                                  title="Mark cut done — frees this seat"
+                                  title={t.queue.completed}
                                 >
-                                  ✓ Done
+                                  ✓ {t.common.done}
                                 </button>
                               )}
                               {!["completed", "cancelled"].includes(q.status) && m.status !== "completed" && (
@@ -990,7 +988,7 @@ export default function QueuePage() {
                                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-dashed border-white/15 text-[9px]">
                                     {slotIndex + 1}
                                   </span>
-                                  <span className="flex-1 text-left">Waiting for seat…</span>
+                                  <span className="flex-1 text-left">{t.queue.waitingForSeat}</span>
                                   {requested && (
                                     <span className="rounded bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-1.5 py-0.5 text-[9px] font-medium text-[#D4AF37]">
                                       {requested.service_name}
@@ -1013,7 +1011,7 @@ export default function QueuePage() {
                               onClick={() => { setPaymentError(null); setShowPaymentModal(q); }}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
                             >
-                              <Banknote className="h-3.5 w-3.5" /> Receive payment
+                              <Banknote className="h-3.5 w-3.5" /> {t.queue.receivePayment}
                             </button>
                             {q.party_size === 1 && (
                               <button
@@ -1021,7 +1019,7 @@ export default function QueuePage() {
                                 onClick={() => setShowAssignModal(q)}
                                 className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
                               >
-                                Reassign
+                                {t.queue.reassign}
                               </button>
                             )}
                             <button
@@ -1029,7 +1027,7 @@ export default function QueuePage() {
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
                               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                             >
-                              <XCircle className="mr-1 inline h-3 w-3" /> Cancel
+                              <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.cancel}
                             </button>
                           </>
                         ) : q.status === "waiting" && q.assigned_staff_id && q.party_size === 1 ? (
@@ -1043,31 +1041,30 @@ export default function QueuePage() {
                               }}
                               className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                             >
-                              Start Service
+                              {t.queue.startService}
                             </button>
                             <button
                               type="button"
                               onClick={() => setShowAssignModal(q)}
                               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
                             >
-                              Reassign
+                              {t.queue.reassign}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
                               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                             >
-                              <XCircle className="mr-1 inline h-3 w-3" /> Remove
+                              <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.remove}
                             </button>
                           </>
                         ) : q.party_size > 1 ? (
-                          /* Group ticket waiting — seat members individually */
                           <button
                             type="button"
                             onClick={() => handleUpdateStatus(q.id, "cancelled")}
                             className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                           >
-                            <XCircle className="mr-1 inline h-3 w-3" /> Cancel Group
+                            <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.cancelGroup}
                           </button>
                         ) : (
                           <>
@@ -1076,14 +1073,14 @@ export default function QueuePage() {
                               onClick={() => setShowAssignModal(q)}
                               className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                             >
-                              Assign Barber
+                              {t.queue.assignBarber}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(q.id, "cancelled")}
                               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
                             >
-                              <XCircle className="mr-1 inline h-3 w-3" /> Remove
+                              <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.remove}
                             </button>
                           </>
                         )}
@@ -1095,7 +1092,7 @@ export default function QueuePage() {
                           href={buildPosPaymentHref(q)}
                           className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                         >
-                          Proceed to Payment
+                          {t.queue.proceedToPayment}
                         </Link>
                       </div>
                     )}
@@ -1112,18 +1109,18 @@ export default function QueuePage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <Armchair className="h-3.5 w-3.5 text-[#D4AF37]" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Seats</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">{t.queue.seats}</h3>
               </div>
               <button
                 type="button"
                 onClick={openNewSeatForm}
                 className="flex items-center gap-1 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/20 transition"
               >
-                <Plus className="h-3 w-3" /> Add Seat
+                <Plus className="h-3 w-3" /> {t.queue.addSeat}
               </button>
             </div>
             {(seatsData?.data ?? []).length === 0 ? (
-              <p className="text-[11px] text-gray-600 text-center py-3">No seats configured. Add seats to track barber stations.</p>
+              <p className="text-[11px] text-gray-600 text-center py-3">{t.queue.noSeatsConfigured}</p>
             ) : (
               <div className="space-y-1.5">
                 {(seatsData?.data ?? []).map((seat) => {
@@ -1153,30 +1150,30 @@ export default function QueuePage() {
                         {seat.seat_number}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white truncate">{seat.label || `Seat ${seat.seat_number}`}</p>
+                        <p className="text-xs font-semibold text-white truncate">{seat.label || `${t.queue.seat} ${seat.seat_number}`}</p>
                         <p className="text-[10px] truncate">
                           {isOccupied && servingTicket ? (
                             <span className="text-blue-400">
                               {servingMember
-                                ? `${servingTicket.queue_number} · ${servingMember.staff?.full_name ?? servingTicket.customer?.full_name ?? "Walk-in"}`
-                                : servingTicket.customer?.full_name ?? "Walk-in"}
+                                ? `${servingTicket.queue_number} · ${servingMember.staff?.full_name ?? servingTicket.customer?.full_name ?? t.queue.walkInGuest}`
+                                : servingTicket.customer?.full_name ?? t.queue.walkInGuest}
                             </span>
                           ) : seat.barber_name ? (
                             <span className="text-gray-500">{seat.barber_name}</span>
                           ) : (
-                            <span className="text-gray-700">No barber assigned</span>
+                            <span className="text-gray-700">{t.queue.noBarberAssigned}</span>
                           )}
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {isOccupied ? (
-                          <span className="rounded-full bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-400">Live</span>
+                          <span className="rounded-full bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-400">{t.queue.live}</span>
                         ) : !seat.is_active ? (
-                          <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-600">Off</span>
+                          <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-600">{t.queue.off}</span>
                         ) : seat.staff_profile_id ? (
-                          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400">Free</span>
+                          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400">{t.queue.free}</span>
                         ) : (
-                          <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-500">Empty</span>
+                          <span className="rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-gray-500">{t.queue.empty}</span>
                         )}
                         <button
                           type="button"
@@ -1202,7 +1199,7 @@ export default function QueuePage() {
 
           {/* Barber Availability */}
           <Card className="p-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Barber Availability</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">{t.queue.barberAvailability}</h3>
             <div className="space-y-2">
               {barberStatus.map((b) => (
                 <div
@@ -1215,11 +1212,11 @@ export default function QueuePage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">{b.full_name}</p>
                     <p className="text-[11px] text-gray-500">
-                      {b.servingCustomer ? `Serving ${b.servingCustomer}` : b.role}
+                      {b.servingCustomer ? `${t.queue.serving} ${b.servingCustomer}` : b.role}
                     </p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border ${statusBadge[b.status]}`}>
-                    {b.status === "available" ? "Free" : b.status === "busy" ? "Busy" : "Break"}
+                    {b.status === "available" ? t.queue.free : b.status === "busy" ? t.queue.busy : "Break"}
                   </span>
                 </div>
               ))}
@@ -1229,21 +1226,21 @@ export default function QueuePage() {
           {nowServing && (
             <Card className="border-[#D4AF37]/25 bg-gradient-to-br from-[#D4AF37]/8 to-transparent p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Now Serving</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">{t.queue.nowServing}</h3>
                 <Users className="h-3.5 w-3.5 text-[#D4AF37]/50" />
               </div>
               <div className="flex items-center gap-3">
                 <p className="text-4xl font-black text-[#D4AF37] leading-none">{nowServing.queue_number}</p>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-white truncate">
-                    {nowServing.customer?.full_name ?? "Walk-in Guest"}
+                    {nowServing.customer?.full_name ?? t.queue.walkInGuest}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
                     {nowServing.assigned_staff?.full_name
                       ? nowServing.assigned_staff.full_name
                       : nowServing.seat
-                        ? (nowServing.seat.label || `Seat ${nowServing.seat.seat_number}`)
-                        : "No barber assigned"}
+                        ? (nowServing.seat.label || `${t.queue.seat} ${nowServing.seat.seat_number}`)
+                        : t.queue.noBarberAssigned}
                   </p>
                 </div>
               </div>
@@ -1261,7 +1258,7 @@ export default function QueuePage() {
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
                     <QrCode className="h-4 w-4 text-[#D4AF37]" />
-                    <h3 className="text-base font-bold text-white">Customer Check-in QR</h3>
+                    <h3 className="text-base font-bold text-white">{t.queue.customerCheckinQr}</h3>
                   </div>
                   <p className="text-xs text-gray-500">
                     {tenantName}
@@ -1288,7 +1285,7 @@ export default function QueuePage() {
               {qrLoading && (
                 <div className="flex flex-col items-center justify-center py-14 gap-3">
                   <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
-                  <p className="text-xs text-gray-500">Loading QR code…</p>
+                  <p className="text-xs text-gray-500">{t.queue.loadingQr}</p>
                 </div>
               )}
               {!qrLoading && qrError && (
@@ -1301,7 +1298,7 @@ export default function QueuePage() {
                   {/* QR Display */}
                   <div className="flex flex-col items-center gap-2">
                     <div className="rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-3 py-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">Scan to queue</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">{t.queue.scanToQueue}</span>
                     </div>
                     <div className="rounded-2xl bg-white p-4 shadow-lg ring-1 ring-black/5">
                       <QRCodeCanvas
@@ -1322,8 +1319,7 @@ export default function QueuePage() {
 
                   {/* Info note */}
                   <p className="text-[11px] text-gray-600 text-center leading-relaxed px-2">
-                    Customers scan to enter their name, number of haircuts, and optional phone number.
-                    This QR code remains valid until you reset it.
+                    {t.queue.customersScan}
                   </p>
 
                   {/* Action buttons */}
@@ -1334,7 +1330,7 @@ export default function QueuePage() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-3 text-sm font-semibold text-black transition hover:bg-[#c9a430] active:scale-[0.98]"
                     >
                       <Download className="h-4 w-4" />
-                      Download &amp; Print PDF
+                      {t.queue.downloadPrint}
                     </button>
                     <button
                       type="button"
@@ -1343,7 +1339,7 @@ export default function QueuePage() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/25 bg-red-500/5 px-4 py-2.5 text-sm font-medium text-red-400 transition hover:bg-red-500/10 hover:border-red-500/40 disabled:opacity-50"
                     >
                       <RefreshCw className={`h-4 w-4 ${rotatingQr ? "animate-spin" : ""}`} />
-                      Reset QR Code
+                      {t.queue.resetQr}
                     </button>
                   </div>
                 </div>
@@ -1356,15 +1352,15 @@ export default function QueuePage() {
                     <AlertTriangle className="h-7 w-7 text-amber-400" />
                   </div>
                   <div className="text-center space-y-1.5">
-                    <h4 className="text-base font-bold text-white">Generate New QR Code?</h4>
+                    <h4 className="text-base font-bold text-white">{t.queue.generateNewQr}</h4>
                     <p className="text-sm text-gray-400 leading-relaxed">
-                      The current QR code will be <span className="text-red-400 font-medium">permanently invalidated</span>. Anyone who scans the old code will see an error.
+                      {t.queue.qrInvalidated} <span className="text-red-400 font-medium">{t.queue.permanentlyInvalidated}</span>. {t.queue.oldCodeError}
                     </p>
                   </div>
                   <div className="w-full rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex gap-2.5">
                     <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-300/80 leading-relaxed">
-                      After resetting, <strong className="text-amber-300">download and print the new QR code</strong> before placing it at your entrance. Any printed copies of the old code must be replaced.
+                      {t.queue.afterResetting}
                     </p>
                   </div>
                   <div className="flex w-full gap-2.5">
@@ -1373,7 +1369,7 @@ export default function QueuePage() {
                       onClick={() => setShowRotateConfirm(false)}
                       className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-white/10"
                     >
-                      Keep Current QR
+                      {t.queue.keepCurrentQr}
                     </button>
                     <button
                       type="button"
@@ -1381,7 +1377,7 @@ export default function QueuePage() {
                       onClick={() => void handleRotateQr()}
                       className="flex-1 rounded-xl bg-red-500/90 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
                     >
-                      {rotatingQr ? "Resetting…" : "Yes, Reset QR"}
+                      {rotatingQr ? t.queue.resetting : t.queue.yesResetQr}
                     </button>
                   </div>
                 </div>
@@ -1396,7 +1392,7 @@ export default function QueuePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-white">New Walk-in</h3>
+              <h3 className="text-lg font-bold text-white">{t.queue.newWalkInTitle}</h3>
               <button
                 type="button"
                 onClick={() => setShowNewModal(false)}
@@ -1410,18 +1406,18 @@ export default function QueuePage() {
                 <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
               )}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Customer (optional)</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.customerOptional}</label>
                 <input
                   name="customer_search"
-                  placeholder="Search by name or phone..."
+                  placeholder={t.queue.searchCustomer}
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                   readOnly
                 />
                 <input type="hidden" name="customer_id" id="customer_id" />
-                <p className="mt-1 text-[10px] text-gray-500">Walk-in if left empty</p>
+                <p className="mt-1 text-[10px] text-gray-500">{t.queue.walkInIfEmpty}</p>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Number of haircuts</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.numberOfHaircuts}</label>
                 <input
                   type="number"
                   name="party_size"
@@ -1432,12 +1428,12 @@ export default function QueuePage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Service</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.service}</label>
                 <select
                   name="service_id"
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                 >
-                  <option value="">Select service</option>
+                  <option value="">{t.queue.selectService}</option>
                   {activeServices.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} (RM {s.price})
@@ -1446,21 +1442,21 @@ export default function QueuePage() {
                 </select>
                 {activeServices.length === 0 && (
                   <p className="mt-1 text-[11px] text-amber-300">
-                    No active services found.{" "}
+                    {t.queue.noActiveServices}{" "}
                     <Link href="/services" className="font-medium text-[#D4AF37] underline hover:text-[#e8c85b]">
-                      Create a service
+                      {t.queue.createService}
                     </Link>{" "}
                     first.
                   </p>
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Preferred Barber</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.preferredBarber}</label>
                 <select
                   name="preferred_staff_id"
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                 >
-                  <option value="">Any available</option>
+                  <option value="">{t.queue.anyAvailable}</option>
                   {barbers.map((b) => (
                     <option key={b.id} value={b.staff_profile_id}>
                       {b.full_name}
@@ -1474,14 +1470,14 @@ export default function QueuePage() {
                   onClick={() => setShowNewModal(false)}
                   className="flex-1 rounded-lg border border-white/10 py-2.5 text-sm font-medium text-gray-400 transition hover:bg-white/5"
                 >
-                  Cancel
+                  {t.queue.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="flex-1 rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
                 >
-                  {submitting ? "Adding..." : "Add to Queue"}
+                  {submitting ? t.queue.adding : t.queue.addToQueue}
                 </button>
               </div>
             </form>
@@ -1496,10 +1492,10 @@ export default function QueuePage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-bold text-white">
-                  {showAssignModal.status === "in_service" ? "Reassign" : "Assign Barber & Seat"}
+                  {showAssignModal.status === "in_service" ? t.queue.reassign : t.queue.assignBarberSeat}
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {showAssignModal.queue_number} · {showAssignModal.customer?.full_name ?? "Walk-in Guest"}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                  {showAssignModal.queue_number} · {showAssignModal.customer?.full_name ?? t.queue.walkInGuest}
                 </p>
               </div>
               <button
@@ -1512,7 +1508,7 @@ export default function QueuePage() {
             </div>
 
             {/* Barber selection */}
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Select Barber</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.selectBarber}</p>
             <div className="space-y-1.5 mb-4">
               {barbers.map((b) => (
                 <button
@@ -1535,7 +1531,7 @@ export default function QueuePage() {
                     <p className="text-[10px] text-gray-500">{b.role}</p>
                   </div>
                   {busyStaffIds.has(b.staff_profile_id) && (
-                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] text-red-400">Busy</span>
+                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] text-red-400">{t.queue.busy}</span>
                   )}
                 </button>
               ))}
@@ -1544,7 +1540,7 @@ export default function QueuePage() {
             {/* Seat selection (only shown when starting service and seats exist) */}
             {(seatsData?.data ?? []).length > 0 && (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Assign Seat <span className="normal-case font-normal text-gray-600">(optional)</span></p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.assignSeat} <span className="normal-case font-normal text-gray-600">({t.queue.optional})</span></p>
                 <div className="grid grid-cols-3 gap-1.5 mb-4">
                   {(seatsData?.data ?? []).filter((s) => s.is_active).map((seat) => {
                     const occupied =
@@ -1566,7 +1562,7 @@ export default function QueuePage() {
                       >
                         <p className={`text-base font-black ${assignSelectedSeat === seat.id ? "text-[#D4AF37]" : "text-white"}`}>{seat.seat_number}</p>
                         <p className="text-[9px] text-gray-500 truncate">{seat.label || `Seat ${seat.seat_number}`}</p>
-                        {occupied && <p className="text-[8px] text-red-400">Busy</p>}
+                        {occupied && <p className="text-[8px] text-red-400">{t.queue.busy}</p>}
                       </button>
                     );
                   })}
@@ -1580,7 +1576,7 @@ export default function QueuePage() {
                 onClick={() => { setShowAssignModal(null); setAssignSelectedBarber(""); setAssignSelectedSeat(""); }}
                 className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition"
               >
-                Cancel
+                {t.queue.cancel}
               </button>
               <button
                 type="button"
@@ -1592,7 +1588,7 @@ export default function QueuePage() {
                 }}
                 className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-40"
               >
-                {showAssignModal.status === "in_service" ? "Reassign" : "Assign"}
+                {showAssignModal.status === "in_service" ? t.queue.reassign : t.queue.assign}
               </button>
             </div>
           </div>
@@ -1609,13 +1605,13 @@ export default function QueuePage() {
               return (
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base font-bold text-white">Seat Party Member</h3>
+                    <h3 className="text-base font-bold text-white">{t.queue.seatPartyMember}</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {showMemberModal.queue_number} · {showMemberModal.customer?.full_name ?? "Walk-in Guest"} · member {nextSlot + 1} of {showMemberModal.party_size}
+                      {showMemberModal.queue_number} · {showMemberModal.customer?.full_name ?? t.queue.walkInGuest} · {t.queue.member} {nextSlot + 1} {t.queue.of} {showMemberModal.party_size}
                     </p>
                     {requestedService && (
                       <p className="mt-1 text-[11px] text-[#D4AF37]/80">
-                        Requested: <span className="font-semibold text-[#D4AF37]">{requestedService.service_name}</span>
+                        {t.queue.requested} <span className="font-semibold text-[#D4AF37]">{requestedService.service_name}</span>
                       </p>
                     )}
                   </div>
@@ -1631,7 +1627,7 @@ export default function QueuePage() {
             )}
 
             {/* Service selection */}
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Service</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.service}</p>
             <div className="mb-4 grid grid-cols-2 gap-1.5">
               {activeServices.map((s) => (
                 <button
@@ -1653,7 +1649,7 @@ export default function QueuePage() {
             {/* Seat selection — required */}
             {(seatsData?.data ?? []).length > 0 && (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Seat</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.seat}</p>
                 <div className="grid grid-cols-2 gap-1.5 mb-4">
                   {(seatsData?.data ?? []).filter((s) => s.is_active).map((seat) => {
                     const occupied =
@@ -1694,10 +1690,10 @@ export default function QueuePage() {
                             </p>
                             <p className="text-[10px] truncate">
                               {occupied
-                                ? <span className="text-red-400">Busy</span>
+                                ? <span className="text-red-400">{t.queue.busy}</span>
                                 : seat.barber_name
                                   ? <span className="text-gray-400">{seat.barber_name}</span>
-                                  : <span className="text-gray-600">No barber</span>
+                                  : <span className="text-gray-600">{t.queue.noBarberShort}</span>
                               }
                             </p>
                           </div>
@@ -1711,7 +1707,7 @@ export default function QueuePage() {
 
             <div className="flex gap-2">
               <button type="button" onClick={closeMemberModal} className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition">
-                Cancel
+                {t.queue.cancel}
               </button>
               <button
                 type="button"
@@ -1719,7 +1715,7 @@ export default function QueuePage() {
                 onClick={() => void handleAddMember()}
                 className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50 transition"
               >
-                {memberSubmitting ? "Seating…" : "Seat Member"}
+                {memberSubmitting ? t.queue.seating : t.queue.seatMemberBtn}
               </button>
             </div>
           </div>
@@ -1731,7 +1727,7 @@ export default function QueuePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-bold text-white">{editingSeat ? "Edit Seat" : "Add Seat"}</h3>
+              <h3 className="text-base font-bold text-white">{editingSeat ? t.queue.editSeat : t.queue.addSeatTitle}</h3>
               <button type="button" onClick={() => setShowSeatForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-white/5 transition">
                 <X className="h-4 w-4" />
               </button>
@@ -1741,7 +1737,7 @@ export default function QueuePage() {
                 <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">{seatFormError}</div>
               )}
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Seat Number</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.seatNumber}</label>
                 <input
                   type="number"
                   min={1}
@@ -1753,34 +1749,34 @@ export default function QueuePage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Label</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.label}</label>
                 <input
                   type="text"
                   maxLength={40}
                   required
                   value={seatFormLabel}
                   onChange={(e) => setSeatFormLabel(e.target.value)}
-                  placeholder="e.g. Seat 1 or VIP Chair"
+                  placeholder="cth. Kerusi 1 atau Kerusi VIP"
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Assigned Barber <span className="text-gray-600">(optional)</span></label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.assignedBarber} <span className="text-gray-600">({t.queue.optional})</span></label>
                 <select
                   value={seatFormBarber}
                   onChange={(e) => setSeatFormBarber(e.target.value)}
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                 >
-                  <option value="">— No barber —</option>
+                  <option value="">{t.queue.noBarber}</option>
                   {barbers.map((b) => (
                     <option key={b.id} value={b.staff_profile_id}>{b.full_name}</option>
                   ))}
                 </select>
               </div>
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setShowSeatForm(false)} className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition">Cancel</button>
+                <button type="button" onClick={() => setShowSeatForm(false)} className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5 transition">{t.queue.cancel}</button>
                 <button type="submit" disabled={seatFormSubmitting} className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50 transition">
-                  {seatFormSubmitting ? "Saving…" : editingSeat ? "Save Changes" : "Add Seat"}
+                  {seatFormSubmitting ? t.queue.saving : editingSeat ? t.queue.saveChanges : t.queue.addSeatTitle}
                 </button>
               </div>
             </form>
@@ -1812,7 +1808,7 @@ export default function QueuePage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">Receive payment</h3>
+                <h3 className="text-lg font-bold text-white">{t.queue.receivePaymentTitle}</h3>
                 <button
                   type="button"
                   onClick={() => { setShowPaymentModal(null); setProofPreview(null); }}
@@ -1823,10 +1819,10 @@ export default function QueuePage() {
               </div>
 
               <p className="mb-4 text-sm text-gray-400">
-                {showPaymentModal.queue_number} · {showPaymentModal.customer?.full_name ?? "Walk-in Guest"}
+                {showPaymentModal.queue_number} · {showPaymentModal.customer?.full_name ?? t.queue.walkInGuest}
                 {(isGroup || hasMemberServicesOnly) && (
                   <span className="ml-1.5 rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#D4AF37]">
-                    Party of {showPaymentModal.party_size}
+                    {t.queue.partyOf} {showPaymentModal.party_size}
                   </span>
                 )}
               </p>
@@ -1854,14 +1850,14 @@ export default function QueuePage() {
                     <div key={m.id} className="flex items-center gap-3 px-3 py-2.5">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[9px] font-black text-blue-400">{idx + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-white">{m.service?.name ?? "Walk-in Service"}</p>
+                        <p className="text-xs font-medium text-white">{m.service?.name ?? t.queue.walkInService}</p>
                         <p className="text-[10px] text-gray-500">{m.staff?.full_name ?? "—"}{m.seat ? ` · ${m.seat.label || `Seat ${m.seat.seat_number}`}` : ""}</p>
                       </div>
                       <p className="text-xs font-bold text-[#D4AF37]">RM {(m.service?.price ?? 0).toFixed(2)}</p>
                     </div>
                   ))}
                   <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
-                    <p className="text-xs font-bold text-white">Total</p>
+                    <p className="text-xs font-bold text-white">{t.queue.total}</p>
                     <p className="text-sm font-black text-[#D4AF37]">RM {groupTotal.toFixed(2)}</p>
                   </div>
                 </div>
@@ -1875,13 +1871,13 @@ export default function QueuePage() {
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[9px] font-black text-[#D4AF37]">{m.member_index + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-white">{m.service_name}</p>
-                        <p className="text-[10px] text-gray-500">Customer selection</p>
+                        <p className="text-[10px] text-gray-500">{t.queue.customerSelection}</p>
                       </div>
                       <p className="text-xs font-bold text-[#D4AF37]">RM {m.service_price.toFixed(2)}</p>
                     </div>
                   ))}
                   <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
-                    <p className="text-xs font-bold text-white">Total</p>
+                    <p className="text-xs font-bold text-white">{t.queue.total}</p>
                     <p className="text-sm font-black text-[#D4AF37]">RM {memberServicesTotal.toFixed(2)}</p>
                   </div>
                 </div>
@@ -1896,7 +1892,7 @@ export default function QueuePage() {
 
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">
-                    {isGroup ? "Total Amount Due (RM)" : "Amount Due (RM)"}
+                    {isGroup ? t.queue.totalAmountDue : t.queue.amountDue}
                   </label>
                   <input
                     name="amount_due"
@@ -1910,7 +1906,7 @@ export default function QueuePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-400">Amount Received (RM)</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.amountReceived}</label>
                   <input
                     name="amount_received"
                     type="number"
@@ -1923,22 +1919,22 @@ export default function QueuePage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-400">Payment Method</label>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">{t.queue.paymentMethod}</label>
                   <select
                     name="payment_method"
                     defaultValue="qr"
                     className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                   >
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="ewallet">E-Wallet</option>
-                    <option value="qr">QR Transfer</option>
+                    <option value="cash">{t.queue.cash}</option>
+                    <option value="card">{t.queue.card}</option>
+                    <option value="ewallet">{t.queue.ewallet}</option>
+                    <option value="qr">{t.queue.qrTransfer}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">
-                    Payment Proof (for QR/online)
+                    {t.queue.paymentProof}
                   </label>
                   <input
                     ref={proofInputRef}
@@ -1972,7 +1968,7 @@ export default function QueuePage() {
                         />
                         <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 transition hover:opacity-100">
                           <span className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111]">
-                            Change Photo
+                            {t.queue.changePhoto}
                           </span>
                         </div>
                       </div>
@@ -1982,7 +1978,7 @@ export default function QueuePage() {
                           <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
                           <circle cx="12" cy="13" r="3"/>
                         </svg>
-                        <span className="text-xs font-medium text-gray-400">Tap to take or choose photo</span>
+                        <span className="text-xs font-medium text-gray-400">{t.queue.tapToPhoto}</span>
                       </div>
                     )}
                   </button>
@@ -1993,7 +1989,7 @@ export default function QueuePage() {
                   disabled={paymentSubmitting}
                   className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
                 >
-                  {paymentSubmitting ? "Processing..." : "Confirm Payment & Complete Ticket"}
+                  {paymentSubmitting ? t.queue.processing : t.queue.confirmPayment}
                 </button>
               </form>
             </div>

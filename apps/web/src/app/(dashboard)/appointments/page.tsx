@@ -18,6 +18,7 @@ import {
   useStaffMembers,
   useBranches
 } from "@/hooks";
+import { useT } from "@/lib/i18n/language-context";
 import { useTenant } from "@/components/tenant-provider";
 import { createAppointment, updateAppointmentStatus } from "@/actions/appointments";
 
@@ -54,6 +55,7 @@ function formatDateTime(iso: string) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AppointmentsPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { branchId, branches } = useTenant();
   const { data: appointmentsResult, isLoading: appointmentsLoading } = useAppointments();
@@ -165,7 +167,7 @@ export default function AppointmentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Appointments</h2>
+          <h2 className="text-2xl font-bold text-white">{t.appointments.title}</h2>
           <p className="mt-1 text-sm text-gray-400">Manage booking schedules and appointments</p>
         </div>
         <button

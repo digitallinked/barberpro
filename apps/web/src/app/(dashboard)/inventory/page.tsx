@@ -13,6 +13,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { useInventoryItems, useInventoryStats } from "@/hooks";
+import { useT } from "@/lib/i18n/language-context";
 import { createInventoryItem, adjustStock } from "@/actions/inventory";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ function StockBar({ stock, reorder, status }: { stock: number; reorder: number; 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: inventoryResult, isLoading: inventoryLoading } = useInventoryItems();
   const { data: statsResult, isLoading: statsLoading } = useInventoryStats();
@@ -139,8 +141,8 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Inventory Management</h2>
-          <p className="mt-1 text-sm text-gray-400">Track stock levels, products and supplies</p>
+          <h2 className="text-2xl font-bold text-white">{t.inventory.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.inventory.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40">

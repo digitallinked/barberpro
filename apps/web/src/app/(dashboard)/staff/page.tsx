@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useStaffMembers, useBranches } from "@/hooks";
 import { createStaffMember } from "@/actions/staff";
+import { useT } from "@/lib/i18n/language-context";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ function formatRole(role: string): string {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StaffPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: staffResult, isLoading: staffLoading } = useStaffMembers();
   const { data: branchesResult } = useBranches();
@@ -86,8 +88,8 @@ export default function StaffPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Staff Management</h2>
-          <p className="mt-1 text-sm text-gray-400">View and manage your barber team</p>
+          <h2 className="text-2xl font-bold text-white">{t.staff.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.staff.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">

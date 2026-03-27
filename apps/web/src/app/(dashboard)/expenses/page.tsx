@@ -13,6 +13,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useExpenses, useExpenseStats } from "@/hooks";
+import { useT } from "@/lib/i18n/language-context";
 import { createExpense, deleteExpense } from "@/actions/expenses";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ const PAYMENT_OPTIONS = [
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: expensesResult, isLoading: expensesLoading } = useExpenses();
   const { data: statsResult, isLoading: statsLoading } = useExpenseStats();
@@ -121,8 +123,8 @@ export default function ExpensesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Expense Management</h2>
-          <p className="mt-1 text-sm text-gray-400">Track and manage all business expenses</p>
+          <h2 className="text-2xl font-bold text-white">{t.expenses.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.expenses.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white hover:border-[#D4AF37]/40">
@@ -133,7 +135,7 @@ export default function ExpensesPage() {
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
           >
-            <Plus className="h-4 w-4" /> Add Expense
+            <Plus className="h-4 w-4" /> {t.expenses.addExpense}
           </button>
         </div>
       </div>

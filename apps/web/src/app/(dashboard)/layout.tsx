@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { TenantProvider } from "@/components/tenant-provider";
+import { LanguageProvider } from "@/lib/i18n/language-context";
 import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/queries";
@@ -48,11 +49,17 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     }
 
     return (
-      <TenantProvider value={tenantCtx}>
-        <AppShell>{children}</AppShell>
-      </TenantProvider>
+      <LanguageProvider initialLanguage={tenantCtx.preferredLanguage}>
+        <TenantProvider value={tenantCtx}>
+          <AppShell>{children}</AppShell>
+        </TenantProvider>
+      </LanguageProvider>
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <LanguageProvider initialLanguage="ms">
+      <AppShell>{children}</AppShell>
+    </LanguageProvider>
+  );
 }

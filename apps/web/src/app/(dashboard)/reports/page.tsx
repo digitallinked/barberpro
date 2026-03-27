@@ -8,6 +8,7 @@ import {
   Users
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { useT } from "@/lib/i18n/language-context";
 
 import {
   useTransactions,
@@ -49,6 +50,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function ReportsPage() {
+  const t = useT();
   const [activeTab, setActiveTab] = useState<TabId>("revenue");
 
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(200);
@@ -136,16 +138,14 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Reports &amp; Analytics</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Business insights, revenue analytics and performance reports
-          </p>
+          <h2 className="text-2xl font-bold text-white">{t.reports.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.reports.subtitle}</p>
         </div>
         <button
           type="button"
           className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white hover:border-[#D4AF37]/40"
         >
-          <Download className="h-4 w-4" /> Export Reports
+          <Download className="h-4 w-4" /> {t.reports.export}
         </button>
       </div>
 

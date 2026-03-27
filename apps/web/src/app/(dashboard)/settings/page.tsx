@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Save, Search, Shield } from "lucide-react";
+import { Building2, Globe, Save, Search, Shield } from "lucide-react";
 import { useTenant } from "@/components/tenant-provider";
 import { useTenantProfile } from "@/hooks";
-import { updateTenantProfile, changePassword } from "@/actions/settings";
+import { updateTenantProfile, changePassword, updatePreferredLanguage } from "@/actions/settings";
+import { useLanguage, useT } from "@/lib/i18n/language-context";
+import type { Language } from "@/lib/i18n/translations";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -41,20 +43,25 @@ function FormField({
   );
 }
 
-const NAV_ITEMS = [
-  { id: "profile", label: "Business Profile", icon: Building2 },
-  { id: "security", label: "Security", icon: Shield }
-];
-
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const tenant = useTenant();
   const { data: profileResult } = useTenantProfile();
+  const t = useT();
+  const { language, setLanguage } = useLanguage();
+
+  const NAV_ITEMS = [
+    { id: "profile", label: t.settings.businessProfile, icon: Building2 },
+    { id: "security", label: t.settings.security, icon: Shield },
+    { id: "preferences", label: t.settings.preferences, icon: Globe },
+  ];
 
   const [activeSection, setActiveSection] = useState("profile");
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [selectedLang, setSelectedLang] = useState<Language>(language);
+  const [prefPending, setPrefPending] = useState(false);
 
   const profile = profileResult?.data ?? null;
 
@@ -68,7 +75,7 @@ export default function SettingsPage() {
     setPending(false);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["tenant-profile"] });
-      setFormSuccess("Profile updated successfully.");
+      setFormSuccess(t.settings.profileUpdated);
     } else {
       setFormError(result.error ?? "Failed to update profile");
     }
@@ -83,10 +90,24 @@ export default function SettingsPage() {
     const result = await changePassword(fd);
     setPending(false);
     if (result.success) {
-      setFormSuccess("Password changed successfully.");
+      setFormSuccess(t.settings.passwordChanged);
       (e.target as HTMLFormElement).reset();
     } else {
       setFormError(result.error ?? "Failed to change password");
+    }
+  }
+
+  async function handlePreferencesSave() {
+    setFormError(null);
+    setFormSuccess(null);
+    setPrefPending(true);
+    const result = await updatePreferredLanguage(selectedLang);
+    setPrefPending(false);
+    if (result.success) {
+      setLanguage(selectedLang);
+      setFormSuccess(t.settings.preferencesSaved);
+    } else {
+      setFormError(result.error ?? "Failed to save preferences");
     }
   }
 
@@ -94,14 +115,14 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">Settings</h2>
-          <p className="mt-1 text-sm text-gray-400">Manage your business configuration</p>
+          <h2 className="text-xl font-bold text-white">{t.settings.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.settings.subtitle}</p>
         </div>
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input
             type="text"
-            placeholder="Search settings..."
+            placeholder={t.settings.searchPlaceholder}
             className="w-full rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none"
           />
         </div>
@@ -142,8 +163,8 @@ export default function SettingsPage() {
             <Card className="p-6">
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h3 className="mb-1 text-xl font-bold text-white">Business Profile</h3>
-                  <p className="text-sm text-gray-400">Update your business information</p>
+                  <h3 className="mb-1 text-xl font-bold text-white">{t.settings.businessProfileTitle}</h3>
+                  <p className="text-sm text-gray-400">{t.settings.businessProfileSubtitle}</p>
                 </div>
                 <button
                   type="submit"
@@ -151,7 +172,7 @@ export default function SettingsPage() {
                   disabled={pending}
                   className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
                 >
-                  <Save className="h-4 w-4" /> Save Changes
+                  <Save className="h-4 w-4" /> {t.settings.saveChanges}
                 </button>
               </div>
 
@@ -170,13 +191,13 @@ export default function SettingsPage() {
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
-                    label="Business Name"
+                    label={t.settings.businessName}
                     name="name"
                     value={profile?.name ?? tenant.tenantName ?? ""}
-                    placeholder="Enter business name"
+                    placeholder={t.settings.businessName}
                   />
                   <FormField
-                    label="Registration Number (SSM)"
+                    label={t.settings.registrationNumber}
                     name="registration_number"
                     value={profile?.registration_number ?? ""}
                     placeholder="SSM Number"
@@ -184,43 +205,43 @@ export default function SettingsPage() {
                 </div>
 
                 <FormField
-                  label="Address Line 1"
+                  label={t.settings.addressLine1}
                   name="address_line1"
                   value={profile?.address_line1 ?? ""}
-                  placeholder="Full address"
+                  placeholder={t.settings.addressLine1}
                 />
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
-                    label="City"
+                    label={t.settings.city}
                     name="city"
                     value={profile?.city ?? ""}
-                    placeholder="City"
+                    placeholder={t.settings.city}
                   />
                   <FormField
-                    label="Postcode"
+                    label={t.settings.postcode}
                     name="postcode"
                     value={profile?.postcode ?? ""}
-                    placeholder="Postcode"
+                    placeholder={t.settings.postcode}
                   />
                   <FormField
-                    label="State"
+                    label={t.settings.state}
                     name="state"
                     value={profile?.state ?? ""}
-                    placeholder="State"
+                    placeholder={t.settings.state}
                   />
                 </div>
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <FormField
-                    label="Phone Number"
+                    label={t.settings.phoneNumber}
                     name="phone"
                     type="tel"
                     value={profile?.phone ?? ""}
                     placeholder="+60"
                   />
                   <FormField
-                    label="Email"
+                    label={t.settings.email}
                     name="email"
                     type="email"
                     value={profile?.email ?? ""}
@@ -234,8 +255,8 @@ export default function SettingsPage() {
           {activeSection === "security" && (
             <Card className="p-6">
               <div className="mb-6">
-                <h3 className="mb-1 text-xl font-bold text-white">Security</h3>
-                <p className="text-sm text-gray-400">Change your password</p>
+                <h3 className="mb-1 text-xl font-bold text-white">{t.settings.securityTitle}</h3>
+                <p className="text-sm text-gray-400">{t.settings.securitySubtitle}</p>
               </div>
 
               <form onSubmit={handlePasswordSubmit} className="max-w-md space-y-5">
@@ -247,24 +268,24 @@ export default function SettingsPage() {
                 )}
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">New Password</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-300">{t.settings.newPassword}</label>
                   <input
                     name="new_password"
                     type="password"
                     required
                     minLength={6}
-                    placeholder="At least 6 characters"
+                    placeholder={t.settings.atLeast6Chars}
                     className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">Confirm Password</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-300">{t.settings.confirmPassword}</label>
                   <input
                     name="confirm_password"
                     type="password"
                     required
                     minLength={6}
-                    placeholder="Confirm new password"
+                    placeholder={t.settings.confirmNewPassword}
                     className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
                   />
                 </div>
@@ -273,9 +294,93 @@ export default function SettingsPage() {
                   disabled={pending}
                   className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
                 >
-                  <Save className="h-4 w-4" /> Change Password
+                  <Save className="h-4 w-4" /> {t.settings.changePassword}
                 </button>
               </form>
+            </Card>
+          )}
+
+          {activeSection === "preferences" && (
+            <Card className="p-6">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h3 className="mb-1 text-xl font-bold text-white">{t.settings.preferencesTitle}</h3>
+                  <p className="text-sm text-gray-400">{t.settings.preferencesSubtitle}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handlePreferencesSave()}
+                  disabled={prefPending}
+                  className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" /> {t.settings.savePreferences}
+                </button>
+              </div>
+
+              {formError && (
+                <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
+              )}
+              {formSuccess && (
+                <div className="mb-4 rounded-lg bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">{formSuccess}</div>
+              )}
+
+              <div className="max-w-md space-y-6">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                    <Globe className="mr-1.5 inline h-4 w-4" />
+                    {t.settings.languageLabel}
+                  </label>
+                  <p className="mb-3 text-xs text-gray-500">{t.settings.languageHint}</p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLang("ms")}
+                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition ${
+                        selectedLang === "ms"
+                          ? "border-[#D4AF37] bg-[#D4AF37]/10"
+                          : "border-white/10 bg-[#111] hover:border-[#D4AF37]/40"
+                      }`}
+                    >
+                      <span className="text-2xl">🇲🇾</span>
+                      <div className="text-center">
+                        <p className={`text-sm font-bold ${selectedLang === "ms" ? "text-[#D4AF37]" : "text-white"}`}>
+                          {t.settings.languageBM}
+                        </p>
+                        <p className="text-[11px] text-gray-500">BM · Lalai</p>
+                      </div>
+                      {selectedLang === "ms" && (
+                        <span className="rounded-full bg-[#D4AF37] px-2.5 py-0.5 text-[10px] font-bold text-[#111]">
+                          ✓ Dipilih
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLang("en")}
+                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition ${
+                        selectedLang === "en"
+                          ? "border-[#D4AF37] bg-[#D4AF37]/10"
+                          : "border-white/10 bg-[#111] hover:border-[#D4AF37]/40"
+                      }`}
+                    >
+                      <span className="text-2xl">🇬🇧</span>
+                      <div className="text-center">
+                        <p className={`text-sm font-bold ${selectedLang === "en" ? "text-[#D4AF37]" : "text-white"}`}>
+                          {t.settings.languageEN}
+                        </p>
+                        <p className="text-[11px] text-gray-500">EN · Default</p>
+                      </div>
+                      {selectedLang === "en" && (
+                        <span className="rounded-full bg-[#D4AF37] px-2.5 py-0.5 text-[10px] font-bold text-[#111]">
+                          ✓ Selected
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </Card>
           )}
         </div>

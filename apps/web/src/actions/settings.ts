@@ -66,6 +66,24 @@ export async function updateBranchHours(branchId: string, hours: Record<string, 
   }
 }
 
+export async function updatePreferredLanguage(language: "ms" | "en") {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+
+    const { error } = await supabase
+      .from("tenants")
+      .update({ preferred_language: language, updated_at: new Date().toISOString() })
+      .eq("id", tenantId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 export async function changePassword(formData: FormData) {
   try {
     const { supabase } = await getAuthContext();

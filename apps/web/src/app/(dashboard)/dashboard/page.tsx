@@ -26,9 +26,8 @@ import {
   useQueueStats
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
+import { useT } from "@/lib/i18n/language-context";
 import type { Period } from "@/services/transactions";
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -52,7 +51,7 @@ function formatAmount(amount: number): string {
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("en-MY", {
+  return d.toLocaleDateString("ms-MY", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -60,14 +59,12 @@ function formatDate(iso: string): string {
   });
 }
 
-// ─── Mini bar chart ───────────────────────────────────────────────────────────
-
 function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
   const maxRevenue = Math.max(...bars.map((b) => b.revenue), 1);
   const maxH = 80;
   const today = new Date();
   const myNow = new Date(today.getTime() + 8 * 60 * 60 * 1000);
-  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const dayLabels = ["Isn", "Sel", "Rab", "Kha", "Jum", "Sab", "Ahd"];
   const myDayOfWeek = myNow.getUTCDay();
   const todayLabel = dayLabels[myDayOfWeek === 0 ? 6 : myDayOfWeek - 1];
 
@@ -90,45 +87,8 @@ function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
   );
 }
 
-// ─── Quick Actions ────────────────────────────────────────────────────────────
-
-const QUICK_ACTIONS = [
-  { label: "Add Walk-in", icon: PlusCircle, color: "text-[#D4AF37]", href: "/queue" },
-  { label: "Book Appt", icon: CalendarPlus, color: "text-blue-400", href: "/appointments" },
-  { label: "Checkout", icon: CreditCard, color: "text-emerald-400", href: "/pos" },
-  { label: "Add Customer", icon: Users, color: "text-purple-400", href: "/customers" }
-];
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
-
-const PERIODS: { label: string; value: Period }[] = [
-  { label: "Today", value: "today" },
-  { label: "Week", value: "week" },
-  { label: "Month", value: "month" },
-];
-
-const PERIOD_LABELS: Record<Period, { revenue: string; customers: string; transactions: string; chart: string }> = {
-  today: {
-    revenue: "Today's Revenue",
-    customers: "Customers Today",
-    transactions: "Total Transactions",
-    chart: "Daily revenue comparison with last week",
-  },
-  week: {
-    revenue: "This Week's Revenue",
-    customers: "Customers This Week",
-    transactions: "Transactions This Week",
-    chart: "Daily revenue for this week",
-  },
-  month: {
-    revenue: "This Month's Revenue",
-    customers: "Customers This Month",
-    transactions: "Transactions This Month",
-    chart: "Daily revenue for this month",
-  },
-};
-
 export default function DashboardPage() {
+  const t = useT();
   const [period, setPeriod] = useState<Period>("today");
   const { userName, branchName } = useTenant();
   const { data: statsData, isLoading: statsLoading } = useDashboardStats(period);
@@ -162,10 +122,60 @@ export default function DashboardPage() {
     branchesLoading ||
     expensesLoading;
 
+  const PERIODS = [
+    { label: t.common.today, value: "today" as Period },
+    { label: t.common.week, value: "week" as Period },
+    { label: t.common.month, value: "month" as Period },
+  ];
+
+  const PERIOD_LABELS: Record<Period, { revenue: string; customers: string; transactions: string; chart: string }> = {
+    today: {
+      revenue: t.dashboard.revenueToday,
+      customers: t.dashboard.customersToday,
+      transactions: t.dashboard.transactionsToday,
+      chart: t.dashboard.chartToday,
+    },
+    week: {
+      revenue: t.dashboard.revenueWeek,
+      customers: t.dashboard.customersWeek,
+      transactions: t.dashboard.transactionsWeek,
+      chart: t.dashboard.chartWeek,
+    },
+    month: {
+      revenue: t.dashboard.revenueMonth,
+      customers: t.dashboard.customersMonth,
+      transactions: t.dashboard.transactionsMonth,
+      chart: t.dashboard.chartMonth,
+    },
+  };
+
+  const QUICK_ACTIONS = [
+    { label: t.dashboard.addWalkIn, icon: PlusCircle, color: "text-[#D4AF37]", href: "/queue" },
+    { label: t.dashboard.bookAppt, icon: CalendarPlus, color: "text-blue-400", href: "/appointments" },
+    { label: t.dashboard.checkout, icon: CreditCard, color: "text-emerald-400", href: "/pos" },
+    { label: t.dashboard.addCustomer, icon: Users, color: "text-purple-400", href: "/customers" }
+  ];
+
+  // Time-based greeting
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12
+      ? t.dashboard.greetingMorning
+      : hour < 15
+        ? t.dashboard.greetingAfternoon
+        : t.dashboard.greetingEvening;
+
+  const periodLabel =
+    period === "today"
+      ? t.dashboard.periodToday
+      : period === "week"
+        ? t.dashboard.periodWeek
+        : t.dashboard.periodMonth;
+
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+        <p className="text-gray-400">{t.common.loading}</p>
       </div>
     );
   }
@@ -176,12 +186,12 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">
-            Good morning, {userName ?? "User"}
+            {greeting}, {userName ?? "User"}
           </h2>
           <p className="mt-1 text-sm text-gray-400">
-            Here&apos;s what&apos;s happening at{" "}
-            <span className="font-medium text-[#D4AF37]">{branchName ?? "your branch"}</span>{" "}
-            {period === "today" ? "today" : period === "week" ? "this week" : "this month"}.
+            {t.dashboard.situationAt}{" "}
+            <span className="font-medium text-[#D4AF37]">{branchName ?? "kedai"}</span>{" "}
+            {periodLabel}.
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-white/5 bg-[#1a1a1a] p-1">
@@ -218,7 +228,7 @@ export default function DashboardPage() {
               {stats ? formatAmount(stats.todayRevenue) : "RM 0.00"}
             </h3>
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">Total sales</p>
+          <p className="mt-1.5 text-xs text-gray-500">{t.common.totalSales}</p>
         </Card>
 
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
@@ -235,7 +245,7 @@ export default function DashboardPage() {
               {stats?.todayCustomers ?? 0}
             </h3>
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">Unique customers served</p>
+          <p className="mt-1.5 text-xs text-gray-500">{t.dashboard.uniqueCustomersServed}</p>
         </Card>
 
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
@@ -253,14 +263,14 @@ export default function DashboardPage() {
             </h3>
           </div>
           <p className="mt-1.5 text-xs text-gray-500">
-            {period === "today" ? "Today" : period === "week" ? "This week" : "This month"}
+            {periodLabel}
           </p>
         </Card>
 
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
           <div className="flex items-start justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Active Queue
+              {t.dashboard.activeQueue}
             </p>
             <span className="rounded-lg p-2 bg-amber-500/10">
               <Timer className="h-4 w-4 text-amber-400" />
@@ -268,14 +278,14 @@ export default function DashboardPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <h3 className="text-2xl font-bold text-white">{queueStats.waiting}</h3>
-            <span className="text-sm font-normal text-gray-500">waiting</span>
+            <span className="text-sm font-normal text-gray-500">{t.dashboard.waiting}</span>
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">Today · Malaysia time</p>
+          <p className="mt-1.5 text-xs text-gray-500">{t.dashboard.todayMY}</p>
           <Link
             href="/queue-board"
             className="mt-3 block w-full rounded border border-white/10 py-1.5 text-center text-xs text-white transition hover:bg-white/5"
           >
-            View Queue Board
+            {t.dashboard.viewQueueBoard}
           </Link>
         </Card>
       </div>
@@ -287,7 +297,7 @@ export default function DashboardPage() {
           <Card className="p-5">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-white">Sales &amp; Revenue</h3>
+                <h3 className="font-bold text-white">{t.dashboard.salesRevenue}</h3>
                 <p className="mt-0.5 text-sm text-gray-500">
                   {PERIOD_LABELS[period].chart}
                 </p>
@@ -298,17 +308,17 @@ export default function DashboardPage() {
               <MiniChart bars={chartBars} />
             ) : (
               <div className="flex h-28 items-center justify-center text-sm text-gray-600">
-                No data yet
+                {t.dashboard.noDataYet}
               </div>
             )}
             <div className="mt-3 flex items-center gap-4 border-t border-white/5 pt-3 text-xs text-gray-500">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#D4AF37]" />
-                {period === "today" ? "Today" : period === "week" ? "This week" : "This month"}
+                {periodLabel}
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#D4AF37]/20" />
-                Other days
+                {t.dashboard.otherDays}
               </span>
             </div>
           </Card>
@@ -316,52 +326,52 @@ export default function DashboardPage() {
           {/* Recent Transactions */}
           <Card>
             <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
-              <h3 className="font-bold text-white">Recent Transactions</h3>
+              <h3 className="font-bold text-white">{t.dashboard.recentTransactions}</h3>
               <Link
                 href="/reports"
                 className="text-sm font-medium text-[#D4AF37] transition hover:text-[#D4AF37]/80"
               >
-                View All
+                {t.common.viewAll}
               </Link>
             </div>
             <div className="overflow-x-auto">
               {transactions.length === 0 ? (
                 <div className="px-5 py-12 text-center text-sm text-gray-500">
-                  No data yet
+                  {t.dashboard.noDataYet}
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      <th className="p-4 text-left">Customer</th>
-                      <th className="p-4 text-left">Payment</th>
-                      <th className="p-4 text-left">Amount</th>
-                      <th className="p-4 text-left">Status</th>
-                      <th className="p-4 text-left">Date</th>
+                      <th className="p-4 text-left">{t.dashboard.customer}</th>
+                      <th className="p-4 text-left">{t.dashboard.payment}</th>
+                      <th className="p-4 text-left">{t.dashboard.amount}</th>
+                      <th className="p-4 text-left">{t.dashboard.status}</th>
+                      <th className="p-4 text-left">{t.dashboard.date}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((t) => (
+                    {transactions.map((tx) => (
                       <tr
-                        key={t.id}
+                        key={tx.id}
                         className="border-t border-white/[0.04] transition hover:bg-white/[0.02]"
                       >
                         <td className="p-4 font-medium text-white">
-                          {t.customer?.full_name ?? "Walk-in"}
+                          {tx.customer?.full_name ?? t.dashboard.walkIn}
                         </td>
-                        <td className="p-4 text-gray-300">{t.payment_method}</td>
+                        <td className="p-4 text-gray-300">{tx.payment_method}</td>
                         <td className="p-4 font-bold text-white">
-                          {formatAmount(t.total_amount)}
+                          {formatAmount(tx.total_amount)}
                         </td>
                         <td className="p-4">
                           <StatusBadge
-                            status={t.payment_status}
+                            status={tx.payment_status}
                             color={
-                              t.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"
+                              tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"
                             }
                           />
                         </td>
-                        <td className="p-4 text-gray-500">{formatDate(t.created_at)}</td>
+                        <td className="p-4 text-gray-500">{formatDate(tx.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -375,7 +385,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           {/* Quick Actions */}
           <Card className="p-5">
-            <h3 className="mb-4 font-bold text-white">Quick Actions</h3>
+            <h3 className="mb-4 font-bold text-white">{t.dashboard.quickActions}</h3>
             <div className="grid grid-cols-2 gap-2">
               {QUICK_ACTIONS.map((a) => {
                 const Icon = a.icon;
@@ -395,9 +405,9 @@ export default function DashboardPage() {
 
           {/* Top Barbers */}
           <Card className="p-5">
-            <h3 className="mb-4 font-bold text-white">Top Barbers Today</h3>
+            <h3 className="mb-4 font-bold text-white">{t.dashboard.topBarbersToday}</h3>
             {barbers.length === 0 ? (
-              <p className="text-sm text-gray-500">No data yet</p>
+              <p className="text-sm text-gray-500">{t.dashboard.noDataYet}</p>
             ) : (
               <div className="space-y-3">
                 {barbers.slice(0, 5).map((b, idx) => (
@@ -414,7 +424,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-white">{b.full_name}</p>
-                      <p className="text-[10px] text-gray-500">Barber</p>
+                      <p className="text-[10px] text-gray-500">{t.dashboard.barber}</p>
                     </div>
                     <span
                       className={`text-sm font-bold ${
@@ -434,11 +444,11 @@ export default function DashboardPage() {
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-400" />
               <h3 className="text-sm font-bold uppercase tracking-wide text-red-400">
-                Low Stock Alert
+                {t.dashboard.lowStockAlert}
               </h3>
             </div>
             {lowStockItems.length === 0 ? (
-              <p className="text-sm text-gray-500">No low stock items</p>
+              <p className="text-sm text-gray-500">{t.dashboard.noLowStock}</p>
             ) : (
               <>
                 <ul className="space-y-2">
@@ -455,7 +465,7 @@ export default function DashboardPage() {
                             : "bg-yellow-500/10 text-yellow-500"
                         }`}
                       >
-                        {item.stock_qty ?? 0} left
+                        {item.stock_qty ?? 0} {t.dashboard.left}
                       </span>
                     </li>
                   ))}
@@ -465,7 +475,7 @@ export default function DashboardPage() {
                   className="mt-4 flex w-full items-center justify-center gap-1 text-xs font-medium text-red-400 transition hover:text-red-300"
                 >
                   <ShoppingCart className="h-3.5 w-3.5" />
-                  Order Stock
+                  {t.dashboard.orderStock}
                 </Link>
               </>
             )}
@@ -478,11 +488,11 @@ export default function DashboardPage() {
         {/* Branch Performance */}
         <Card>
           <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
-            <h3 className="font-bold text-white">Branch Performance</h3>
+            <h3 className="font-bold text-white">{t.dashboard.branchPerformance}</h3>
             <BookOpen className="h-4 w-4 text-gray-500" />
           </div>
           {branches.length === 0 ? (
-            <div className="px-5 py-12 text-center text-sm text-gray-500">No data yet</div>
+            <div className="px-5 py-12 text-center text-sm text-gray-500">{t.dashboard.noDataYet}</div>
           ) : (
             <div className="divide-y divide-white/[0.04]">
               {branches.map((b) => (
@@ -493,12 +503,12 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-sm font-bold text-white">{b.name}</p>
                     <p className="text-xs text-gray-500">
-                      {b.is_hq ? "HQ" : "Branch"}
+                      {b.is_hq ? t.common.hq : t.common.branch}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-white">—</p>
-                    <p className="text-xs text-gray-500">Stats coming soon</p>
+                    <p className="text-xs text-gray-500">{t.common.statsComingSoon}</p>
                   </div>
                 </div>
               ))}
@@ -509,23 +519,23 @@ export default function DashboardPage() {
         {/* Recent Expenses */}
         <Card>
           <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
-            <h3 className="font-bold text-white">Recent Expenses</h3>
+            <h3 className="font-bold text-white">{t.dashboard.recentExpenses}</h3>
             <Link
               href="/expenses"
               className="rounded-md bg-[#2a2a2a] px-3 py-1 text-xs text-white transition hover:bg-[#333]"
             >
-              Add New
+              {t.common.addNew}
             </Link>
           </div>
           {expenses.length === 0 ? (
-            <div className="px-5 py-12 text-center text-sm text-gray-500">No data yet</div>
+            <div className="px-5 py-12 text-center text-sm text-gray-500">{t.dashboard.noDataYet}</div>
           ) : (
             <div className="divide-y divide-white/[0.04]">
               {expenses.slice(0, 5).map((e) => (
                 <div key={e.id} className="flex items-center justify-between px-5 py-4">
                   <div>
                     <p className="text-sm font-medium text-white">
-                      {e.vendor ?? e.category ?? "Expense"}
+                      {e.vendor ?? e.category ?? t.expenses.addExpense}
                     </p>
                     <p className="text-xs text-gray-500">{e.category ?? e.notes ?? "—"}</p>
                   </div>

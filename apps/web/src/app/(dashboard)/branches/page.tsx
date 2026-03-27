@@ -8,8 +8,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useBranches } from "@/hooks";
 import { createBranch } from "@/actions/branches";
 import { useTenant } from "@/components/tenant-provider";
+import { useT } from "@/lib/i18n/language-context";
 
 export default function BranchesPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useBranches();
   const tenant = useTenant();
@@ -52,8 +54,8 @@ export default function BranchesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Branches</h2>
-          <p className="mt-1 text-sm text-gray-400">Manage your locations</p>
+          <h2 className="text-2xl font-bold text-white">{t.branches.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.branches.subtitle}</p>
         </div>
         <button
           type="button"
@@ -61,7 +63,7 @@ export default function BranchesPage() {
           className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
         >
           {atBranchLimit ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          Add Branch
+          {t.branches.addBranch}
         </button>
       </div>
 

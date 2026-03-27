@@ -30,6 +30,7 @@ import {
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { createTransaction } from "@/actions/pos";
+import { useT } from "@/lib/i18n/language-context";
 
 type CartItem = {
   id: string;
@@ -332,6 +333,7 @@ function ProductBtn({
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export function PosPageClient() {
+  const t = useT();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const { branchId } = useTenant();
@@ -555,7 +557,7 @@ export function PosPageClient() {
         <div className="grid grid-cols-2 gap-2">
           <SelectorDropdown
             icon={User}
-            label="Customer"
+            label={t.pos.customer}
             options={customerOptions}
             value={customerValue}
             onChange={handleCustomerChange}

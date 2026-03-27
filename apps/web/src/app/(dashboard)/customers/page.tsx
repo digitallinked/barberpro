@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCustomers, useCustomerStats } from "@/hooks";
 import { createCustomer } from "@/actions/customers";
+import { useT } from "@/lib/i18n/language-context";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ function getStatus(points: number): { label: string; statusColor: string } {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: customersResult, isLoading: customersLoading } = useCustomers();
   const { data: statsResult, isLoading: statsLoading } = useCustomerStats();
@@ -89,8 +91,8 @@ export default function CustomersPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">Customer Management</h2>
-          <p className="mt-1 text-sm text-gray-400">View and manage your customer database</p>
+          <h2 className="text-xl font-bold text-white">{t.customers.title}</h2>
+          <p className="mt-1 text-sm text-gray-400">{t.customers.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40">
@@ -101,7 +103,7 @@ export default function CustomersPage() {
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110"
           >
-            <Plus className="h-4 w-4" /> Add Customer
+            <Plus className="h-4 w-4" /> {t.customers.addCustomer}
           </button>
         </div>
       </div>

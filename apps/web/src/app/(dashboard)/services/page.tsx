@@ -6,12 +6,14 @@ import { Plus, Scissors, Trash2 } from "lucide-react";
 
 import { createService, createServiceCategory, deleteService } from "@/actions/catalog";
 import { useServiceCategories, useServices } from "@/hooks";
+import { useT } from "@/lib/i18n/language-context";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
 }
 
 export default function ServicesPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: servicesResult, isLoading } = useServices();
   const { data: categoriesResult } = useServiceCategories();
@@ -41,11 +43,11 @@ export default function ServicesPage() {
     if (result.success) {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      setSuccess("Service created.");
+      setSuccess(t.common.success);
       return;
     }
 
-    setError(result.error ?? "Failed to create service");
+    setError(result.error ?? t.common.error);
   }
 
   async function handleDeactivateService(id: string) {
@@ -57,11 +59,11 @@ export default function ServicesPage() {
 
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      setSuccess("Service deactivated.");
+      setSuccess(t.common.success);
       return;
     }
 
-    setError(result.error ?? "Failed to deactivate service");
+    setError(result.error ?? t.common.error);
   }
 
   async function handleCreateCategory(e: React.FormEvent<HTMLFormElement>) {
@@ -78,18 +80,18 @@ export default function ServicesPage() {
     if (result.success) {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["service-categories"] });
-      setCategorySuccess("Category created.");
+      setCategorySuccess(t.common.success);
       return;
     }
 
-    setCategoryError(result.error ?? "Failed to create category");
+    setCategoryError(result.error ?? t.common.error);
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white">Services</h2>
-        <p className="mt-1 text-sm text-gray-400">Create and manage services used in queue, appointments, and POS.</p>
+        <h2 className="text-2xl font-bold text-white">{t.services.title}</h2>
+        <p className="mt-1 text-sm text-gray-400">{t.services.subtitle}</p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
@@ -97,7 +99,7 @@ export default function ServicesPage() {
           <Card className="p-6">
           <div className="mb-5 flex items-center gap-2">
             <Plus className="h-4 w-4 text-[#D4AF37]" />
-            <h3 className="text-lg font-bold text-white">Add Service</h3>
+            <h3 className="text-lg font-bold text-white">{t.services.addService}</h3>
           </div>
 
           <form onSubmit={handleCreateService} className="space-y-4">
@@ -107,7 +109,7 @@ export default function ServicesPage() {
             )}
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">Service Name</label>
+              <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.serviceName}</label>
               <input
                 name="name"
                 required
@@ -118,7 +120,7 @@ export default function ServicesPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Duration (min)</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.duration} (min)</label>
                 <input
                   type="number"
                   min={0}
@@ -129,7 +131,7 @@ export default function ServicesPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Price (RM)</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.price} (RM)</label>
                 <input
                   type="number"
                   min={0}
@@ -142,12 +144,12 @@ export default function ServicesPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">Category (optional)</label>
-              <select
+              <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.category} ({t.queue.optional})</label>
+                <select
                 name="category_id"
                 className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
               >
-                <option value="">No category</option>
+                <option value="">—</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -161,7 +163,7 @@ export default function ServicesPage() {
               disabled={pending}
               className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
             >
-              {pending ? "Saving..." : "Create Service"}
+              {pending ? `${t.common.save}...` : t.services.addService}
             </button>
           </form>
           </Card>
@@ -169,7 +171,7 @@ export default function ServicesPage() {
           <Card className="p-6">
             <div className="mb-5 flex items-center gap-2">
               <Plus className="h-4 w-4 text-[#D4AF37]" />
-              <h3 className="text-lg font-bold text-white">Add Category</h3>
+              <h3 className="text-lg font-bold text-white">{t.services.category}</h3>
             </div>
 
             <form onSubmit={handleCreateCategory} className="space-y-4">
@@ -183,7 +185,7 @@ export default function ServicesPage() {
               )}
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Category Name</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.category}</label>
                 <input
                   name="name"
                   required
@@ -197,7 +199,7 @@ export default function ServicesPage() {
                 disabled={categoryPending}
                 className="w-full rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 py-2.5 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20 disabled:opacity-50"
               >
-                {categoryPending ? "Saving..." : "Create Category"}
+                {categoryPending ? `${t.common.save}...` : `+ ${t.services.category}`}
               </button>
             </form>
           </Card>
@@ -206,7 +208,7 @@ export default function ServicesPage() {
         <Card className="p-6 xl:col-span-2">
           <div className="mb-4 flex items-center gap-2">
             <Scissors className="h-4 w-4 text-[#D4AF37]" />
-            <h3 className="text-lg font-bold text-white">Service List</h3>
+              <h3 className="text-lg font-bold text-white">{t.services.title}</h3>
           </div>
 
           {isLoading ? (
@@ -215,7 +217,7 @@ export default function ServicesPage() {
             </div>
           ) : services.length === 0 ? (
             <div className="rounded-lg border border-dashed border-white/10 bg-[#111] px-4 py-8 text-center text-sm text-gray-400">
-              No services yet. Create your first service to use it in the walk-in queue.
+              {t.services.noServices}
             </div>
           ) : (
             <div className="space-y-3">
@@ -237,7 +239,7 @@ export default function ServicesPage() {
                             : "bg-gray-500/20 text-gray-400"
                         }`}
                       >
-                        {service.is_active ? "Active" : "Inactive"}
+                        {service.is_active ? t.services.active : t.services.inactive}
                       </span>
                     </p>
                   </div>
@@ -249,7 +251,7 @@ export default function ServicesPage() {
                       className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
                     >
                       <Trash2 className="mr-1 inline h-3.5 w-3.5" />
-                      Deactivate
+                      {t.common.delete}
                     </button>
                   ) : null}
                 </div>

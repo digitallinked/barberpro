@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCommissionSchemes, useStaffAssignments, useStaffMembers } from "@/hooks";
 import { createCommissionScheme, assignCommissionScheme } from "@/actions/commissions";
+import { useT } from "@/lib/i18n/language-context";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -40,6 +41,7 @@ function formatRM(n: number): string {
 }
 
 export default function CommissionsPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data: schemesResult } = useCommissionSchemes();
   const { data: assignmentsResult } = useStaffAssignments();
@@ -90,8 +92,8 @@ export default function CommissionsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white">Staff Commission Setup</h1>
-          <p className="mt-1 text-sm text-gray-400">Configure commission schemes and assign to staff</p>
+          <h1 className="text-lg font-bold text-white">{t.commissions.title}</h1>
+          <p className="mt-1 text-sm text-gray-400">{t.commissions.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
