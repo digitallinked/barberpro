@@ -37,11 +37,24 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   if (!appUser?.tenant_id) return null;
 
-  const { data: tenant } = await supabase
+  let tenant: { id: string; name: string; slug: string; plan: string | null; preferred_language?: string } | null = null;
+
+  const { data: t1, error: t1Err } = await supabase
     .from("tenants")
     .select("id, name, slug, plan, preferred_language")
     .eq("id", appUser.tenant_id)
     .single();
+
+  if (t1 && !t1Err) {
+    tenant = t1;
+  } else {
+    const { data: t2 } = await supabase
+      .from("tenants")
+      .select("id, name, slug, plan")
+      .eq("id", appUser.tenant_id)
+      .single();
+    if (t2) tenant = { ...t2, preferred_language: undefined };
+  }
 
   if (!tenant) return null;
 
