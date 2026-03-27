@@ -35,6 +35,7 @@ import {
   useSupabase,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
+import { useWalkInQueueModal } from "@/components/walk-in-queue-modal-context";
 import {
   cancelStaleWaitingQueueTickets,
   completeQueueTicketWithPayment,
@@ -91,6 +92,7 @@ export default function QueuePage() {
   const queryClient = useQueryClient();
   const supabase = useSupabase();
   const { branchId, branchName, tenantName, tenantId } = useTenant();
+  const { openRequestId } = useWalkInQueueModal();
   const { data: ticketsData, isLoading: ticketsLoading } = useQueueTickets();
   const { data: statsData } = useQueueStats();
   const { data: staffData } = useStaffMembers();
@@ -159,6 +161,8 @@ export default function QueuePage() {
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const proofInputRef = useRef<HTMLInputElement>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [checkinUrl, setCheckinUrl] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
@@ -166,6 +170,7 @@ export default function QueuePage() {
   const [rotatingQr, setRotatingQr] = useState(false);
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastHeaderWalkInRequestRef = useRef(0);
   const [staleSubmitting, setStaleSubmitting] = useState(false);
   // Seat management state
   const [showSeatForm, setShowSeatForm] = useState(false);
@@ -195,6 +200,13 @@ export default function QueuePage() {
     const id = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (openRequestId > lastHeaderWalkInRequestRef.current) {
+      lastHeaderWalkInRequestRef.current = openRequestId;
+      setShowNewModal(true);
+    }
+  }, [openRequestId]);
 
   const filteredTickets =
     activeTab === 0
@@ -625,6 +637,7 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
       queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setProofPreview(null);
       setShowPaymentModal(null);
     } else {
       setPaymentError(result.error ?? "Failed to complete payment");
@@ -1758,7 +1771,7 @@ export default function QueuePage() {
                 <h3 className="text-lg font-bold text-white">Receive payment</h3>
                 <button
                   type="button"
-                  onClick={() => setShowPaymentModal(null)}
+                  onClick={() => { setShowPaymentModal(null); setProofPreview(null); }}
                   className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
                 >
                   <X className="h-5 w-5" />
@@ -1844,15 +1857,51 @@ export default function QueuePage() {
                     Payment Proof (for QR/online)
                   </label>
                   <input
+                    ref={proofInputRef}
                     name="payment_proof"
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-[#D4AF37] file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-[#111]"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setProofPreview(url);
+                      } else {
+                        setProofPreview(null);
+                      }
+                    }}
                   />
-                  <p className="mt-1 text-[10px] text-gray-500">
-                    Upload a screenshot/photo from customer's banking app after successful payment.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => proofInputRef.current?.click()}
+                    className="relative w-full overflow-hidden rounded-xl border-2 border-dashed border-white/15 bg-[#111] transition hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/5"
+                    style={{ minHeight: proofPreview ? undefined : "110px" }}
+                  >
+                    {proofPreview ? (
+                      <div className="relative">
+                        <img
+                          src={proofPreview}
+                          alt="Payment proof preview"
+                          className="max-h-52 w-full rounded-xl object-contain"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 transition hover:opacity-100">
+                          <span className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111]">
+                            Change Photo
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 py-7">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                          <circle cx="12" cy="13" r="3"/>
+                        </svg>
+                        <span className="text-xs font-medium text-gray-400">Tap to take or choose photo</span>
+                      </div>
+                    )}
+                  </button>
                 </div>
 
                 <button

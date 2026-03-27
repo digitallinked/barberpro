@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Banknote,
   BarChart3,
@@ -29,6 +29,10 @@ import { type ReactNode, useState } from "react";
 
 import { QuickPaymentSheet } from "@/components/quick-payment-sheet";
 import { useTenant } from "@/components/tenant-provider";
+import {
+  WalkInQueueModalProvider,
+  useWalkInQueueModal,
+} from "@/components/walk-in-queue-modal-context";
 import { signOut } from "@/actions/auth";
 
 type NavItem = { label: string; href: string; icon: React.ElementType };
@@ -311,9 +315,19 @@ function MobileBottomNav({
 type AppShellProps = { children: ReactNode };
 
 export function AppShell({ children }: AppShellProps) {
+  return (
+    <WalkInQueueModalProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </WalkInQueueModalProvider>
+  );
+}
+
+function AppShellInner({ children }: AppShellProps) {
   const [open, setOpen] = useState(false);
   const [quickPayOpen, setQuickPayOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { requestOpenNewWalkIn } = useWalkInQueueModal();
 
   let userName = "User";
   let userRole = "owner";
@@ -329,6 +343,13 @@ export function AppShell({ children }: AppShellProps) {
   } catch {
     // TenantProvider not available (e.g. dev mode without Supabase)
   }
+
+  const onNewWalkIn = () => {
+    requestOpenNewWalkIn();
+    if (pathname !== "/queue") {
+      router.push("/queue");
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#111111]">
@@ -398,13 +419,14 @@ export function AppShell({ children }: AppShellProps) {
             >
               <Bell className="h-5 w-5" />
             </button>
-            <Link
-              href="/queue"
+            <button
+              type="button"
+              onClick={onNewWalkIn}
               className="hidden items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110 lg:inline-flex"
             >
               <Plus className="h-4 w-4 shrink-0" />
               New Walk-in
-            </Link>
+            </button>
           </div>
         </header>
 
