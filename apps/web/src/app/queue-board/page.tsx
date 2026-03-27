@@ -2,7 +2,7 @@
 
 import { Clock, Scissors, Star, Users } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useQueueBoard } from "@/hooks";
 
@@ -122,6 +122,77 @@ function getTicketForSeat(seatId: string, tickets: Ticket[]): Ticket | null {
   return null;
 }
 
+/* ─── Sound ──────────────────────────────────────────────────────────────── */
+
+/** Plays a three-note ascending chime (C5 → E5 → G5) via Web Audio API. */
+function playCallChime() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = ctx.currentTime + i * 0.2;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
+      osc.start(start);
+      osc.stop(start + 0.6);
+    });
+  } catch {
+    // AudioContext unavailable — silently ignore
+  }
+}
+
+/** Watches tickets and fires the chime whenever a new seat assignment appears. */
+function useCallChime(tickets: Ticket[]) {
+  // Track IDs of ticket_seats that are already in_service so we only chime on new ones.
+  const seenSeatIds = useRef<Set<string>>(new Set());
+  // Skip the very first render so we don't chime on page load.
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    const currentInServiceIds = new Set<string>();
+
+    for (const t of tickets) {
+      if (t.status === "in_service") {
+        if (t.ticket_seats && t.ticket_seats.length > 0) {
+          // Group ticket — track each individual seat assignment
+          for (const ts of t.ticket_seats) {
+            if (ts.status === "in_service") currentInServiceIds.add(ts.id);
+          }
+        } else {
+          // Single ticket — use the ticket id itself
+          currentInServiceIds.add(t.id);
+        }
+      }
+    }
+
+    if (!initialized.current) {
+      // Seed known IDs on first load — no chime
+      seenSeatIds.current = currentInServiceIds;
+      initialized.current = true;
+      return;
+    }
+
+    // Check for any newly assigned IDs
+    let hasNew = false;
+    for (const id of currentInServiceIds) {
+      if (!seenSeatIds.current.has(id)) {
+        hasNew = true;
+        break;
+      }
+    }
+
+    if (hasNew) playCallChime();
+    seenSeatIds.current = currentInServiceIds;
+  }, [tickets]);
+}
+
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 
 function QueueBoardContent() {
@@ -132,6 +203,8 @@ function QueueBoardContent() {
   const tickets = data?.data ?? [];
   const branchName = data?.branchName ?? "Branch";
   const seats: BranchSeat[] = data?.seats ?? [];
+
+  useCallChime(tickets);
 
   /**
    * Tickets that still have unassigned members:
