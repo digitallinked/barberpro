@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -854,6 +854,7 @@ export type Database = {
           customer_id: string | null
           estimated_wait_min: number | null
           id: string
+          member_services: Json
           party_size: number
           preferred_staff_id: string | null
           queue_day: string
@@ -873,6 +874,7 @@ export type Database = {
           customer_id?: string | null
           estimated_wait_min?: number | null
           id?: string
+          member_services?: Json
           party_size?: number
           preferred_staff_id?: string | null
           queue_day?: string
@@ -892,6 +894,7 @@ export type Database = {
           customer_id?: string | null
           estimated_wait_min?: number | null
           id?: string
+          member_services?: Json
           party_size?: number
           preferred_staff_id?: string | null
           queue_day?: string

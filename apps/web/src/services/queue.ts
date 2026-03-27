@@ -20,6 +20,13 @@ export type TicketSeatMember = {
   service: { name: string; price: number } | null;
 };
 
+export type MemberServiceSelection = {
+  member_index: number;
+  service_id: string;
+  service_name: string;
+  service_price: number;
+};
+
 export type QueueTicketWithRelations = {
   id: string;
   queue_number: string;
@@ -36,6 +43,8 @@ export type QueueTicketWithRelations = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Per-member service preferences chosen at self check-in. */
+  member_services: MemberServiceSelection[];
   customer: { full_name: string; phone: string } | null;
   assigned_staff: { full_name: string } | null;
   service: { name: string; price: number } | null;
@@ -66,6 +75,19 @@ function mapTicketSeatMember(raw: Record<string, unknown>): TicketSeatMember {
   };
 }
 
+function parseMemberServices(raw: unknown): MemberServiceSelection[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => ({
+      member_index: typeof item.member_index === "number" ? item.member_index : 0,
+      service_id: typeof item.service_id === "string" ? item.service_id : "",
+      service_name: typeof item.service_name === "string" ? item.service_name : "",
+      service_price: typeof item.service_price === "number" ? item.service_price : 0,
+    }))
+    .filter((m) => m.service_id);
+}
+
 function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations {
   const customer = row.customers as Record<string, unknown> | null;
   const staffProfile = row.staff_profiles as Record<string, unknown> | null;
@@ -91,6 +113,7 @@ function mapQueueTicket(row: Record<string, unknown>): QueueTicketWithRelations 
     completed_at: row.completed_at as string | null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
+    member_services: parseMemberServices(row.member_services),
     customer: customer
       ? { full_name: customer.full_name as string, phone: customer.phone as string }
       : null,
@@ -209,7 +232,7 @@ export async function getQueueTickets(
     .from("queue_tickets")
     .select(
       `id, queue_number, status, branch_id, customer_id, service_id, assigned_staff_id,
-       preferred_staff_id, seat_id, estimated_wait_min, party_size, called_at, completed_at,
+       preferred_staff_id, seat_id, estimated_wait_min, party_size, member_services, called_at, completed_at,
        created_at, updated_at,
        customers (full_name, phone),
        staff_profiles (app_users (full_name)),
@@ -233,7 +256,7 @@ export async function getQueueTickets(
     .from("queue_tickets")
     .select(
       `id, queue_number, status, branch_id, customer_id, service_id, assigned_staff_id,
-       preferred_staff_id, seat_id, estimated_wait_min, party_size, called_at, completed_at,
+       preferred_staff_id, seat_id, estimated_wait_min, party_size, member_services, called_at, completed_at,
        created_at, updated_at`
     )
     .eq("tenant_id", tenantId)
@@ -290,6 +313,7 @@ export async function getQueueTickets(
     completed_at: row.completed_at as string | null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
+    member_services: parseMemberServices(row.member_services),
     customer: customerMap.get(row.customer_id as string) ?? null,
     assigned_staff: staffMap.has(row.assigned_staff_id as string)
       ? { full_name: staffMap.get(row.assigned_staff_id as string)! }
@@ -388,6 +412,7 @@ export async function getQueueTicketsForBranch(
       seat_id,
       estimated_wait_min,
       party_size,
+      member_services,
       called_at,
       completed_at,
       created_at,
@@ -429,6 +454,7 @@ export async function getQueueTicketsForBranch(
         seat_id,
         estimated_wait_min,
         party_size,
+        member_services,
         called_at,
         completed_at,
         created_at,
@@ -458,6 +484,7 @@ export async function getQueueTicketsForBranch(
         completed_at: row.completed_at as string | null,
         created_at: row.created_at as string,
         updated_at: row.updated_at as string,
+        member_services: parseMemberServices(row.member_services),
         customer: null,
         assigned_staff: null,
         service: null,

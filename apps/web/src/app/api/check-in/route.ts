@@ -10,11 +10,19 @@ function isUniqueViolation(err: { code?: string; message?: string }): boolean {
   return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
 }
 
+const memberServiceSchema = z.object({
+  member_index: z.number().int().min(0).max(19),
+  service_id: z.string().uuid(),
+  service_name: z.string().max(120),
+  service_price: z.number().min(0),
+});
+
 const bodySchema = z.object({
   token: z.string().uuid(),
   full_name: z.string().trim().min(1).max(120),
   party_size: z.coerce.number().int().min(1).max(20),
   phone: z.string().trim().max(30).optional().nullable(),
+  member_services: z.array(memberServiceSchema).max(20).optional().default([]),
 });
 
 export async function POST(request: Request) {
@@ -30,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const { token, full_name, party_size, phone } = parsed.data;
+  const { token, full_name, party_size, phone, member_services } = parsed.data;
 
   let admin;
   try {
@@ -166,6 +174,11 @@ export async function POST(request: Request) {
 
     const queue_number = "Q" + String((count ?? 0) + 1).padStart(4, "0");
 
+    // Sanitise member_services: keep only entries within the party range
+    const sanitisedMemberServices = (member_services ?? []).filter(
+      (m) => m.member_index < party_size
+    );
+
     const { data: ticket, error: ticketError } = await admin
       .from("queue_tickets")
       .insert({
@@ -176,6 +189,7 @@ export async function POST(request: Request) {
         queue_day: queueDay,
         status: "waiting",
         party_size,
+        member_services: sanitisedMemberServices,
       })
       .select("id, queue_number, branch_id")
       .single();

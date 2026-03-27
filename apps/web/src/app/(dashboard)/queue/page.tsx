@@ -881,11 +881,15 @@ export default function QueuePage() {
                                   ×{q.party_size} cuts
                                 </span>
                               )}
-                              {q.service && (
+                              {q.service ? (
                                 <span className="rounded border border-white/5 bg-[#111] px-1.5 py-0.5 text-[10px] text-gray-400">
                                   {q.service.name}
                                 </span>
-                              )}
+                              ) : q.party_size === 1 && q.member_services[0] ? (
+                                <span className="rounded border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-1.5 py-0.5 text-[10px] text-[#D4AF37]/80">
+                                  {q.member_services[0].service_name}
+                                </span>
+                              ) : null}
                               {q.assigned_staff ? (
                                 <span className="text-[11px] text-blue-400 font-medium">→ {q.assigned_staff.full_name}</span>
                               ) : preferredName ? (
@@ -916,7 +920,12 @@ export default function QueuePage() {
                           {!["completed", "cancelled"].includes(q.status) && q.ticket_seats.length < q.party_size && (
                             <button
                               type="button"
-                              onClick={() => { setShowMemberModal(q); setMemberServiceId(q.service_id ?? ""); }}
+                              onClick={() => {
+                                const nextIndex = q.ticket_seats.length;
+                                const preFill = q.member_services.find((m) => m.member_index === nextIndex);
+                                setShowMemberModal(q);
+                                setMemberServiceId(preFill?.service_id ?? q.service_id ?? "");
+                              }}
                               className="flex items-center gap-1 rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/20 transition"
                             >
                               <Plus className="h-3 w-3" /> Seat member
@@ -964,19 +973,32 @@ export default function QueuePage() {
                           ))}
                           {/* Empty slots for unassigned members */}
                           {!["completed", "cancelled"].includes(q.status) &&
-                            Array.from({ length: q.party_size - q.ticket_seats.length }).map((_, i) => (
-                              <button
-                                key={`empty-${i}`}
-                                type="button"
-                                onClick={() => { setShowMemberModal(q); setMemberServiceId(q.service_id ?? ""); }}
-                                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/10 px-2.5 py-1.5 text-xs text-gray-600 hover:border-[#D4AF37]/30 hover:text-[#D4AF37]/60 transition"
-                              >
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-white/15 text-[9px]">
-                                  {q.ticket_seats.length + i + 1}
-                                </span>
-                                <span>Waiting for seat…</span>
-                              </button>
-                            ))}
+                            Array.from({ length: q.party_size - q.ticket_seats.length }).map((_, i) => {
+                              const slotIndex = q.ticket_seats.length + i;
+                              const requested = q.member_services.find((m) => m.member_index === slotIndex);
+                              return (
+                                <button
+                                  key={`empty-${i}`}
+                                  type="button"
+                                  onClick={() => {
+                                    const preFill = q.member_services.find((m) => m.member_index === slotIndex);
+                                    setShowMemberModal(q);
+                                    setMemberServiceId(preFill?.service_id ?? q.service_id ?? "");
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg border border-dashed border-white/10 px-2.5 py-1.5 text-xs text-gray-600 hover:border-[#D4AF37]/30 hover:text-[#D4AF37]/60 transition"
+                                >
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-dashed border-white/15 text-[9px]">
+                                    {slotIndex + 1}
+                                  </span>
+                                  <span className="flex-1 text-left">Waiting for seat…</span>
+                                  {requested && (
+                                    <span className="rounded bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-1.5 py-0.5 text-[9px] font-medium text-[#D4AF37]">
+                                      {requested.service_name}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
                         </div>
                       </div>
                     )}
@@ -1581,17 +1603,28 @@ export default function QueuePage() {
       {showMemberModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-white">Seat Party Member</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {showMemberModal.queue_number} · {showMemberModal.customer?.full_name ?? "Walk-in Guest"} · member {showMemberModal.ticket_seats.length + 1} of {showMemberModal.party_size}
-                </p>
-              </div>
-              <button type="button" onClick={closeMemberModal} className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-white/5 transition">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            {(() => {
+              const nextSlot = showMemberModal.ticket_seats.length;
+              const requestedService = showMemberModal.member_services.find((m) => m.member_index === nextSlot);
+              return (
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Seat Party Member</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {showMemberModal.queue_number} · {showMemberModal.customer?.full_name ?? "Walk-in Guest"} · member {nextSlot + 1} of {showMemberModal.party_size}
+                    </p>
+                    {requestedService && (
+                      <p className="mt-1 text-[11px] text-[#D4AF37]/80">
+                        Requested: <span className="font-semibold text-[#D4AF37]">{requestedService.service_name}</span>
+                      </p>
+                    )}
+                  </div>
+                  <button type="button" onClick={closeMemberModal} className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-white/5 transition">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })()}
 
             {memberError && (
               <div className="mb-3 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">{memberError}</div>
@@ -1760,9 +1793,20 @@ export default function QueuePage() {
         const members = showPaymentModal.ticket_seats.filter((m) => m.status !== "cancelled");
         const isGroup = members.length > 0;
         const groupTotal = members.reduce((sum, m) => sum + (m.service?.price ?? 0), 0);
+        // For single tickets: try service from ticket_service, then member_services[0]
+        const singleService = showPaymentModal.service
+          ?? (showPaymentModal.member_services[0]
+            ? { name: showPaymentModal.member_services[0].service_name, price: showPaymentModal.member_services[0].service_price }
+            : null);
+        // For member-services-only breakdown (no seat members assigned yet, but customer pre-selected services)
+        const hasMemberServicesOnly = !isGroup && showPaymentModal.member_services.length > 0 && showPaymentModal.party_size > 1;
+        const memberServicesTotal = showPaymentModal.member_services.reduce((sum, m) => sum + m.service_price, 0);
+
         const defaultAmount = isGroup
           ? groupTotal.toFixed(2)
-          : (showPaymentModal.service?.price ?? 0).toFixed(2);
+          : hasMemberServicesOnly
+            ? memberServicesTotal.toFixed(2)
+            : (singleService?.price ?? 0).toFixed(2);
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -1780,10 +1824,30 @@ export default function QueuePage() {
 
               <p className="mb-4 text-sm text-gray-400">
                 {showPaymentModal.queue_number} · {showPaymentModal.customer?.full_name ?? "Walk-in Guest"}
-                {isGroup && <span className="ml-1.5 rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#D4AF37]">Party of {members.length}</span>}
+                {(isGroup || hasMemberServicesOnly) && (
+                  <span className="ml-1.5 rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#D4AF37]">
+                    Party of {showPaymentModal.party_size}
+                  </span>
+                )}
               </p>
 
-              {/* Group ticket: per-member breakdown */}
+              {/* Single ticket with a service */}
+              {!isGroup && !hasMemberServicesOnly && singleService && (
+                <div className="mb-4 rounded-xl border border-white/5 bg-[#111] px-3 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[9px] font-black text-[#D4AF37]">1</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white">{singleService.name}</p>
+                      {showPaymentModal.assigned_staff && (
+                        <p className="text-[10px] text-gray-500">{showPaymentModal.assigned_staff.full_name}</p>
+                      )}
+                    </div>
+                    <p className="text-xs font-bold text-[#D4AF37]">RM {singleService.price.toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Group ticket with seated members: per-member breakdown */}
               {isGroup && (
                 <div className="mb-4 rounded-xl border border-white/5 bg-[#111] divide-y divide-white/5">
                   {members.map((m, idx) => (
@@ -1799,6 +1863,26 @@ export default function QueuePage() {
                   <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
                     <p className="text-xs font-bold text-white">Total</p>
                     <p className="text-sm font-black text-[#D4AF37]">RM {groupTotal.toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Group ticket with member_services but no seat members yet */}
+              {hasMemberServicesOnly && (
+                <div className="mb-4 rounded-xl border border-white/5 bg-[#111] divide-y divide-white/5">
+                  {showPaymentModal.member_services.map((m) => (
+                    <div key={m.member_index} className="flex items-center gap-3 px-3 py-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[9px] font-black text-[#D4AF37]">{m.member_index + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white">{m.service_name}</p>
+                        <p className="text-[10px] text-gray-500">Customer selection</p>
+                      </div>
+                      <p className="text-xs font-bold text-[#D4AF37]">RM {m.service_price.toFixed(2)}</p>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
+                    <p className="text-xs font-bold text-white">Total</p>
+                    <p className="text-sm font-black text-[#D4AF37]">RM {memberServicesTotal.toFixed(2)}</p>
                   </div>
                 </div>
               )}
