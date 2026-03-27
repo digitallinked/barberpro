@@ -1,10 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
 import { getQueueTickets, getQueueStats, getQueueTicketsForBranch } from "@/services/queue";
 import { getSeats } from "@/actions/seats";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export function useQueueTickets() {
   const supabase = useSupabase();
@@ -42,6 +44,41 @@ export function useSeats() {
 }
 
 export function useQueueBoard(branchId: string | null) {
+  const queryClient = useQueryClient();
+
+  // Supabase realtime: subscribe to queue_tickets and queue_ticket_seats changes
+  // so the board updates instantly when a barber completes or assigns a seat.
+  useEffect(() => {
+    if (!branchId) return;
+
+    const supabase = createBrowserSupabaseClient();
+    const invalidate = () =>
+      queryClient.invalidateQueries({ queryKey: ["queue-board", branchId] });
+
+    const channel = supabase
+      .channel(`queue-board-${branchId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "queue_tickets", filter: `branch_id=eq.${branchId}` },
+        invalidate
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "queue_ticket_seats" },
+        invalidate
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "branch_seats", filter: `branch_id=eq.${branchId}` },
+        invalidate
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [branchId, queryClient]);
+
   return useQuery({
     queryKey: ["queue-board", branchId],
     queryFn: async () => {
@@ -49,6 +86,7 @@ export function useQueueBoard(branchId: string | null) {
       const json = (await res.json()) as {
         data?: Awaited<ReturnType<typeof getQueueTicketsForBranch>>["data"];
         branchName?: string | null;
+        seats?: { id: string; seat_number: number; label: string }[];
         error?: string;
       };
 
@@ -59,10 +97,11 @@ export function useQueueBoard(branchId: string | null) {
       return {
         data: json.data ?? [],
         branchName: json.branchName ?? null,
+        seats: json.seats ?? [],
         error: null,
       };
     },
     enabled: !!branchId,
-    refetchInterval: 5_000,
+    refetchInterval: 10_000, // fallback poll — realtime handles instant updates
   });
 }

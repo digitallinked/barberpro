@@ -382,6 +382,12 @@ export async function getQueueStats(
   };
 }
 
+export type BranchSeat = {
+  id: string;
+  seat_number: number;
+  label: string;
+};
+
 export async function getQueueTicketsForBranch(
   client: Client,
   branchId: string,
@@ -389,6 +395,7 @@ export async function getQueueTicketsForBranch(
 ): Promise<{
   data: QueueTicketWithRelations[] | null;
   branchName: string | null;
+  seats: BranchSeat[];
   error: Error | null;
 }> {
   const { data: branch, error: branchError } = await client
@@ -396,6 +403,18 @@ export async function getQueueTicketsForBranch(
     .select("name")
     .eq("id", branchId)
     .maybeSingle();
+
+  const { data: seatsData } = await client
+    .from("branch_seats")
+    .select("id, seat_number, label")
+    .eq("branch_id", branchId)
+    .order("seat_number", { ascending: true });
+
+  const seats: BranchSeat[] = (seatsData ?? []).map((s) => ({
+    id: s.id,
+    seat_number: s.seat_number,
+    label: s.label,
+  }));
 
   const { data, error } = await client
     .from("queue_tickets")
@@ -468,7 +487,7 @@ export async function getQueueTicketsForBranch(
     if (baseError) {
       ticketsError = new Error(baseError.message);
     } else {
-      tickets = (baseData ?? []).map((row: Record<string, unknown>) => ({
+      const baseTickets: QueueTicketWithRelations[] = (baseData ?? []).map((row: Record<string, unknown>) => ({
         id: row.id as string,
         queue_number: row.queue_number as string,
         status: row.status as string,
@@ -491,6 +510,30 @@ export async function getQueueTicketsForBranch(
         seat: null,
         ticket_seats: [],
       }));
+
+      // Fetch customer names separately for the fallback path
+      const customerIds = baseTickets
+        .map((t) => t.customer_id)
+        .filter((id): id is string => !!id);
+      const customerMap = new Map<string, { full_name: string; phone: string }>();
+      if (customerIds.length > 0) {
+        const { data: customers } = await client
+          .from("customers")
+          .select("id, full_name, phone")
+          .in("id", customerIds);
+        for (const c of customers ?? []) {
+          customerMap.set(c.id, { full_name: c.full_name, phone: c.phone ?? "" });
+        }
+      }
+
+      // Fetch ticket_seats so the board can match seats to queue numbers
+      const ticketSeatsMap = await fetchTicketSeatsMap(client, baseTickets.map((t) => t.id));
+
+      tickets = baseTickets.map((t) => ({
+        ...t,
+        customer: customerMap.get(t.customer_id!) ?? null,
+        ticket_seats: ticketSeatsMap.get(t.id) ?? [],
+      }));
     }
   } else {
     tickets = (data ?? []).map((row: Record<string, unknown>) => mapQueueTicket(row));
@@ -499,6 +542,7 @@ export async function getQueueTicketsForBranch(
   return {
     data: tickets,
     branchName: branch?.name ?? null,
+    seats,
     error: ticketsError,
   };
 }

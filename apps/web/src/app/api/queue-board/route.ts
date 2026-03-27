@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: result.error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data: result.data ?? [], branchName: result.branchName ?? "Branch" });
+    return NextResponse.json({ data: result.data ?? [], branchName: result.branchName ?? "Branch", seats: result.seats ?? [] });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load queue board";
     return NextResponse.json({ error: message }, { status: 500 });
