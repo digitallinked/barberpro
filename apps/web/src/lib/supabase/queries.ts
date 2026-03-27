@@ -37,26 +37,21 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   if (!appUser?.tenant_id) return null;
 
-  let tenant: { id: string; name: string; slug: string; plan: string | null; preferred_language?: string } | null = null;
-
-  const { data: t1, error: t1Err } = await supabase
+  const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug, plan, preferred_language")
+    .select("id, name, slug, plan")
     .eq("id", appUser.tenant_id)
     .single();
 
-  if (t1 && !t1Err) {
-    tenant = t1;
-  } else {
-    const { data: t2 } = await supabase
-      .from("tenants")
-      .select("id, name, slug, plan")
-      .eq("id", appUser.tenant_id)
-      .single();
-    if (t2) tenant = { ...t2, preferred_language: undefined };
-  }
-
   if (!tenant) return null;
+
+  // preferred_language may not be in generated Supabase types yet — cast to bypass
+  const { data: langRow } = (await supabase
+    .from("tenants")
+    .select("preferred_language" as string & keyof never)
+    .eq("id", appUser.tenant_id)
+    .single()) as { data: { preferred_language?: string } | null };
+  const preferredLang = langRow?.preferred_language;
 
   const { data: branches } = await supabase
     .from("branches")
@@ -69,7 +64,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
   const activeBranchId = pickEffectiveBranchId(branchList, appUser.branch_id, null);
   const activeBranch = branchList.find((b) => b.id === activeBranchId) ?? null;
 
-  const preferredLanguage = (tenant.preferred_language === "en" ? "en" : "ms") as Language;
+  const preferredLanguage = (preferredLang === "en" ? "en" : "ms") as Language;
 
   return {
     tenantId: tenant.id,
