@@ -31,6 +31,7 @@ import {
 import { useTenant } from "@/components/tenant-provider";
 import { createTransaction } from "@/actions/pos";
 import { useT } from "@/lib/i18n/language-context";
+import { SST_RATE } from "@/lib/malaysian-tax";
 
 type CartItem = {
   id: string;
@@ -147,6 +148,7 @@ type OrderContentProps = {
   subtotal: number;
   tax: number;
   total: number;
+  serviceTaxLabelPct: number;
   checkoutError: string | null;
   submitting: boolean;
   onUpdateQty: (id: string, type: "service" | "product", delta: number) => void;
@@ -158,6 +160,7 @@ function OrderContent({
   subtotal,
   tax,
   total,
+  serviceTaxLabelPct,
   checkoutError,
   submitting,
   onUpdateQty,
@@ -231,7 +234,7 @@ function OrderContent({
             <span className="text-white">RM {subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Tax (6%)</span>
+            <span className="text-gray-400">SST / Service tax ({serviceTaxLabelPct}%)</span>
             <span className="text-white">RM {tax.toFixed(2)}</span>
           </div>
           <div className="mt-2 flex justify-between border-t border-white/5 pt-2 text-base font-bold">
@@ -395,8 +398,9 @@ export function PosPageClient() {
   }, [services]);
 
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const tax = Math.round(subtotal * 0.06 * 100) / 100;
+  const tax = Math.round(subtotal * SST_RATE * 100) / 100;
   const total = subtotal + tax;
+  const serviceTaxLabelPct = Math.round(SST_RATE * 100);
   const cartCount = cart.reduce((sum, i) => sum + i.qty, 0);
 
   const selectedBarberName =
@@ -542,6 +546,7 @@ export function PosPageClient() {
     subtotal,
     tax,
     total,
+    serviceTaxLabelPct,
     checkoutError,
     submitting,
     onUpdateQty: updateQty,

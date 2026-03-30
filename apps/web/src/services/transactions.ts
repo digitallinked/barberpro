@@ -21,6 +21,9 @@ export type TransactionWithItems = {
     id: string;
     name: string;
     item_type: string;
+    service_id: string | null;
+    inventory_item_id: string | null;
+    staff_id: string | null;
     quantity: number;
     unit_price: number;
     line_total: number;
@@ -97,7 +100,7 @@ export async function getTransactions(
       created_at,
       updated_at,
       customers (full_name, phone),
-      transaction_items (id, name, item_type, quantity, unit_price, line_total)
+      transaction_items (id, name, item_type, service_id, inventory_item_id, staff_id, quantity, unit_price, line_total)
     `
     )
     .eq("tenant_id", tenantId)
@@ -138,6 +141,9 @@ export async function getTransactions(
         id: item.id as string,
         name: item.name as string,
         item_type: item.item_type as string,
+        service_id: (item.service_id as string | null) ?? null,
+        inventory_item_id: (item.inventory_item_id as string | null) ?? null,
+        staff_id: (item.staff_id as string | null) ?? null,
         quantity: item.quantity as number,
         unit_price: item.unit_price as number,
         line_total: item.line_total as number,

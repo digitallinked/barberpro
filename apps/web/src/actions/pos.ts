@@ -3,8 +3,15 @@
 import { revalidatePath } from "next/cache";
 
 import { paymentMethodForDb, TRANSACTION_PAYMENT_METHODS } from "@/lib/payment-method";
+import { SST_RATE } from "@/lib/malaysian-tax";
 
 import { getAuthContext } from "./_helpers";
+
+function splitSstFromTotal(total: number): { subtotal: number; taxAmount: number } {
+  const subtotal = Math.round((total / (1 + SST_RATE)) * 100) / 100;
+  const taxAmount = Math.round((total - subtotal) * 100) / 100;
+  return { subtotal, taxAmount };
+}
 
 /** Client uploads to this path first; must stay under the signed-in tenant prefix. */
 function proofPathBelongsToTenant(path: string | null | undefined, tenantId: string): boolean {
@@ -224,6 +231,8 @@ export async function submitQuickPayment(input: SubmitQuickPaymentInput) {
     const barberName = barberUser?.full_name ?? null;
     const lineName = barberName ? `Payment — ${barberName}` : "Client payment";
 
+    const { subtotal: qpSubtotal, taxAmount: qpTax } = splitSstFromTotal(amount);
+
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
       .insert({
@@ -233,9 +242,9 @@ export async function submitQuickPayment(input: SubmitQuickPaymentInput) {
         queue_ticket_id: null,
         payment_method: paymentMethod,
         cashier_user_id: appUserId,
-        subtotal: amount,
+        subtotal: qpSubtotal,
         discount_amount: 0,
-        tax_amount: 0,
+        tax_amount: qpTax,
         total_amount: amount,
         payment_status: "paid",
         paid_at: new Date().toISOString(),

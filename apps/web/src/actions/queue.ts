@@ -6,10 +6,18 @@ import { revalidatePath } from "next/cache";
 import { paymentMethodForDb } from "@/lib/payment-method";
 import { env } from "@/lib/env";
 import { shopCalendarDateString } from "@/lib/shop-day";
+import { SST_RATE } from "@/lib/malaysian-tax";
 
 import { resolveEffectiveBranchId } from "@/lib/supabase/branch-resolution";
 
 import { getAuthContext } from "./_helpers";
+
+/** Back-calculate subtotal + tax from a total (SST-inclusive) amount. */
+function splitSstFromTotal(total: number): { subtotal: number; taxAmount: number } {
+  const subtotal = Math.round((total / (1 + SST_RATE)) * 100) / 100;
+  const taxAmount = Math.round((total - subtotal) * 100) / 100;
+  return { subtotal, taxAmount };
+}
 
 function isUniqueViolation(err: { code?: string; message?: string }): boolean {
   return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
@@ -163,6 +171,8 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
 
     const isGroupTicket = (seatMembers ?? []).length > 0;
 
+    const { subtotal, taxAmount } = splitSstFromTotal(amountDue);
+
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
       .insert({
@@ -172,9 +182,9 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
         queue_ticket_id: ticket.id,
         payment_method: paymentMethod,
         cashier_user_id: appUserId,
-        subtotal: amountDue,
+        subtotal,
         discount_amount: 0,
-        tax_amount: 0,
+        tax_amount: taxAmount,
         total_amount: amountDue,
         payment_status: "paid",
         paid_at: new Date().toISOString(),
