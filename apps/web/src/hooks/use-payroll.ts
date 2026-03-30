@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
 import { getPayrollPeriods, getPayrollEntries, getAllPayrollEntries } from "@/services/payroll";
+import { calculateStaffCommission, getAttendanceSummaryForPeriod } from "@/lib/payroll-calculator";
 
 export function usePayrollPeriods() {
   const supabase = useSupabase();
@@ -35,5 +36,37 @@ export function useAllPayrollEntries(year?: number) {
   return useQuery({
     queryKey: ["all-payroll-entries", tenantId, year],
     queryFn: () => getAllPayrollEntries(supabase, tenantId, yearStart, yearEnd),
+  });
+}
+
+export function useStaffCommission(
+  staffId: string | null,
+  periodStart: string | null,
+  periodEnd: string | null
+) {
+  const supabase = useSupabase();
+  const { tenantId } = useTenant();
+
+  return useQuery({
+    queryKey: ["staff-commission", tenantId, staffId, periodStart, periodEnd],
+    queryFn: () =>
+      calculateStaffCommission(supabase, tenantId, staffId!, periodStart!, periodEnd!),
+    enabled: !!staffId && !!periodStart && !!periodEnd,
+  });
+}
+
+export function useStaffAttendanceSummary(
+  staffId: string | null,
+  periodStart: string | null,
+  periodEnd: string | null
+) {
+  const supabase = useSupabase();
+  const { tenantId } = useTenant();
+
+  return useQuery({
+    queryKey: ["staff-attendance-summary", tenantId, staffId, periodStart, periodEnd],
+    queryFn: () =>
+      getAttendanceSummaryForPeriod(supabase, tenantId, staffId!, periodStart!, periodEnd!),
+    enabled: !!staffId && !!periodStart && !!periodEnd,
   });
 }

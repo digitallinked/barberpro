@@ -16,10 +16,70 @@ export type PayrollEntryWithStaff = {
   advances: number;
   net_payout: number;
   notes: string | null;
+  days_worked: number | null;
+  total_working_days: number | null;
+  service_revenue: number | null;
+  product_revenue: number | null;
+  services_count: number | null;
+  customers_served: number | null;
   created_at: string;
   updated_at: string;
   staff: { full_name: string } | null;
 };
+
+const ENTRY_SELECT = `
+  id,
+  payroll_period_id,
+  staff_id,
+  base_salary,
+  service_commission,
+  product_commission,
+  bonuses,
+  deductions,
+  advances,
+  net_payout,
+  notes,
+  days_worked,
+  total_working_days,
+  service_revenue,
+  product_revenue,
+  services_count,
+  customers_served,
+  created_at,
+  updated_at,
+  staff_profiles!payroll_entries_staff_id_fkey (app_users!inner (full_name))
+`;
+
+function mapEntryRow(row: Record<string, unknown>): PayrollEntryWithStaff {
+  const staffProfile = row.staff_profiles as Record<string, unknown> | null;
+  const appUser = staffProfile?.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
+  const staffData = Array.isArray(appUser) ? appUser[0] : appUser;
+
+  return {
+    id: row.id as string,
+    payroll_period_id: row.payroll_period_id as string,
+    staff_id: row.staff_id as string,
+    base_salary: row.base_salary as number,
+    service_commission: row.service_commission as number,
+    product_commission: row.product_commission as number,
+    bonuses: row.bonuses as number,
+    deductions: row.deductions as number,
+    advances: row.advances as number,
+    net_payout: row.net_payout as number,
+    notes: row.notes as string | null,
+    days_worked: (row.days_worked as number | null) ?? null,
+    total_working_days: (row.total_working_days as number | null) ?? null,
+    service_revenue: (row.service_revenue as number | null) ?? null,
+    product_revenue: (row.product_revenue as number | null) ?? null,
+    services_count: (row.services_count as number | null) ?? null,
+    customers_served: (row.customers_served as number | null) ?? null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+    staff: staffData
+      ? { full_name: (staffData as Record<string, unknown>).full_name as string }
+      : null,
+  };
+}
 
 export async function getPayrollPeriods(
   client: Client,
@@ -44,20 +104,7 @@ export async function getAllPayrollEntries(
     .from("payroll_entries")
     .select(
       `
-      id,
-      payroll_period_id,
-      staff_id,
-      base_salary,
-      service_commission,
-      product_commission,
-      bonuses,
-      deductions,
-      advances,
-      net_payout,
-      notes,
-      created_at,
-      updated_at,
-      staff_profiles!payroll_entries_staff_id_fkey (app_users!inner (full_name)),
+      ${ENTRY_SELECT},
       payroll_periods!inner (period_start, period_end, status)
     `
     )
@@ -70,29 +117,7 @@ export async function getAllPayrollEntries(
   const { data, error } = await query;
   if (error) return { data: null, error: new Error(error.message) };
 
-  const entries: PayrollEntryWithStaff[] = (data ?? []).map((row: Record<string, unknown>) => {
-    const staffProfile = row.staff_profiles as Record<string, unknown> | null;
-    const appUser = staffProfile?.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
-    const staffData = Array.isArray(appUser) ? appUser[0] : appUser;
-    return {
-      id: row.id as string,
-      payroll_period_id: row.payroll_period_id as string,
-      staff_id: row.staff_id as string,
-      base_salary: row.base_salary as number,
-      service_commission: row.service_commission as number,
-      product_commission: row.product_commission as number,
-      bonuses: row.bonuses as number,
-      deductions: row.deductions as number,
-      advances: row.advances as number,
-      net_payout: row.net_payout as number,
-      notes: row.notes as string | null,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-      staff: staffData
-        ? { full_name: (staffData as Record<string, unknown>).full_name as string }
-        : null,
-    };
-  });
+  const entries = (data ?? []).map((row: Record<string, unknown>) => mapEntryRow(row));
   return { data: entries, error: null };
 }
 
@@ -102,24 +127,7 @@ export async function getPayrollEntries(
 ): Promise<{ data: PayrollEntryWithStaff[] | null; error: Error | null }> {
   const { data, error } = await client
     .from("payroll_entries")
-    .select(
-      `
-      id,
-      payroll_period_id,
-      staff_id,
-      base_salary,
-      service_commission,
-      product_commission,
-      bonuses,
-      deductions,
-      advances,
-      net_payout,
-      notes,
-      created_at,
-      updated_at,
-      staff_profiles!payroll_entries_staff_id_fkey (app_users!inner (full_name))
-    `
-    )
+    .select(ENTRY_SELECT)
     .eq("payroll_period_id", periodId)
     .order("created_at", { ascending: false });
 
@@ -127,30 +135,6 @@ export async function getPayrollEntries(
     return { data: null, error: new Error(error.message) };
   }
 
-  const entries: PayrollEntryWithStaff[] = (data ?? []).map((row: Record<string, unknown>) => {
-    const staffProfile = row.staff_profiles as Record<string, unknown> | null;
-    const appUser = staffProfile?.app_users as Record<string, unknown> | Record<string, unknown>[] | null;
-    const staffData = Array.isArray(appUser) ? appUser[0] : appUser;
-
-    return {
-      id: row.id as string,
-      payroll_period_id: row.payroll_period_id as string,
-      staff_id: row.staff_id as string,
-      base_salary: row.base_salary as number,
-      service_commission: row.service_commission as number,
-      product_commission: row.product_commission as number,
-      bonuses: row.bonuses as number,
-      deductions: row.deductions as number,
-      advances: row.advances as number,
-      net_payout: row.net_payout as number,
-      notes: row.notes as string | null,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-      staff: staffData
-        ? { full_name: (staffData as Record<string, unknown>).full_name as string }
-        : null,
-    };
-  });
-
+  const entries = (data ?? []).map((row: Record<string, unknown>) => mapEntryRow(row));
   return { data: entries, error: null };
 }

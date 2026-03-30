@@ -10,6 +10,7 @@ export * from "./pos";
 export * from "./expenses";
 export * from "./inventory";
 export * from "./payroll";
+export * from "./attendance";
 export * from "./commissions";
 export * from "./settings";
 export * from "./appointments";

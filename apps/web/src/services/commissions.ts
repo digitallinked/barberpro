@@ -12,7 +12,14 @@ export type StaffAssignmentWithDetails = {
   effective_to: string | null;
   created_at: string;
   updated_at: string;
-  scheme: { name: string } | null;
+  scheme: {
+    name: string;
+    percentage_rate: number;
+    per_service_amount: number;
+    per_customer_amount: number;
+    product_commission_rate: number;
+    is_active: boolean;
+  } | null;
   staff: { full_name: string } | null;
 };
 
@@ -44,7 +51,14 @@ export async function getStaffAssignments(
       effective_to,
       created_at,
       updated_at,
-      commission_schemes (name),
+      commission_schemes (
+        name,
+        percentage_rate,
+        per_service_amount,
+        per_customer_amount,
+        product_commission_rate,
+        is_active
+      ),
       staff_profiles!staff_commission_assignments_staff_id_fkey (app_users!inner (full_name))
     `
     )
@@ -69,7 +83,16 @@ export async function getStaffAssignments(
       effective_to: row.effective_to as string | null,
       created_at: row.created_at as string,
       updated_at: row.updated_at as string,
-      scheme: scheme ? { name: scheme.name as string } : null,
+      scheme: scheme
+        ? {
+            name: scheme.name as string,
+            percentage_rate: (scheme.percentage_rate as number) ?? 0,
+            per_service_amount: (scheme.per_service_amount as number) ?? 0,
+            per_customer_amount: (scheme.per_customer_amount as number) ?? 0,
+            product_commission_rate: (scheme.product_commission_rate as number) ?? 0,
+            is_active: (scheme.is_active as boolean) ?? true,
+          }
+        : null,
       staff: staffData
         ? { full_name: (staffData as Record<string, unknown>).full_name as string }
         : null,

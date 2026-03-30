@@ -625,15 +625,21 @@ export type Database = {
           base_salary: number
           bonuses: number
           created_at: string
+          customers_served: number | null
+          days_worked: number | null
           deductions: number
           id: string
           net_payout: number
           notes: string | null
           payroll_period_id: string
           product_commission: number
+          product_revenue: number | null
           service_commission: number
+          service_revenue: number | null
+          services_count: number | null
           staff_id: string
           tenant_id: string
+          total_working_days: number | null
           updated_at: string
         }
         Insert: {
@@ -641,15 +647,21 @@ export type Database = {
           base_salary?: number
           bonuses?: number
           created_at?: string
+          customers_served?: number | null
+          days_worked?: number | null
           deductions?: number
           id?: string
           net_payout?: number
           notes?: string | null
           payroll_period_id: string
           product_commission?: number
+          product_revenue?: number | null
           service_commission?: number
+          service_revenue?: number | null
+          services_count?: number | null
           staff_id: string
           tenant_id: string
+          total_working_days?: number | null
           updated_at?: string
         }
         Update: {
@@ -657,15 +669,21 @@ export type Database = {
           base_salary?: number
           bonuses?: number
           created_at?: string
+          customers_served?: number | null
+          days_worked?: number | null
           deductions?: number
           id?: string
           net_payout?: number
           notes?: string | null
           payroll_period_id?: string
           product_commission?: number
+          product_revenue?: number | null
           service_commission?: number
+          service_revenue?: number | null
+          services_count?: number | null
           staff_id?: string
           tenant_id?: string
+          total_working_days?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1091,6 +1109,70 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_commission_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_attendance: {
+        Row: {
+          id: string
+          tenant_id: string
+          staff_id: string
+          branch_id: string | null
+          date: string
+          clock_in: string | null
+          clock_out: string | null
+          status: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          staff_id: string
+          branch_id?: string | null
+          date: string
+          clock_in?: string | null
+          clock_out?: string | null
+          status?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          staff_id?: string
+          branch_id?: string | null
+          date?: string
+          clock_in?: string | null
+          clock_out?: string | null
+          status?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_attendance_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

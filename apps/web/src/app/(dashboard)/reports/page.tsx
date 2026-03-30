@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarDays,
   ChevronDown,
   Download,
   DollarSign,
@@ -25,7 +26,10 @@ import {
   useExpenseStats,
   useAllPayrollEntries,
   useBranches,
+  useStaffAssignments,
+  useAttendanceSummaries,
 } from "@/hooks";
+import { commissionAmountsFromScheme } from "@/lib/payroll-calculator";
 import { useTenant } from "@/components/tenant-provider";
 import type { TransactionWithItems } from "@/services/transactions";
 import {
@@ -84,6 +88,7 @@ function humanizePaymentMethod(m: string): string {
 const TABS = [
   { id: "revenue",    label: "Revenue",         icon: DollarSign },
   { id: "staff",      label: "Staff",            icon: Users },
+  { id: "attendance", label: "Attendance",       icon: CalendarDays },
   { id: "customers",  label: "Customers",        icon: Users },
   { id: "inventory",  label: "Inventory",        icon: Package },
   { id: "expenses",   label: "Expenses",         icon: Receipt },
@@ -130,6 +135,13 @@ function periodLabel(scope: PeriodScope, year: number, monthIndex: number): stri
   if (scope === "rolling_30") return "Last 30 days";
   if (scope === "year") return `Year ${year}`;
   return new Date(year, monthIndex, 1).toLocaleString("en-MY", { month: "long", year: "numeric" });
+}
+
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function filterTransactionsByPeriod(
@@ -215,6 +227,21 @@ export default function ReportsPage() {
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
   const { data: expenseStatsData } = useExpenseStats();
   const { data: branchesData } = useBranches();
+  const { data: assignmentsResult } = useStaffAssignments();
+
+  const reportAttRange = useMemo(() => {
+    const b = periodBounds(periodScope, periodYear, periodMonthIndex);
+    if (b) return { start: localDateStr(b.start), end: localDateStr(b.end) };
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 29);
+    return { start: localDateStr(start), end: localDateStr(end) };
+  }, [periodScope, periodYear, periodMonthIndex]);
+
+  const { data: attendanceSummariesResult } = useAttendanceSummaries(
+    reportAttRange.start,
+    reportAttRange.end
+  );
 
   useEffect(() => {
     function close(e: MouseEvent) {
@@ -365,36 +392,109 @@ export default function ReportsPage() {
     };
   }, [filteredTx, priorTx, periodScope]);
 
+  const assignmentsList = assignmentsResult?.data ?? [];
+
   const staffPerformance = useMemo(() => {
+    const b = periodBounds(periodScope, periodYear, periodMonthIndex);
+    const periodStartStr = b ? localDateStr(b.start) : null;
+    const periodEndStr = b ? localDateStr(b.end) : null;
+
+    function schemeForStaff(staffProfileId: string) {
+      if (!periodStartStr || !periodEndStr) return null;
+      const candidates = assignmentsList
+        .filter((a) => a.staff_id === staffProfileId)
+        .filter((a) => String(a.effective_from).slice(0, 10) <= periodEndStr)
+        .filter((a) => !a.effective_to || String(a.effective_to).slice(0, 10) >= periodStartStr)
+        .sort((a, b) => String(b.effective_from).localeCompare(String(a.effective_from)));
+      return candidates[0]?.scheme ?? null;
+    }
+
     const byStaff = new Map<
       string,
-      { revenue: number; lineItems: number; txIds: Set<string> }
+      {
+        revenue: number;
+        lineItems: number;
+        txIds: Set<string>;
+        serviceRevenue: number;
+        productRevenue: number;
+        servicesCount: number;
+        customerIds: Set<string>;
+      }
     >();
     for (const t of filteredTx) {
+      if (t.payment_status === "cancelled") continue;
       for (const it of t.transaction_items) {
         if (!it.staff_id) continue;
-        const cur = byStaff.get(it.staff_id) ?? { revenue: 0, lineItems: 0, txIds: new Set<string>() };
+        const cur = byStaff.get(it.staff_id) ?? {
+          revenue: 0,
+          lineItems: 0,
+          txIds: new Set<string>(),
+          serviceRevenue: 0,
+          productRevenue: 0,
+          servicesCount: 0,
+          customerIds: new Set<string>(),
+        };
         cur.revenue += it.line_total;
         cur.lineItems += it.quantity;
         cur.txIds.add(t.id);
+        const qty = it.quantity || 1;
+        if (it.item_type === "service") {
+          cur.serviceRevenue += it.line_total;
+          cur.servicesCount += qty;
+        } else if (it.item_type === "product") {
+          cur.productRevenue += it.line_total;
+        } else {
+          cur.serviceRevenue += it.line_total;
+          cur.servicesCount += qty;
+        }
+        if (t.customer_id) cur.customerIds.add(t.customer_id);
         byStaff.set(it.staff_id, cur);
       }
     }
-    return staffMembers.map((s) => {
-      const m = byStaff.get(s.staff_profile_id);
-      const txCount = m?.txIds.size ?? 0;
-      const revenue = m?.revenue ?? 0;
-      const items = m?.lineItems ?? 0;
-      return {
-        ...s,
-        attributedRevenue: revenue,
-        transactionCount: txCount,
-        lineItemQty: items,
-        avgPerTx: txCount > 0 ? revenue / txCount : 0,
-        branchLabel: s.branch_id ? branchNameById.get(s.branch_id) ?? "—" : "—",
-      };
-    }).sort((a, b) => b.attributedRevenue - a.attributedRevenue);
-  }, [filteredTx, staffMembers, branchNameById]);
+    return staffMembers
+      .map((s) => {
+        const m = byStaff.get(s.staff_profile_id);
+        const txCount = m?.txIds.size ?? 0;
+        const revenue = m?.revenue ?? 0;
+        const items = m?.lineItems ?? 0;
+        const serviceRevenue = m?.serviceRevenue ?? 0;
+        const productRevenue = m?.productRevenue ?? 0;
+        const servicesCount = m?.servicesCount ?? 0;
+        const customersServed = m?.customerIds.size ?? 0;
+        const sch = schemeForStaff(s.staff_profile_id);
+        const { serviceCommission, productCommission } = commissionAmountsFromScheme(
+          sch
+            ? {
+                percentage_rate: sch.percentage_rate,
+                per_service_amount: sch.per_service_amount,
+                per_customer_amount: sch.per_customer_amount,
+                product_commission_rate: sch.product_commission_rate,
+                is_active: sch.is_active,
+              }
+            : null,
+          { serviceRevenue, productRevenue, servicesCount, customersServed }
+        );
+        const commissionEarned = serviceCommission + productCommission;
+        return {
+          ...s,
+          attributedRevenue: revenue,
+          transactionCount: txCount,
+          lineItemQty: items,
+          avgPerTx: txCount > 0 ? revenue / txCount : 0,
+          branchLabel: s.branch_id ? branchNameById.get(s.branch_id) ?? "—" : "—",
+          commissionEarned,
+        };
+      })
+      .sort((a, b) => b.attributedRevenue - a.attributedRevenue);
+  }, [
+    filteredTx,
+    staffMembers,
+    branchNameById,
+    assignmentsList,
+    periodScope,
+    periodYear,
+    periodMonthIndex,
+  ]);
 
   const customerSpend = useMemo(() => {
     const map = new Map<
@@ -477,6 +577,9 @@ export default function ReportsPage() {
       revenue: 0,
       expenses: 0,
       payroll: 0,
+      payrollBase: 0,
+      payrollCommission: 0,
+      payrollBonus: 0,
     }));
     for (const tx of transactions) {
       const d = new Date(tx.created_at);
@@ -498,19 +601,36 @@ export default function ReportsPage() {
       const d = new Date(e.created_at);
       if (d.getFullYear() === year) {
         const m = d.getMonth();
-        if (months[m]) months[m].payroll += e.net_payout ?? 0;
+        if (months[m]) {
+          months[m].payroll += e.net_payout ?? 0;
+          months[m].payrollBase += e.base_salary ?? 0;
+          months[m].payrollCommission += (e.service_commission ?? 0) + (e.product_commission ?? 0);
+          months[m].payrollBonus += e.bonuses ?? 0;
+        }
       }
     }
     return months.slice(0, now.getMonth() + 1);
   }, [transactions, expenses, payrollPlEntries]);
 
   const plTotals = useMemo(() => {
-    const revenue  = plByMonth.reduce((s, m) => s + m.revenue, 0);
+    const revenue = plByMonth.reduce((s, m) => s + m.revenue, 0);
     const expenses2 = plByMonth.reduce((s, m) => s + m.expenses, 0);
-    const payroll  = plByMonth.reduce((s, m) => s + m.payroll, 0);
+    const payroll = plByMonth.reduce((s, m) => s + m.payroll, 0);
+    const payrollBase = plByMonth.reduce((s, m) => s + m.payrollBase, 0);
+    const payrollCommission = plByMonth.reduce((s, m) => s + m.payrollCommission, 0);
+    const payrollBonus = plByMonth.reduce((s, m) => s + m.payrollBonus, 0);
     const grossProfit = revenue - expenses2 - payroll;
     const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-    return { revenue, expenses: expenses2, payroll, grossProfit, margin };
+    return {
+      revenue,
+      expenses: expenses2,
+      payroll,
+      payrollBase,
+      payrollCommission,
+      payrollBonus,
+      grossProfit,
+      margin,
+    };
   }, [plByMonth]);
 
   const revenueTrendChartData = useMemo(() => {
@@ -698,10 +818,21 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
         const rows = staffPerformance
           .map(
             (s) =>
-              `<tr><td>${escAttr(s.full_name)}</td><td>${escAttr(s.role ?? "")}</td><td>${escAttr(s.branchLabel)}</td><td class="n">${escAttr(formatAmount(s.attributedRevenue))}</td><td class="n">${s.transactionCount}</td><td class="n">${escAttr(formatAmount(s.avgPerTx))}</td></tr>`
+              `<tr><td>${escAttr(s.full_name)}</td><td>${escAttr(s.role ?? "")}</td><td>${escAttr(s.branchLabel)}</td><td class="n">${escAttr(formatAmount(s.attributedRevenue))}</td><td class="n">${escAttr(formatAmount(s.commissionEarned))}</td><td class="n">${s.transactionCount}</td><td class="n">${escAttr(formatAmount(s.avgPerTx))}</td></tr>`
           )
           .join("");
-        return `<p><strong>Range:</strong> ${rangeLabel}</p>${h("Staff performance")}<table><tr><th>Name</th><th>Role</th><th>Branch</th><th class="n">Revenue</th><th class="n">Tx</th><th class="n">Avg/tx</th></tr>${rows}</table>`;
+        return `<p><strong>Range:</strong> ${rangeLabel}</p>${h("Staff performance")}<table><tr><th>Name</th><th>Role</th><th>Branch</th><th class="n">Revenue</th><th class="n">Comm.(est.)</th><th class="n">Tx</th><th class="n">Avg/tx</th></tr>${rows}</table>`;
+      }
+      case "attendance": {
+        const rows = (attendanceSummariesResult?.data ?? [])
+          .map((row) => {
+            const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
+            const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
+            const rate = denom > 0 ? ((worked / denom) * 100).toFixed(0) : "—";
+            return `<tr><td>${escAttr(row.staffName)}</td><td class="n">${row.daysPresent}</td><td class="n">${row.daysLate}</td><td class="n">${row.daysHalfDay}</td><td class="n">${row.daysAbsent}</td><td class="n">${row.daysLeave}</td><td class="n">${row.totalRecords}</td><td class="n">${rate}${rate === "—" ? "" : "%"}</td></tr>`;
+          })
+          .join("");
+        return `<p><strong>Range:</strong> ${escAttr(reportAttRange.start)} – ${escAttr(reportAttRange.end)}</p>${h("Attendance")}<table><tr><th>Staff</th><th class="n">Present</th><th class="n">Late</th><th class="n">Half</th><th class="n">Absent</th><th class="n">Leave</th><th class="n">Logged</th><th class="n">Rate</th></tr>${rows}</table>`;
       }
       case "customers": {
         const rows = customerSpend
@@ -743,10 +874,10 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
           .map((m) => {
             const profit = m.revenue - m.expenses - m.payroll;
             const margin = m.revenue > 0 ? (profit / m.revenue) * 100 : 0;
-            return `<tr><td>${escAttr(m.label)}</td><td class="n">${escAttr(formatAmount(m.revenue))}</td><td class="n">${escAttr(formatAmount(m.expenses))}</td><td class="n">${escAttr(formatAmount(m.payroll))}</td><td class="n">${escAttr(formatAmount(profit))}</td><td class="n">${margin.toFixed(1)}%</td></tr>`;
+            return `<tr><td>${escAttr(m.label)}</td><td class="n">${escAttr(formatAmount(m.revenue))}</td><td class="n">${escAttr(formatAmount(m.expenses))}</td><td class="n">${escAttr(formatAmount(m.payroll))}</td><td class="n">${escAttr(formatAmount(m.payrollBase))}</td><td class="n">${escAttr(formatAmount(m.payrollCommission))}</td><td class="n">${escAttr(formatAmount(m.payrollBonus))}</td><td class="n">${escAttr(formatAmount(profit))}</td><td class="n">${margin.toFixed(1)}%</td></tr>`;
           })
           .join("");
-        return `<p>YTD ${plCalendarYear}</p>${h("P&L by month")}<table><tr><th>Month</th><th class="n">Revenue</th><th class="n">Expenses</th><th class="n">Payroll</th><th class="n">Profit</th><th class="n">Margin</th></tr>${rows}</table>`;
+        return `<p>YTD ${plCalendarYear}</p>${h("P&L by month")}<table><tr><th>Month</th><th class="n">Revenue</th><th class="n">Expenses</th><th class="n">Payroll net</th><th class="n">Pay base</th><th class="n">Pay comm.</th><th class="n">Pay bonus</th><th class="n">Profit</th><th class="n">Margin</th></tr>${rows}</table>`;
       }
       case "annual_tax": {
         return ""; // uses dedicated printAnnualTaxPack
@@ -778,16 +909,56 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
       case "staff":
         downloadCsv(
           name,
-          ["Name", "Role", "Branch", "Attributed_revenue_RM", "Transactions", "Line_qty", "Avg_per_tx_RM"],
+          [
+            "Name",
+            "Role",
+            "Branch",
+            "Attributed_revenue_RM",
+            "Commission_est_RM",
+            "Transactions",
+            "Line_qty",
+            "Avg_per_tx_RM",
+          ],
           staffPerformance.map((s) => [
             s.full_name,
             s.role ?? "",
             s.branchLabel,
             s.attributedRevenue.toFixed(2),
+            s.commissionEarned.toFixed(2),
             s.transactionCount,
             s.lineItemQty,
             s.avgPerTx.toFixed(2),
           ])
+        );
+        break;
+      case "attendance":
+        downloadCsv(
+          name,
+          [
+            "Staff",
+            "Present",
+            "Late",
+            "Half_day",
+            "Absent",
+            "Leave",
+            "Days_logged",
+            "On_time_rate_pct",
+          ],
+          (attendanceSummariesResult?.data ?? []).map((row) => {
+            const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
+            const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
+            const rate = denom > 0 ? ((worked / denom) * 100).toFixed(1) : "";
+            return [
+              row.staffName,
+              row.daysPresent,
+              row.daysLate,
+              row.daysHalfDay,
+              row.daysAbsent,
+              row.daysLeave,
+              row.totalRecords,
+              rate,
+            ];
+          })
         );
         break;
       case "customers":
@@ -828,7 +999,17 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
       case "pnl":
         downloadCsv(
           name,
-          ["Month", "Revenue_RM", "Expenses_RM", "Payroll_RM", "Gross_profit_RM", "Margin_pct"],
+          [
+            "Month",
+            "Revenue_RM",
+            "Expenses_RM",
+            "Payroll_net_RM",
+            "Payroll_base_RM",
+            "Payroll_commission_RM",
+            "Payroll_bonus_RM",
+            "Gross_profit_RM",
+            "Margin_pct",
+          ],
           plByMonth.map((m) => {
             const profit = m.revenue - m.expenses - m.payroll;
             const margin = m.revenue > 0 ? (profit / m.revenue) * 100 : 0;
@@ -837,6 +1018,9 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
               m.revenue.toFixed(2),
               m.expenses.toFixed(2),
               m.payroll.toFixed(2),
+              m.payrollBase.toFixed(2),
+              m.payrollCommission.toFixed(2),
+              m.payrollBonus.toFixed(2),
               profit.toFixed(2),
               margin.toFixed(2),
             ];
@@ -1268,10 +1452,11 @@ ${body}
               <p className="mt-1 text-xs text-gray-500">{periodLabelStr}</p>
             </Card>
             <Card className="p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Service lines w/ staff</p>
-              <h3 className="mt-2 text-2xl font-bold text-white">
-                {staffPerformance.reduce((s, x) => s + x.lineItemQty, 0)}
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Commission (estimate)</p>
+              <h3 className="mt-2 text-2xl font-bold text-emerald-400">
+                {formatAmount(staffPerformance.reduce((s, x) => s + x.commissionEarned, 0))}
               </h3>
+              <p className="mt-1 text-xs text-gray-500">Schemes × POS/queue · {periodLabelStr}</p>
             </Card>
           </div>
           <StaffRevenueBarChart data={staffChartData} />
@@ -1293,6 +1478,7 @@ ${body}
                       <th className="p-4 text-left">Role</th>
                       <th className="p-4 text-left">Branch</th>
                       <th className="p-4 text-right">Revenue</th>
+                      <th className="p-4 text-right">Comm. (est.)</th>
                       <th className="p-4 text-right">Tx</th>
                       <th className="p-4 text-right">Avg / tx</th>
                     </tr>
@@ -1304,6 +1490,7 @@ ${body}
                         <td className="p-4 text-gray-300">{s.role}</td>
                         <td className="p-4 text-gray-400">{s.branchLabel}</td>
                         <td className="p-4 text-right font-semibold text-[#D4AF37]">{formatAmount(s.attributedRevenue)}</td>
+                        <td className="p-4 text-right font-semibold text-emerald-400">{formatAmount(s.commissionEarned)}</td>
                         <td className="p-4 text-right text-gray-300">{s.transactionCount}</td>
                         <td className="p-4 text-right text-gray-400">{formatAmount(s.avgPerTx)}</td>
                       </tr>
@@ -1312,6 +1499,63 @@ ${body}
                 </table>
               </div>
             )}
+          </Card>
+        </div>
+      )}
+
+      {activeTab === "attendance" && (
+        <div className="space-y-6">
+          <Card className="p-5">
+            <h3 className="font-bold text-white">Attendance by staff</h3>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Range: {reportAttRange.start} – {reportAttRange.end} (follows report period filter; &quot;All data&quot; uses last 30
+              days).
+            </p>
+          </Card>
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    <th className="p-4 text-left">Staff</th>
+                    <th className="p-4 text-right">Present</th>
+                    <th className="p-4 text-right">Late</th>
+                    <th className="p-4 text-right">Half day</th>
+                    <th className="p-4 text-right">Absent</th>
+                    <th className="p-4 text-right">Leave</th>
+                    <th className="p-4 text-right">Days logged</th>
+                    <th className="p-4 text-right">On-time rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(attendanceSummariesResult?.data ?? []).length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-gray-500">
+                        No attendance records in this range. Record attendance from Payroll.
+                      </td>
+                    </tr>
+                  ) : (
+                    (attendanceSummariesResult?.data ?? []).map((row) => {
+                      const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
+                      const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
+                      const rate = denom > 0 ? (worked / denom) * 100 : 0;
+                      return (
+                        <tr key={row.staffId} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
+                          <td className="p-4 font-medium text-white">{row.staffName}</td>
+                          <td className="p-4 text-right text-emerald-400">{row.daysPresent}</td>
+                          <td className="p-4 text-right text-yellow-400">{row.daysLate}</td>
+                          <td className="p-4 text-right text-gray-300">{row.daysHalfDay}</td>
+                          <td className="p-4 text-right text-red-400">{row.daysAbsent}</td>
+                          <td className="p-4 text-right text-gray-400">{row.daysLeave}</td>
+                          <td className="p-4 text-right text-gray-300">{row.totalRecords}</td>
+                          <td className="p-4 text-right text-[#D4AF37]">{rate.toFixed(0)}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       )}
@@ -1602,6 +1846,31 @@ ${body}
             </Card>
           </div>
 
+          <Card className="p-5">
+            <h3 className="mb-3 font-bold text-white">Payroll breakdown (YTD)</h3>
+            <p className="mb-3 text-xs text-gray-500">
+              By month of payroll entry creation. Net payout = base + commissions + bonuses − deductions − advances.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span className="text-gray-400">Base salaries</span>
+                <span className="font-semibold text-white">{formatAmount(plTotals.payrollBase)}</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span className="text-gray-400">Commissions</span>
+                <span className="font-semibold text-emerald-400">{formatAmount(plTotals.payrollCommission)}</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span className="text-gray-400">Bonuses</span>
+                <span className="font-semibold text-[#D4AF37]">{formatAmount(plTotals.payrollBonus)}</span>
+              </div>
+              <div className="flex justify-between rounded-lg bg-black/20 px-3 py-2">
+                <span className="text-gray-400">Net payroll</span>
+                <span className="font-semibold text-orange-400">{formatAmount(plTotals.payroll)}</span>
+              </div>
+            </div>
+          </Card>
+
           <PlTrendChart data={plChartData} />
 
           <Card>
@@ -1616,7 +1885,10 @@ ${body}
                     <th className="p-4 text-left">Month</th>
                     <th className="p-4 text-right">Revenue</th>
                     <th className="p-4 text-right">Expenses</th>
-                    <th className="p-4 text-right">Payroll</th>
+                    <th className="p-4 text-right">Payroll net</th>
+                    <th className="p-4 text-right">Pay base</th>
+                    <th className="p-4 text-right">Pay comm.</th>
+                    <th className="p-4 text-right">Pay bonus</th>
                     <th className="p-4 text-right">Gross profit</th>
                     <th className="p-4 text-right">Margin</th>
                   </tr>
@@ -1631,6 +1903,9 @@ ${body}
                         <td className="p-4 text-right text-[#D4AF37]">{formatAmount(m.revenue)}</td>
                         <td className="p-4 text-right text-red-400">{formatAmount(m.expenses)}</td>
                         <td className="p-4 text-right text-orange-400">{formatAmount(m.payroll)}</td>
+                        <td className="p-4 text-right text-gray-400">{formatAmount(m.payrollBase)}</td>
+                        <td className="p-4 text-right text-emerald-400/90">{formatAmount(m.payrollCommission)}</td>
+                        <td className="p-4 text-right text-[#D4AF37]/80">{formatAmount(m.payrollBonus)}</td>
                         <td className={`p-4 text-right font-semibold ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{formatAmount(profit)}</td>
                         <td className={`p-4 text-right text-sm ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>{margin.toFixed(1)}%</td>
                       </tr>

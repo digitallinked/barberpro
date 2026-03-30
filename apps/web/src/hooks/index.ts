@@ -7,7 +7,14 @@ export { useQueueTickets, useQueueStats, useQueueBoard, useSeats } from "./use-q
 export { useTransactions, useDashboardStats, useDailyRevenue } from "./use-transactions";
 export { useExpenses, useExpenseStats } from "./use-expenses";
 export { useInventoryItems, useInventoryStats } from "./use-inventory";
-export { usePayrollPeriods, usePayrollEntries, useAllPayrollEntries } from "./use-payroll";
+export {
+  usePayrollPeriods,
+  usePayrollEntries,
+  useAllPayrollEntries,
+  useStaffCommission,
+  useStaffAttendanceSummary,
+} from "./use-payroll";
+export { useStaffAttendance, useAttendanceSummaries } from "./use-attendance";
 export { useCommissionSchemes, useStaffAssignments } from "./use-commissions";
 export { useTenantProfile } from "./use-tenant";
 export { useAppointments } from "./use-appointments";
