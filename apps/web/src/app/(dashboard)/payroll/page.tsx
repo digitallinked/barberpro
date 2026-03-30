@@ -12,9 +12,11 @@ import {
   Clock,
   Download,
   FileText,
+  LayoutList,
   Pencil,
   Plus,
   Printer,
+  ShoppingBag,
   Trash2,
   TrendingUp,
   Users,
@@ -165,6 +167,7 @@ export default function PayrollPage() {
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [showEditEntryModal, setShowEditEntryModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PayrollEntryWithStaff | null>(null);
+  const [payslipEntry, setPayslipEntry] = useState<PayrollEntryWithStaff | null>(null);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -635,12 +638,19 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                                 </button>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2a2a2a] to-[#222] text-[11px] font-bold text-gray-300">
+                                <button
+                                  type="button"
+                                  onClick={() => setPayslipEntry(e)}
+                                  className="group flex items-center gap-2.5 text-left"
+                                  title="View payslip"
+                                >
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2a2a2a] to-[#222] text-[11px] font-bold text-gray-300 ring-0 transition group-hover:ring-2 group-hover:ring-[#D4AF37]/50">
                                     {getInitials(e.staff?.full_name ?? "?")}
                                   </div>
-                                  <span className="font-medium text-white">{e.staff?.full_name ?? "Unknown"}</span>
-                                </div>
+                                  <span className="font-medium text-white underline-offset-2 transition group-hover:text-[#D4AF37] group-hover:underline">
+                                    {e.staff?.full_name ?? "Unknown"}
+                                  </span>
+                                </button>
                               </td>
                               <td className="px-3 py-3 text-right tabular-nums text-gray-400">{daysLabel}</td>
                               <td className="px-3 py-3 text-right tabular-nums text-gray-300">{formatRM(e.base_salary)}</td>
@@ -1083,6 +1093,203 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
           </div>
         </div>
       )}
+
+      {/* ── Payslip detail modal ─────────────────────────────────────── */}
+      {payslipEntry && selectedPeriod && (() => {
+        const e = payslipEntry;
+        const gross = e.base_salary + e.service_commission + e.product_commission + e.bonuses;
+        const stat = calculateStatutoryDeductions(gross, 30, { maritalStatus: "single", numDependents: 0 });
+        const diff = Math.round((e.deductions - stat.totalEmployeeDeductions) * 100) / 100;
+        const periodLabel = `${formatDate(selectedPeriod.period_start)} – ${formatDate(selectedPeriod.period_end)}`;
+        const rev = (e.service_revenue ?? 0) + (e.product_revenue ?? 0);
+        const daysLabel = e.days_worked != null && e.total_working_days != null
+          ? `${e.days_worked} / ${e.total_working_days} days`
+          : "—";
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#161616] shadow-2xl">
+              {/* Header */}
+              <div className="flex shrink-0 items-start justify-between border-b border-white/5 px-6 py-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-base font-bold text-[#D4AF37]">
+                    {getInitials(e.staff?.full_name ?? "?")}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">{e.staff?.full_name ?? "Staff"}</h2>
+                    <p className="text-xs text-gray-500">{tenantName} · {periodLabel}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => printPayslip(e)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:border-[#D4AF37]/30 hover:text-[#D4AF37]"
+                  >
+                    <Printer className="h-3.5 w-3.5" /> Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayslipEntry(null)}
+                    className="rounded-lg p-2 text-gray-500 hover:bg-white/5 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                {/* Net payout hero */}
+                <div className="rounded-xl border border-[#D4AF37]/20 bg-gradient-to-br from-[#D4AF37]/10 via-transparent to-transparent px-5 py-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#D4AF37]/70">Net Payout</p>
+                    <p className="mt-1 text-3xl font-bold tabular-nums text-white">{formatRM(e.net_payout)}</p>
+                    <p className="mt-1 text-xs text-gray-500">{daysLabel} · {e.services_count ?? 0} services · {e.customers_served ?? 0} customers</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-gray-500">POS Revenue</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-sky-300">{formatRM(rev)}</p>
+                  </div>
+                </div>
+
+                {/* Earnings */}
+                <div className="rounded-xl border border-white/5 bg-[#1a1a1a] overflow-hidden">
+                  <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
+                    <TrendingUp className="h-4 w-4 text-emerald-400" />
+                    <h3 className="text-sm font-semibold text-white">Earnings</h3>
+                  </div>
+                  <div className="divide-y divide-white/[0.04]">
+                    {[
+                      { label: "Base salary", value: e.base_salary, color: "text-gray-200" },
+                      { label: "Service commission", value: e.service_commission, color: "text-emerald-400" },
+                      { label: "Product commission", value: e.product_commission, color: "text-blue-400" },
+                      { label: "Bonuses", value: e.bonuses, color: "text-[#D4AF37]" },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-gray-400">{row.label}</span>
+                        <span className={`tabular-nums font-medium ${row.color}`}>{formatRM(row.value)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between bg-white/[0.03] px-4 py-3 text-sm font-semibold">
+                      <span className="text-white">Gross pay</span>
+                      <span className="tabular-nums text-white">{formatRM(gross)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* POS breakdown */}
+                <div className="rounded-xl border border-white/5 bg-[#1a1a1a] overflow-hidden">
+                  <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
+                    <ShoppingBag className="h-4 w-4 text-sky-400" />
+                    <h3 className="text-sm font-semibold text-white">POS / Transaction Detail</h3>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-white/[0.04] divide-y divide-white/[0.04] sm:grid-cols-4">
+                    {[
+                      { label: "Service revenue", value: formatRM(e.service_revenue ?? 0), color: "text-emerald-400" },
+                      { label: "Product revenue", value: formatRM(e.product_revenue ?? 0), color: "text-blue-400" },
+                      { label: "Services", value: String(e.services_count ?? "—"), color: "text-white" },
+                      { label: "Customers", value: String(e.customers_served ?? "—"), color: "text-white" },
+                    ].map((c) => (
+                      <div key={c.label} className="px-4 py-3 text-center">
+                        <p className={`text-base font-bold tabular-nums ${c.color}`}>{c.value}</p>
+                        <p className="mt-0.5 text-[10px] text-gray-500">{c.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Deductions */}
+                <div className="rounded-xl border border-white/5 bg-[#1a1a1a] overflow-hidden">
+                  <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
+                    <LayoutList className="h-4 w-4 text-red-400" />
+                    <h3 className="text-sm font-semibold text-white">Statutory Estimate (KWSP / PERKESO / SIP / PCB)</h3>
+                  </div>
+                  <div className="divide-y divide-white/[0.04]">
+                    {[
+                      { label: "EPF — employee (11%)", value: stat.epf.employeeContribution },
+                      { label: "SOCSO — employee", value: stat.socso.employeeContribution },
+                      { label: "EIS — employee", value: stat.eis.employeeContribution },
+                      { label: "PCB / MTD (estimate)", value: stat.pcb.monthlyPcb },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-gray-400">{row.label}</span>
+                        <span className="tabular-nums text-red-400">- {formatRM(row.value)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between bg-white/[0.03] px-4 py-3 text-sm font-semibold">
+                      <span className="text-gray-300">Total statutory est.</span>
+                      <span className="tabular-nums text-red-400">- {formatRM(stat.totalEmployeeDeductions)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recorded in BarberPro */}
+                <div className="rounded-xl border border-white/5 bg-[#1a1a1a] overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-white">Recorded in BarberPro</h3>
+                    {Math.abs(diff) > 0.5 && (
+                      <span className={`text-xs font-semibold ${diff > 0 ? "text-orange-400" : "text-sky-400"}`}>
+                        {diff > 0 ? "▲" : "▼"} {formatRM(Math.abs(diff))} vs statutory est.
+                      </span>
+                    )}
+                  </div>
+                  <div className="divide-y divide-white/[0.04]">
+                    <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+                      <span className="text-gray-400">Total deductions (stored)</span>
+                      <span className="tabular-nums text-red-400">- {formatRM(e.deductions)}</span>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+                      <span className="text-gray-400">Advances</span>
+                      <span className="tabular-nums text-orange-300">- {formatRM(e.advances)}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white/[0.03] px-4 py-3 text-base font-bold">
+                      <span className="text-white">Net payout</span>
+                      <span className="tabular-nums text-[#D4AF37]">{formatRM(e.net_payout)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employer side */}
+                <div className="rounded-xl border border-white/5 bg-[#1a1a1a] overflow-hidden">
+                  <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
+                    <Banknote className="h-4 w-4 text-orange-400" />
+                    <h3 className="text-sm font-semibold text-white">Employer Contributions (estimate)</h3>
+                  </div>
+                  <div className="divide-y divide-white/[0.04]">
+                    {[
+                      { label: "EPF — employer", value: stat.epf.employerContribution },
+                      { label: "SOCSO — employer", value: stat.socso.employerContribution },
+                      { label: "EIS — employer", value: stat.eis.employerContribution },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="text-gray-400">{row.label}</span>
+                        <span className="tabular-nums text-orange-300">{formatRM(row.value)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between bg-white/[0.03] px-4 py-3 text-sm font-semibold">
+                      <span className="text-gray-300">Total employer cost</span>
+                      <span className="tabular-nums text-orange-400">{formatRM(stat.totalEmployerCost)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                {e.notes && (
+                  <div className="rounded-xl border border-white/5 bg-[#1a1a1a] px-4 py-3">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Notes</p>
+                    <p className="text-sm text-gray-300">{e.notes}</p>
+                  </div>
+                )}
+
+                {/* Legal disclaimer */}
+                <p className="text-[10px] leading-relaxed text-gray-600">
+                  Statutory estimates use a simplified MTD model (age 30, single, 0 dependents). Confirm with LHDN tables, EA form, and e‑Data PCB before filing. Deductions stored in BarberPro may differ from the statutory estimate if loans, zakat, or custom PCB inputs apply. This payslip is for records only and is not legal or tax advice.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
