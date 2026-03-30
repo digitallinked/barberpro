@@ -16,6 +16,7 @@ import {
   Plus,
   Printer,
   Trash2,
+  TrendingUp,
   Users,
   Wand2,
   X,
@@ -25,7 +26,6 @@ import {
   usePayrollEntries,
   useStaffMembers,
   useBranches,
-  useStaffAttendance,
   useStaffCommission,
   useStaffAttendanceSummary,
 } from "@/hooks";
@@ -38,7 +38,6 @@ import {
   updatePayrollEntry,
   deletePayrollEntry,
 } from "@/actions/payroll";
-import { recordAttendance } from "@/actions/attendance";
 import { useTenant } from "@/components/tenant-provider";
 import {
   calculateStatutoryDeductions,
@@ -48,21 +47,12 @@ import {
 import { openPrintableDocument } from "@/lib/print-pdf";
 import type { PayrollEntryWithStaff } from "@/services/payroll";
 
-function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
-}
-
 function formatRM(n: number): string {
   return `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(s: string): string {
   return new Date(s).toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
 }
 
 function esc(s: string): string {
@@ -142,38 +132,24 @@ ${entry.notes ? `<p class="foot"><strong>Notes:</strong> ${esc(entry.notes)}</p>
 }
 
 function getStatusBadge(status: string) {
-  const map: Record<string, { bg: string; text: string; border: string }> = {
-    draft: { bg: "bg-gray-500/10", text: "text-gray-400", border: "border-gray-500/20" },
-    pending_review: { bg: "bg-yellow-500/10", text: "text-yellow-400", border: "border-yellow-500/20" },
-    approved: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20" },
-    paid: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
+  const map: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+    draft: { bg: "bg-gray-500/10", text: "text-gray-400", border: "border-gray-500/20", dot: "bg-gray-400" },
+    pending_review: { bg: "bg-yellow-500/10", text: "text-yellow-400", border: "border-yellow-500/20", dot: "bg-yellow-400" },
+    approved: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20", dot: "bg-blue-400" },
+    paid: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", dot: "bg-emerald-400" },
   };
   const s = map[status] ?? map.draft;
   const label = status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <span className={`rounded border px-2 py-0.5 text-xs font-bold ${s.bg} ${s.text} ${s.border}`}>{label}</span>
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${s.bg} ${s.text} ${s.border}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+      {label}
+    </span>
   );
 }
 
 function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
-function attendanceStatusLabel(s: string): string {
-  const m: Record<string, string> = {
-    present: "Present",
-    absent: "Absent",
-    late: "Late",
-    half_day: "Half day",
-    leave: "Leave",
-  };
-  return m[s] ?? s;
+  return name.trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 }
 
 export default function PayrollPage() {
@@ -198,9 +174,6 @@ export default function PayrollPage() {
   const editFormRef = useRef<HTMLFormElement>(null);
 
   const [addStaffId, setAddStaffId] = useState("");
-  const [quickAttStaffId, setQuickAttStaffId] = useState("");
-  const [quickAttDate, setQuickAttDate] = useState("");
-  const [quickAttStatus, setQuickAttStatus] = useState("present");
 
   const { data: entriesResult } = usePayrollEntries(selectedPeriodId);
 
@@ -213,12 +186,6 @@ export default function PayrollPage() {
   const periodStart = selectedPeriod?.period_start ?? null;
   const periodEnd = selectedPeriod?.period_end ?? null;
 
-  const { data: attendanceRecordsResult } = useStaffAttendance(
-    periodStart ?? "",
-    periodEnd ?? ""
-  );
-  const attendanceRecords = attendanceRecordsResult?.data ?? [];
-
   const { data: commissionPreview, isFetching: commissionLoading } = useStaffCommission(
     addStaffId || null,
     periodStart,
@@ -227,10 +194,10 @@ export default function PayrollPage() {
   const { data: attPreview } = useStaffAttendanceSummary(addStaffId || null, periodStart, periodEnd);
 
   useEffect(() => {
-    if (periodStart && !quickAttDate) {
-      setQuickAttDate(periodStart.slice(0, 10));
+    if (periods.length > 0 && !selectedPeriodId) {
+      setSelectedPeriodId(periods[0].id);
     }
-  }, [periodStart, quickAttDate]);
+  }, [periods, selectedPeriodId]);
 
   const totals = entries.reduce(
     (acc, e) => {
@@ -253,22 +220,13 @@ export default function PayrollPage() {
       };
     },
     {
-      base: 0,
-      serviceComm: 0,
-      productComm: 0,
-      bonuses: 0,
-      deductions: 0,
-      net: 0,
-      employerEpf: 0,
-      employerSocso: 0,
-      employerEis: 0,
-      totalEmployerCost: 0,
-      daysWorked: 0,
-      revenue: 0,
+      base: 0, serviceComm: 0, productComm: 0, bonuses: 0, deductions: 0, net: 0,
+      employerEpf: 0, employerSocso: 0, employerEis: 0, totalEmployerCost: 0,
+      daysWorked: 0, revenue: 0,
     }
   );
 
-  const absentCount = attendanceRecords.filter((r) => r.status === "absent").length;
+  const grossTotal = totals.base + totals.serviceComm + totals.productComm + totals.bonuses;
   const avgDaysWorked = entries.length > 0 ? totals.daysWorked / entries.length : 0;
 
   const topEarners = [...entries]
@@ -441,137 +399,171 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
     openPrintableDocument(inner, `Payroll-${periodLabel}`);
   }
 
-  async function handleQuickAttendance(e: React.FormEvent) {
-    e.preventDefault();
-    if (!quickAttStaffId || !quickAttDate) return;
-    setPending(true);
-    const fd = new FormData();
-    fd.set("staff_id", quickAttStaffId);
-    fd.set("date", quickAttDate);
-    fd.set("status", quickAttStatus);
-    const result = await recordAttendance(fd);
-    setPending(false);
-    if (result.success) {
-      queryClient.invalidateQueries({ queryKey: ["staff-attendance"] });
-      queryClient.invalidateQueries({ queryKey: ["staff-attendance-summary"] });
-    }
-  }
-
   const selectedStaffBase = staffList.find((s) => s.staff_profile_id === addStaffId)?.base_salary ?? 0;
+
+  const summaryCards = [
+    { label: t.payroll.totalBase, value: formatRM(totals.base), color: "text-white", icon: Banknote, iconBg: "bg-gray-500/10", iconColor: "text-gray-400" },
+    { label: t.payroll.totalCommissions, value: formatRM(totals.serviceComm + totals.productComm), color: "text-emerald-400", icon: TrendingUp, iconBg: "bg-emerald-500/10", iconColor: "text-emerald-400" },
+    { label: t.payroll.totalBonuses, value: formatRM(totals.bonuses), color: "text-[#D4AF37]", icon: CircleDollarSign, iconBg: "bg-[#D4AF37]/10", iconColor: "text-[#D4AF37]" },
+    { label: t.payroll.totalDeductions, value: `- ${formatRM(totals.deductions)}`, color: "text-red-400", icon: FileText, iconBg: "bg-red-500/10", iconColor: "text-red-400" },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">{t.payroll.title}</h2>
-          <p className="mt-1 text-sm text-gray-400">{t.payroll.subtitle}</p>
+          <h2 className="text-2xl font-bold tracking-tight text-white">{t.payroll.title}</h2>
+          <p className="mt-0.5 text-sm text-gray-500">{t.payroll.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={printPayrollRegister}
             disabled={!selectedPeriodId || entries.length === 0}
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white hover:border-[#D4AF37]/40 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-gray-300 transition hover:border-white/20 hover:text-white disabled:pointer-events-none disabled:opacity-30"
           >
             <Download className="h-4 w-4" /> {t.payroll.exportPdf}
           </button>
           <button
             type="button"
             onClick={() => setShowNewPeriodModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110"
           >
-            <Banknote className="h-4 w-4" /> {t.payroll.newPeriod}
+            <Plus className="h-4 w-4" /> {t.payroll.newPeriod}
           </button>
         </div>
       </div>
 
       {banner && (
-        <div className="rounded-lg border border-white/10 bg-[#111] px-4 py-3 text-sm text-gray-300">{banner}</div>
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {banner}
+          <button type="button" onClick={() => setBanner(null)} className="ml-auto text-gray-500 hover:text-white">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
-              <h3 className="font-bold text-white">{t.payroll.periodsTitle}</h3>
-            </div>
-            {periodsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
-              </div>
-            ) : periods.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-500">{t.payroll.noPeriods}</div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {periods.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedPeriodId(p.id)}
-                    className={`flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-white/[0.02] ${
-                      selectedPeriodId === p.id ? "bg-[#D4AF37]/10" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <CalendarDays className="h-4 w-4 text-gray-500" />
-                      <span className="font-medium text-white">
-                        {formatDate(p.period_start)} – {formatDate(p.period_end)}
-                      </span>
-                    </div>
-                    {getStatusBadge(p.status)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </Card>
+      {/* Period selector strip */}
+      <div className="rounded-xl border border-white/5 bg-[#1a1a1a]">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
+          <h3 className="text-sm font-semibold text-white">{t.payroll.periodsTitle}</h3>
+        </div>
+        {periodsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+          </div>
+        ) : periods.length === 0 ? (
+          <div className="p-8 text-center">
+            <CalendarDays className="mx-auto mb-3 h-8 w-8 text-gray-600" />
+            <p className="text-sm text-gray-500">{t.payroll.noPeriods}</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2 p-3">
+            {periods.map((p) => {
+              const active = selectedPeriodId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelectedPeriodId(p.id)}
+                  className={`flex items-center gap-2.5 rounded-lg border px-4 py-2.5 text-left text-sm transition ${
+                    active
+                      ? "border-[#D4AF37]/40 bg-[#D4AF37]/10 text-white shadow-sm"
+                      : "border-white/5 bg-[#111] text-gray-400 hover:border-white/10 hover:text-white"
+                  }`}
+                >
+                  <CalendarDays className={`h-4 w-4 ${active ? "text-[#D4AF37]" : "text-gray-600"}`} />
+                  <span className="font-medium">
+                    {formatDate(p.period_start)} – {formatDate(p.period_end)}
+                  </span>
+                  {getStatusBadge(p.status)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-          {selectedPeriodId && (
-            <Card>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 px-5 py-4">
-                <h3 className="font-bold text-white">{t.payroll.breakdownTitle}</h3>
+      {/* Summary stat cards — only when a period is selected and has entries */}
+      {selectedPeriodId && entries.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Net payout hero card */}
+          <div className="rounded-xl border border-[#D4AF37]/20 bg-gradient-to-br from-[#D4AF37]/10 via-transparent to-transparent p-5 sm:col-span-2 lg:col-span-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#D4AF37]/70">
+              {t.payroll.netPayoutLabel}
+            </p>
+            <h3 className="mt-1 text-2xl font-bold tabular-nums text-white">{formatRM(totals.net)}</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              {entries.length} {t.payroll.entriesWord} · gross {formatRM(grossTotal)}
+            </p>
+          </div>
+          {summaryCards.map((c) => {
+            const Icon = c.icon;
+            return (
+              <div key={c.label} className="rounded-xl border border-white/5 bg-[#1a1a1a] p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${c.iconBg}`}>
+                    <Icon className={`h-3.5 w-3.5 ${c.iconColor}`} />
+                  </span>
+                  <span className="text-[11px] text-gray-500">{c.label}</span>
+                </div>
+                <p className={`text-lg font-bold tabular-nums ${c.color}`}>{c.value}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Main content */}
+      {selectedPeriodId && (
+        <div className="grid gap-6 xl:grid-cols-4">
+          {/* Left — payroll table */}
+          <div className="space-y-5 xl:col-span-3">
+            <div className="rounded-xl border border-white/5 bg-[#1a1a1a]">
+              {/* Actions bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-5 py-3">
+                <h3 className="text-sm font-semibold text-white">{t.payroll.breakdownTitle}</h3>
                 <div className="flex flex-wrap items-center gap-2">
-                  {selectedPeriod && (
+                  {selectedPeriod?.status === "draft" && (
                     <>
-                      {selectedPeriod.status === "draft" && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus("pending_review")}
-                          disabled={pending}
-                          className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-medium text-yellow-400 hover:bg-yellow-500/20 disabled:opacity-50"
-                        >
-                          {t.payroll.submitReview}
-                        </button>
-                      )}
-                      {selectedPeriod.status === "pending_review" && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus("approved")}
-                          disabled={pending}
-                          className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/20 disabled:opacity-50"
-                        >
-                          {t.payroll.approve}
-                        </button>
-                      )}
-                      {selectedPeriod.status === "approved" && (
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateStatus("paid")}
-                          disabled={pending}
-                          className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
-                        >
-                          {t.payroll.markPaid}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={handleGenerateAll}
+                        disabled={pending}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                      >
+                        <Wand2 className="h-3.5 w-3.5" /> {t.payroll.generateAll}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus("pending_review")}
+                        disabled={pending}
+                        className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-medium text-yellow-400 transition hover:bg-yellow-500/20 disabled:opacity-50"
+                      >
+                        {t.payroll.submitReview}
+                      </button>
                     </>
                   )}
-                  {selectedPeriod?.status === "draft" && (
+                  {selectedPeriod?.status === "pending_review" && (
                     <button
                       type="button"
-                      onClick={handleGenerateAll}
+                      onClick={() => handleUpdateStatus("approved")}
                       disabled={pending}
-                      className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
+                      className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-400 transition hover:bg-blue-500/20 disabled:opacity-50"
                     >
-                      <Wand2 className="h-3.5 w-3.5" /> {t.payroll.generateAll}
+                      {t.payroll.approve}
+                    </button>
+                  )}
+                  {selectedPeriod?.status === "approved" && (
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus("paid")}
+                      disabled={pending}
+                      className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                    >
+                      {t.payroll.markPaid}
                     </button>
                   )}
                   <button
@@ -582,35 +574,41 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                       setAddStaffId("");
                       setShowAddEntryModal(true);
                     }}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37]/20 px-3 py-1.5 text-xs font-medium text-[#D4AF37] hover:bg-[#D4AF37]/30"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
                   >
                     <Plus className="h-3.5 w-3.5" /> {t.payroll.addEntry}
                   </button>
                 </div>
               </div>
+
+              {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    <tr className="border-b border-white/5 text-[11px] font-medium uppercase tracking-wider text-gray-500">
                       <th className="w-8 p-2" />
-                      <th className="p-4 text-left">{t.payroll.colStaff}</th>
-                      <th className="p-4 text-right">{t.payroll.colDays}</th>
-                      <th className="p-4 text-right">{t.payroll.colRevenue}</th>
-                      <th className="p-4 text-right">{t.payroll.colBase}</th>
-                      <th className="p-4 text-right">{t.payroll.colSvcComm}</th>
-                      <th className="p-4 text-right">{t.payroll.colProdComm}</th>
-                      <th className="p-4 text-right">{t.payroll.colBonus}</th>
-                      <th className="p-4 text-right">{t.payroll.colDeduct}</th>
-                      <th className="p-4 text-right">{t.payroll.colStatEst}</th>
-                      <th className="p-4 text-right">{t.payroll.colNet}</th>
-                      <th className="p-4 text-right w-28">{t.payroll.colActions}</th>
+                      <th className="px-4 py-3 text-left">{t.payroll.colStaff}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colDays}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colBase}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colSvcComm}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colProdComm}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colBonus}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colDeduct}</th>
+                      <th className="px-3 py-3 text-right font-semibold">{t.payroll.colNet}</th>
+                      <th className="w-24 px-3 py-3 text-right" />
                     </tr>
                   </thead>
                   <tbody>
                     {entries.length === 0 ? (
                       <tr>
-                        <td colSpan={12} className="p-8 text-center text-gray-500">
-                          {t.payroll.noEntries}
+                        <td colSpan={10} className="px-4 py-12 text-center">
+                          <Users className="mx-auto mb-3 h-8 w-8 text-gray-700" />
+                          <p className="text-sm text-gray-500">{t.payroll.noEntries}</p>
+                          {selectedPeriod?.status === "draft" && (
+                            <p className="mt-1 text-xs text-gray-600">
+                              Use &quot;{t.payroll.generateAll}&quot; to auto-fill from POS data.
+                            </p>
+                          )}
                         </td>
                       </tr>
                     ) : (
@@ -618,7 +616,6 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                         const gross = e.base_salary + e.service_commission + e.product_commission + e.bonuses;
                         const stat = calculateStatutoryDeductions(gross);
                         const diff = Math.round((e.deductions - stat.totalEmployeeDeductions) * 100) / 100;
-                        const rev = (e.service_revenue ?? 0) + (e.product_revenue ?? 0);
                         const daysLabel =
                           e.days_worked != null && e.total_working_days != null
                             ? `${e.days_worked}/${e.total_working_days}`
@@ -626,53 +623,51 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                         const expanded = expandedEntryId === e.id;
                         return (
                           <Fragment key={e.id}>
-                            <tr className="border-t border-white/[0.04] hover:bg-white/[0.02]">
-                              <td className="p-2">
+                            <tr className={`border-t border-white/[0.04] transition ${expanded ? "bg-white/[0.02]" : "hover:bg-white/[0.015]"}`}>
+                              <td className="p-2 pl-3">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedEntryId(expanded ? null : e.id)}
-                                  className="rounded p-1 text-gray-500 hover:bg-white/5 hover:text-white"
+                                  className="rounded p-1 text-gray-600 transition hover:bg-white/5 hover:text-white"
                                   aria-label={expanded ? "Collapse" : "Expand"}
                                 >
-                                  {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                                 </button>
                               </td>
-                              <td className="p-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2a2a2a] text-xs font-bold text-white">
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2a2a2a] to-[#222] text-[11px] font-bold text-gray-300">
                                     {getInitials(e.staff?.full_name ?? "?")}
                                   </div>
                                   <span className="font-medium text-white">{e.staff?.full_name ?? "Unknown"}</span>
                                 </div>
                               </td>
-                              <td className="p-4 text-right text-gray-300 tabular-nums">{daysLabel}</td>
-                              <td className="p-4 text-right text-sky-300 tabular-nums">{formatRM(rev)}</td>
-                              <td className="p-4 text-right text-gray-300">{formatRM(e.base_salary)}</td>
-                              <td className="p-4 text-right text-emerald-400">{formatRM(e.service_commission)}</td>
-                              <td className="p-4 text-right text-blue-400">{formatRM(e.product_commission)}</td>
-                              <td className="p-4 text-right text-[#D4AF37]">{formatRM(e.bonuses)}</td>
-                              <td className="p-4 text-right text-red-400">{formatRM(e.deductions)}</td>
-                              <td className="p-4 text-right">
-                                <span className="text-gray-400 tabular-nums">{formatRM(stat.totalEmployeeDeductions)}</span>
+                              <td className="px-3 py-3 text-right tabular-nums text-gray-400">{daysLabel}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-gray-300">{formatRM(e.base_salary)}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-emerald-400">{formatRM(e.service_commission)}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-blue-400">{formatRM(e.product_commission)}</td>
+                              <td className="px-3 py-3 text-right tabular-nums text-[#D4AF37]">{formatRM(e.bonuses)}</td>
+                              <td className="px-3 py-3 text-right">
+                                <span className="tabular-nums text-red-400">-{formatRM(e.deductions)}</span>
                                 {Math.abs(diff) > 0.5 && (
                                   <span
-                                    className={`ml-1 text-[10px] font-semibold ${diff > 0 ? "text-orange-400" : "text-sky-400"}`}
-                                    title={diff > 0 ? "Deductions exceed statutory estimate" : "Deductions below statutory estimate"}
+                                    className={`ml-1 text-[9px] font-semibold ${diff > 0 ? "text-orange-400" : "text-sky-400"}`}
+                                    title={diff > 0 ? "Above statutory" : "Below statutory"}
                                   >
                                     {diff > 0 ? "▲" : "▼"}
                                   </span>
                                 )}
                               </td>
-                              <td className="p-4 text-right font-bold text-white">{formatRM(e.net_payout)}</td>
-                              <td className="p-4 text-right">
+                              <td className="px-3 py-3 text-right font-bold tabular-nums text-white">{formatRM(e.net_payout)}</td>
+                              <td className="px-3 py-3 text-right">
                                 <div className="flex justify-end gap-1">
                                   <button
                                     type="button"
                                     onClick={() => printPayslip(e)}
-                                    className="inline-flex items-center justify-center rounded-lg border border-white/10 p-2 text-gray-400 transition hover:border-[#D4AF37]/40 hover:text-[#D4AF37]"
-                                    title="Print / save as PDF"
+                                    className="rounded-md p-1.5 text-gray-600 transition hover:bg-white/5 hover:text-[#D4AF37]"
+                                    title="Print payslip"
                                   >
-                                    <Printer className="h-4 w-4" />
+                                    <Printer className="h-3.5 w-3.5" />
                                   </button>
                                   {selectedPeriod?.status === "draft" && (
                                     <>
@@ -683,18 +678,18 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                                           setFormError(null);
                                           setShowEditEntryModal(true);
                                         }}
-                                        className="inline-flex items-center justify-center rounded-lg border border-white/10 p-2 text-gray-400 transition hover:border-[#D4AF37]/40 hover:text-[#D4AF37]"
+                                        className="rounded-md p-1.5 text-gray-600 transition hover:bg-white/5 hover:text-white"
                                         title="Edit"
                                       >
-                                        <Pencil className="h-4 w-4" />
+                                        <Pencil className="h-3.5 w-3.5" />
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => handleDeleteEntry(e.id)}
-                                        className="inline-flex items-center justify-center rounded-lg border border-red-500/20 p-2 text-red-400/80 transition hover:bg-red-500/10"
+                                        className="rounded-md p-1.5 text-gray-600 transition hover:bg-red-500/10 hover:text-red-400"
                                         title="Delete"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="h-3.5 w-3.5" />
                                       </button>
                                     </>
                                   )}
@@ -702,26 +697,31 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                               </td>
                             </tr>
                             {expanded && (
-                              <tr className="border-t border-white/[0.04] bg-black/20">
-                                <td colSpan={12} className="px-6 py-4 text-xs text-gray-400">
-                                  <p className="mb-2 font-semibold text-[#D4AF37]">{t.payroll.posCommissionDetail}</p>
-                                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                                    <div>
-                                      {t.payroll.serviceRevenue}:{" "}
-                                      <span className="text-white">{formatRM(e.service_revenue ?? 0)}</span>
+                              <tr className="border-t border-white/[0.03]">
+                                <td colSpan={10} className="bg-[#111]/60 px-6 py-4">
+                                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#D4AF37]/80">
+                                    {t.payroll.posCommissionDetail}
+                                  </p>
+                                  <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="text-xs">
+                                      <span className="text-gray-500">{t.payroll.serviceRevenue}</span>
+                                      <p className="font-medium text-white">{formatRM(e.service_revenue ?? 0)}</p>
                                     </div>
-                                    <div>
-                                      {t.payroll.productRevenue}:{" "}
-                                      <span className="text-white">{formatRM(e.product_revenue ?? 0)}</span>
+                                    <div className="text-xs">
+                                      <span className="text-gray-500">{t.payroll.productRevenue}</span>
+                                      <p className="font-medium text-white">{formatRM(e.product_revenue ?? 0)}</p>
                                     </div>
-                                    <div>
-                                      {t.payroll.servicesCount}:{" "}
-                                      <span className="text-white">{e.services_count ?? "—"}</span>
+                                    <div className="text-xs">
+                                      <span className="text-gray-500">{t.payroll.servicesCount}</span>
+                                      <p className="font-medium text-white">{e.services_count ?? "—"}</p>
                                     </div>
-                                    <div>
-                                      {t.payroll.customersServed}:{" "}
-                                      <span className="text-white">{e.customers_served ?? "—"}</span>
+                                    <div className="text-xs">
+                                      <span className="text-gray-500">{t.payroll.customersServed}</span>
+                                      <p className="font-medium text-white">{e.customers_served ?? "—"}</p>
                                     </div>
+                                  </div>
+                                  <div className="mt-3 text-xs text-gray-600">
+                                    Statutory est.: EPF {formatRM(stat.epf.employeeContribution)}, SOCSO {formatRM(stat.socso.employeeContribution)}, EIS {formatRM(stat.eis.employeeContribution)}
                                   </div>
                                 </td>
                               </tr>
@@ -733,435 +733,204 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                   </tbody>
                 </table>
               </div>
-            </Card>
-          )}
+            </div>
+          </div>
 
-          {selectedPeriodId && periodStart && periodEnd && (
-            <Card>
-              <div className="border-b border-white/5 px-5 py-4">
-                <h3 className="font-bold text-white">{t.payroll.attendanceTitle}</h3>
-                <p className="mt-0.5 text-xs text-gray-500">{t.payroll.attendanceHint}</p>
-              </div>
-              <form onSubmit={handleQuickAttendance} className="flex flex-wrap items-end gap-3 border-b border-white/5 px-5 py-4">
-                <div>
-                  <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.colStaff}</label>
-                  <select
-                    value={quickAttStaffId}
-                    onChange={(ev) => setQuickAttStaffId(ev.target.value)}
-                    className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  >
-                    <option value="">{t.payroll.selectStaff}</option>
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.staff_profile_id}>
-                        {s.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.dateLabel}</label>
-                  <input
-                    type="date"
-                    value={quickAttDate}
-                    onChange={(ev) => setQuickAttDate(ev.target.value)}
-                    min={periodStart.slice(0, 10)}
-                    max={periodEnd.slice(0, 10)}
-                    className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.statusLabel}</label>
-                  <select
-                    value={quickAttStatus}
-                    onChange={(ev) => setQuickAttStatus(ev.target.value)}
-                    className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  >
-                    <option value="present">Present</option>
-                    <option value="late">Late</option>
-                    <option value="half_day">Half day</option>
-                    <option value="absent">Absent</option>
-                    <option value="leave">Leave</option>
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  disabled={pending || !quickAttStaffId}
-                  className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50"
-                >
-                  {t.payroll.saveAttendance}
-                </button>
-              </form>
-              <div className="max-h-64 overflow-y-auto">
-                {attendanceRecords.length === 0 ? (
-                  <p className="px-5 py-6 text-center text-sm text-gray-500">{t.payroll.noAttendanceRows}</p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                        <th className="p-3 text-left">{t.payroll.colStaff}</th>
-                        <th className="p-3 text-left">{t.payroll.dateLabel}</th>
-                        <th className="p-3 text-left">{t.payroll.clockIn}</th>
-                        <th className="p-3 text-left">{t.payroll.clockOut}</th>
-                        <th className="p-3 text-left">{t.payroll.statusLabel}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendanceRecords.slice(0, 50).map((r) => (
-                        <tr key={r.id} className="border-t border-white/[0.04]">
-                          <td className="p-3 text-white">{r.staff?.full_name ?? "—"}</td>
-                          <td className="p-3 text-gray-300">{r.date}</td>
-                          <td className="p-3 text-gray-400">{formatTime(r.clock_in)}</td>
-                          <td className="p-3 text-gray-400">{formatTime(r.clock_out)}</td>
-                          <td className="p-3 text-gray-300">{attendanceStatusLabel(r.status)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          {selectedPeriodId && entries.length > 0 && (
-            <Card className="border-[#D4AF37]/20 bg-gradient-to-r from-[#D4AF37]/10 to-transparent p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">{t.payroll.netPayoutPeriod}</p>
-                  <h3 className="mt-1 text-3xl font-bold text-white">{formatRM(totals.net)}</h3>
-                </div>
-                <CircleDollarSign className="h-8 w-8 text-[#D4AF37]/40" />
-              </div>
-            </Card>
-          )}
-
-          {selectedPeriodId && entries.length > 0 && (
-            <Card className="p-5">
-              <h3 className="mb-4 font-bold text-white">{t.payroll.topEarners}</h3>
-              <div className="space-y-3">
-                {topEarners.map((e) => (
-                  <div key={`${e.rank}-${e.name}`} className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-sm font-bold text-white">
-                        {e.init}
-                      </div>
-                      {e.rank === 1 && (
-                        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#D4AF37] text-[9px] font-bold text-black">
-                          1
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-white">{e.name}</p>
-                    </div>
-                    <span className={`text-sm font-bold ${e.rank === 1 ? "text-[#D4AF37]" : "text-gray-300"}`}>
-                      {e.amount}
+          {/* Right sidebar */}
+          <div className="space-y-4">
+            {/* Period info */}
+            {selectedPeriod && (
+              <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-4">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {t.payroll.paymentSchedule}
+                </h4>
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <CalendarDays className="h-3.5 w-3.5 text-gray-600" />
+                    <span className="text-gray-400">{t.payroll.periodLabel}</span>
+                    <span className="ml-auto font-medium text-white">
+                      {formatDate(selectedPeriod.period_start)} – {formatDate(selectedPeriod.period_end)}
                     </span>
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {selectedPeriodId && entries.length > 0 && (
-            <Card className="p-5">
-              <h3 className="mb-4 flex items-center gap-2 font-bold text-white">
-                <Users className="h-4 w-4 text-gray-500" /> {t.payroll.attendanceOverview}
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.entriesCount}</span>
-                  <span className="text-white">{entries.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.avgDaysWorked}</span>
-                  <span className="text-white">{avgDaysWorked.toFixed(1)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.absentMarkers}</span>
-                  <span className="text-red-400">{absentCount}</span>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {selectedPeriodId && entries.length > 0 && (
-            <Card className="p-5">
-              <h3 className="mb-4 font-bold text-white">{t.payroll.commissionBreakdown}</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.totalServiceComm}</span>
-                  <span className="text-emerald-400">{formatRM(totals.serviceComm)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.totalProductComm}</span>
-                  <span className="text-blue-400">{formatRM(totals.productComm)}</span>
-                </div>
-                <div className="flex justify-between border-t border-white/5 pt-2">
-                  <span className="text-gray-400">{t.payroll.avgCommPerStaff}</span>
-                  <span className="text-[#D4AF37]">
-                    {formatRM(
-                      entries.length > 0
-                        ? (totals.serviceComm + totals.productComm) / entries.length
-                        : 0
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.attributedRevenue}</span>
-                  <span className="text-sky-300">{formatRM(totals.revenue)}</span>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {selectedPeriodId && entries.length > 0 && (
-            <Card className="p-5">
-              <h3 className="mb-4 font-bold text-white">{t.payroll.summaryTitle}</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.totalBase}</span>
-                  <span className="text-white">{formatRM(totals.base)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.totalCommissions}</span>
-                  <span className="text-emerald-400">{formatRM(totals.serviceComm + totals.productComm)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.totalBonuses}</span>
-                  <span className="text-[#D4AF37]">{formatRM(totals.bonuses)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.totalDeductions}</span>
-                  <span className="text-red-400">- {formatRM(totals.deductions)}</span>
-                </div>
-                <div className="flex justify-between border-t border-white/5 pt-2 font-bold">
-                  <span className="text-white">{t.payroll.netPayoutLabel}</span>
-                  <span className="text-[#D4AF37]">{formatRM(totals.net)}</span>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {selectedPeriodId && entries.length > 0 && (
-            <Card className="p-5">
-              <h3 className="mb-1 font-bold text-white">{t.payroll.employerStatutory}</h3>
-              <p className="mb-3 text-[11px] text-gray-500">{t.payroll.employerStatutoryNote}</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.epfEmployer}</span>
-                  <span className="text-white">{formatRM(totals.employerEpf)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.socsoEmployer}</span>
-                  <span className="text-white">{formatRM(totals.employerSocso)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">{t.payroll.eisEmployer}</span>
-                  <span className="text-white">{formatRM(totals.employerEis)}</span>
-                </div>
-                <div className="flex justify-between border-t border-white/5 pt-2 font-bold">
-                  <span className="text-white">{t.payroll.totalEmployerCost}</span>
-                  <span className="text-orange-400">{formatRM(totals.totalEmployerCost)}</span>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {selectedPeriod && (
-            <Card className="p-5">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-white">{t.payroll.paymentSchedule}</h3>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs">
-                  <CalendarDays className="h-3.5 w-3.5 text-gray-500" />
-                  <span className="text-gray-400">{t.payroll.periodLabel}</span>
-                  <span className="font-medium text-white">
-                    {formatDate(selectedPeriod.period_start)} – {formatDate(selectedPeriod.period_end)}
-                  </span>
-                </div>
-                {selectedPeriod.payout_due_date && (
+                  {selectedPeriod.payout_due_date && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <Clock className="h-3.5 w-3.5 text-gray-600" />
+                      <span className="text-gray-400">{t.payroll.dueLabel}</span>
+                      <span className="ml-auto font-medium text-white">{formatDate(selectedPeriod.payout_due_date)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-xs">
-                    <Clock className="h-3.5 w-3.5 text-gray-500" />
-                    <span className="text-gray-400">{t.payroll.dueLabel}</span>
-                    <span className="font-medium text-white">{formatDate(selectedPeriod.payout_due_date)}</span>
+                    <Users className="h-3.5 w-3.5 text-gray-600" />
+                    <span className="text-gray-400">{t.payroll.entriesCount}</span>
+                    <span className="ml-auto font-medium text-white">{entries.length}</span>
                   </div>
-                )}
-                <div className="flex items-center gap-2 text-xs">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="text-gray-400">
-                    {entries.length} {t.payroll.entriesWord}
-                  </span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-gray-600" />
+                    <span className="text-gray-400">{t.payroll.avgDaysWorked}</span>
+                    <span className="ml-auto font-medium text-white">{avgDaysWorked.toFixed(1)}</span>
+                  </div>
                 </div>
               </div>
-            </Card>
-          )}
+            )}
 
-          <Card className="p-5">
-            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-white">{t.payroll.notesTitle}</h3>
-            <ul className="space-y-2 text-xs text-gray-400">
-              <li className="flex items-start gap-2">
-                <FileText className="mt-0.5 h-3 w-3 shrink-0 text-gray-600" />
-                {t.payroll.noteCommissions}
-              </li>
-              <li className="flex items-start gap-2">
-                <FileText className="mt-0.5 h-3 w-3 shrink-0 text-gray-600" />
-                {t.payroll.noteGenerate}
-              </li>
-              <li className="flex items-start gap-2">
-                <FileText className="mt-0.5 h-3 w-3 shrink-0 text-gray-600" />
-                {t.payroll.noteStatutory}
-              </li>
-            </ul>
-          </Card>
+            {/* Top earners */}
+            {entries.length > 0 && (
+              <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-4">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {t.payroll.topEarners}
+                </h4>
+                <div className="space-y-3">
+                  {topEarners.map((e) => (
+                    <div key={`${e.rank}-${e.name}`} className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold ${
+                          e.rank === 1
+                            ? "border border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#D4AF37]"
+                            : "bg-[#222] text-gray-400"
+                        }`}>
+                          {e.init}
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-white">{e.name}</p>
+                      </div>
+                      <span className={`shrink-0 text-sm font-bold tabular-nums ${e.rank === 1 ? "text-[#D4AF37]" : "text-gray-300"}`}>
+                        {e.amount}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Employer statutory */}
+            {entries.length > 0 && (
+              <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-4">
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {t.payroll.employerStatutory}
+                </h4>
+                <p className="mb-3 text-[10px] text-gray-600">{t.payroll.employerStatutoryNote}</p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">{t.payroll.epfEmployer}</span>
+                    <span className="tabular-nums text-white">{formatRM(totals.employerEpf)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">{t.payroll.socsoEmployer}</span>
+                    <span className="tabular-nums text-white">{formatRM(totals.employerSocso)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">{t.payroll.eisEmployer}</span>
+                    <span className="tabular-nums text-white">{formatRM(totals.employerEis)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-white/5 pt-2 font-semibold">
+                    <span className="text-white">{t.payroll.totalEmployerCost}</span>
+                    <span className="tabular-nums text-orange-400">{formatRM(totals.totalEmployerCost)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-4">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {t.payroll.notesTitle}
+              </h4>
+              <ul className="space-y-2.5 text-[11px] leading-relaxed text-gray-500">
+                <li className="flex gap-2">
+                  <FileText className="mt-0.5 h-3 w-3 shrink-0 text-gray-700" />
+                  {t.payroll.noteCommissions}
+                </li>
+                <li className="flex gap-2">
+                  <FileText className="mt-0.5 h-3 w-3 shrink-0 text-gray-700" />
+                  {t.payroll.noteGenerate}
+                </li>
+                <li className="flex gap-2">
+                  <FileText className="mt-0.5 h-3 w-3 shrink-0 text-gray-700" />
+                  {t.payroll.noteStatutory}
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
+      {/* ── Modals ────────────────────────────────────────────────────── */}
+
+      {/* New period modal */}
       {showNewPeriodModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">{t.payroll.modalNewPeriod}</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewPeriodModal(false)}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
-              >
+              <button type="button" onClick={() => setShowNewPeriodModal(false)} className="rounded-lg p-2 text-gray-500 hover:bg-white/5 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={handleNewPeriod} className="space-y-4">
-              {formError && (
-                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
-              )}
+              {formError && <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.periodStart}</label>
-                <input
-                  name="period_start"
-                  type="date"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                />
+                <input name="period_start" type="date" required className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.periodEnd}</label>
-                <input
-                  name="period_end"
-                  type="date"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                />
+                <input name="period_end" type="date" required className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.branchOptional}</label>
-                <select
-                  name="branch_id"
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                >
+                <select name="branch_id" className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]">
                   <option value="">{t.payroll.allBranches}</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNewPeriodModal(false)}
-                  className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5"
-                >
-                  {t.payroll.cancel}
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50"
-                >
-                  {pending ? t.payroll.creating : t.payroll.createPeriod}
-                </button>
+                <button type="button" onClick={() => setShowNewPeriodModal(false)} className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5">{t.payroll.cancel}</button>
+                <button type="submit" disabled={pending} className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50">{pending ? t.payroll.creating : t.payroll.createPeriod}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* Add entry modal */}
       {showAddEntryModal && selectedPeriodId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">{t.payroll.modalAddEntry}</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddEntryModal(false);
-                  setAddStaffId("");
-                }}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
-              >
+              <button type="button" onClick={() => { setShowAddEntryModal(false); setAddStaffId(""); }} className="rounded-lg p-2 text-gray-500 hover:bg-white/5 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form ref={entryFormRef} onSubmit={handleAddEntry} className="space-y-4">
-              {formError && (
-                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
-              )}
+              {formError && <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>}
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.colStaff}</label>
-                <select
-                  name="staff_id"
-                  required
-                  value={addStaffId}
-                  onChange={(ev) => setAddStaffId(ev.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                >
+                <select name="staff_id" required value={addStaffId} onChange={(ev) => setAddStaffId(ev.target.value)} className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]">
                   <option value="">{t.payroll.selectStaff}</option>
-                  {staffList.map((s) => (
-                    <option key={s.id} value={s.staff_profile_id}>
-                      {s.full_name}
-                    </option>
-                  ))}
+                  {staffList.map((s) => <option key={s.id} value={s.staff_profile_id}>{s.full_name}</option>)}
                 </select>
               </div>
 
               {addStaffId && commissionPreview && (
-                <div className="rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/5 p-3 text-xs text-gray-300">
+                <div className="rounded-lg border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-3 text-xs text-gray-300">
                   <p className="mb-2 font-semibold text-[#D4AF37]">{t.payroll.commissionFromPos}</p>
                   {commissionLoading && <p className="text-gray-500">{t.payroll.loadingCalc}</p>}
-                  <div className="space-y-1">
-                    <p>
-                      {t.payroll.serviceRevenue}: {formatRM(commissionPreview.serviceRevenue)} · {t.payroll.ratePercent}{" "}
-                      {commissionPreview.schemeDetails?.percentageRate ?? 0}% → {t.payroll.svcComm}{" "}
-                      {formatRM(commissionPreview.serviceCommission)}
-                    </p>
-                    <p>
-                      {t.payroll.productRevenue}: {formatRM(commissionPreview.productRevenue)} · {t.payroll.ratePercent}{" "}
-                      {commissionPreview.schemeDetails?.productCommissionRate ?? 0}% → {t.payroll.prodComm}{" "}
-                      {formatRM(commissionPreview.productCommission)}
-                    </p>
-                    <p>
-                      {t.payroll.servicesCount}: {commissionPreview.servicesCount} · {t.payroll.perService}{" "}
-                      {formatRM(commissionPreview.schemeDetails?.perServiceAmount ?? 0)}
-                    </p>
-                    <p>
-                      {t.payroll.schemeLabel}: {commissionPreview.schemeName ?? t.payroll.noScheme}
-                    </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <p>{t.payroll.serviceRevenue}: <span className="text-white">{formatRM(commissionPreview.serviceRevenue)}</span></p>
+                    <p>{t.payroll.svcComm}: <span className="text-emerald-400">{formatRM(commissionPreview.serviceCommission)}</span></p>
+                    <p>{t.payroll.productRevenue}: <span className="text-white">{formatRM(commissionPreview.productRevenue)}</span></p>
+                    <p>{t.payroll.prodComm}: <span className="text-blue-400">{formatRM(commissionPreview.productCommission)}</span></p>
+                    <p>{t.payroll.servicesCount}: <span className="text-white">{commissionPreview.servicesCount}</span></p>
+                    <p>{t.payroll.schemeLabel}: <span className="text-white">{commissionPreview.schemeName ?? t.payroll.noScheme}</span></p>
                   </div>
                 </div>
               )}
 
               <input type="hidden" name="base_salary" value={String(selectedStaffBase)} />
-              <input
-                type="hidden"
-                name="service_commission"
-                value={String(commissionPreview?.serviceCommission ?? 0)}
-              />
-              <input
-                type="hidden"
-                name="product_commission"
-                value={String(commissionPreview?.productCommission ?? 0)}
-              />
+              <input type="hidden" name="service_commission" value={String(commissionPreview?.serviceCommission ?? 0)} />
+              <input type="hidden" name="product_commission" value={String(commissionPreview?.productCommission ?? 0)} />
               <input type="hidden" name="days_worked" value={String(attPreview?.daysWorked ?? 0)} />
               <input type="hidden" name="total_working_days" value={String(attPreview?.totalWorkingDays ?? 0)} />
               <input type="hidden" name="service_revenue" value={String(commissionPreview?.serviceRevenue ?? 0)} />
@@ -1169,45 +938,25 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
               <input type="hidden" name="services_count" value={String(commissionPreview?.servicesCount ?? 0)} />
               <input type="hidden" name="customers_served" value={String(commissionPreview?.customersServed ?? 0)} />
 
-              <div className="rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-gray-300">
-                <p>
-                  {t.payroll.previewBase}: <span className="text-white">{formatRM(selectedStaffBase)}</span>
-                </p>
-                <p>
-                  {t.payroll.previewSvc}:{" "}
-                  <span className="text-emerald-400">{formatRM(commissionPreview?.serviceCommission ?? 0)}</span>
-                </p>
-                <p>
-                  {t.payroll.previewProd}:{" "}
-                  <span className="text-blue-400">{formatRM(commissionPreview?.productCommission ?? 0)}</span>
-                </p>
-                <p>
-                  {t.payroll.previewDays}: {attPreview?.daysWorked ?? 0} / {attPreview?.totalWorkingDays ?? 0}
-                </p>
-              </div>
+              {addStaffId && (
+                <div className="grid grid-cols-2 gap-3 rounded-lg border border-white/5 bg-[#111] p-3 text-xs">
+                  <div><span className="text-gray-500">{t.payroll.previewBase}</span><p className="font-medium text-white">{formatRM(selectedStaffBase)}</p></div>
+                  <div><span className="text-gray-500">{t.payroll.previewSvc}</span><p className="font-medium text-emerald-400">{formatRM(commissionPreview?.serviceCommission ?? 0)}</p></div>
+                  <div><span className="text-gray-500">{t.payroll.previewProd}</span><p className="font-medium text-blue-400">{formatRM(commissionPreview?.productCommission ?? 0)}</p></div>
+                  <div><span className="text-gray-500">{t.payroll.previewDays}</span><p className="font-medium text-white">{attPreview?.daysWorked ?? 0} / {attPreview?.totalWorkingDays ?? 0}</p></div>
+                </div>
+              )}
 
-              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]">
-                  {t.payroll.statutoryBlock}
-                </p>
+              <div className="rounded-lg border border-white/10 bg-[#111]/50 p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#D4AF37]">{t.payroll.statutoryBlock}</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.age}</label>
-                    <input
-                      name="statutory_age"
-                      type="number"
-                      min={16}
-                      max={100}
-                      defaultValue={30}
-                      className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                    />
+                    <input name="statutory_age" type="number" min={16} max={100} defaultValue={30} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
                   </div>
                   <div className="col-span-2">
                     <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.marital}</label>
-                    <select
-                      name="marital_status"
-                      className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                    >
+                    <select name="marital_status" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
                       <option value="single">Single / divorced / widowed</option>
                       <option value="married_spouse_no_income">Married, spouse not working</option>
                       <option value="married_spouse_income">Married, spouse has income</option>
@@ -1215,227 +964,105 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.children}</label>
-                    <input
-                      name="num_dependents"
-                      type="number"
-                      min={0}
-                      max={20}
-                      defaultValue={0}
-                      className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                    />
+                    <input name="num_dependents" type="number" min={0} max={20} defaultValue={0} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => applyStatutoryToForm(entryFormRef)}
-                  className="mt-3 w-full rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 py-2 text-xs font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/20"
-                >
-                  {t.payroll.applyStatutory}
-                </button>
-                {statutoryHint && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">{statutoryHint}</p>
-                )}
+                <button type="button" onClick={() => applyStatutoryToForm(entryFormRef)} className="mt-3 w-full rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 py-2 text-xs font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/20">{t.payroll.applyStatutory}</button>
+                {statutoryHint && <p className="mt-2 text-[10px] leading-relaxed text-gray-500">{statutoryHint}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.bonuses}</label>
-                  <input
-                    name="bonuses"
-                    type="number"
-                    step="0.01"
-                    defaultValue="0"
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="bonuses" type="number" step="0.01" defaultValue="0" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.deductions}</label>
-                  <input
-                    name="deductions"
-                    type="number"
-                    step="0.01"
-                    defaultValue="0"
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="deductions" type="number" step="0.01" defaultValue="0" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.advances}</label>
-                  <input
-                    name="advances"
-                    type="number"
-                    step="0.01"
-                    defaultValue="0"
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="advances" type="number" step="0.01" defaultValue="0" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.notesOptional}</label>
-                <textarea
-                  name="notes"
-                  rows={2}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  placeholder={t.payroll.notesPlaceholder}
-                />
+                <textarea name="notes" rows={2} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder={t.payroll.notesPlaceholder} />
               </div>
-              <p className="text-[11px] text-gray-500">{t.payroll.overrideHint}</p>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddEntryModal(false);
-                    setAddStaffId("");
-                  }}
-                  className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5"
-                >
-                  {t.payroll.cancel}
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending || !addStaffId || commissionLoading}
-                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50"
-                >
-                  {pending ? t.payroll.adding : t.payroll.addEntryBtn}
-                </button>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { setShowAddEntryModal(false); setAddStaffId(""); }} className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5">{t.payroll.cancel}</button>
+                <button type="submit" disabled={pending || !addStaffId || commissionLoading} className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50">{pending ? t.payroll.adding : t.payroll.addEntryBtn}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
+      {/* Edit entry modal */}
       {showEditEntryModal && editingEntry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">{t.payroll.modalEditEntry}</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditEntryModal(false);
-                  setEditingEntry(null);
-                }}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
-              >
+              <button type="button" onClick={() => { setShowEditEntryModal(false); setEditingEntry(null); }} className="rounded-lg p-2 text-gray-500 hover:bg-white/5 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <form ref={editFormRef} key={editingEntry.id} onSubmit={handleEditEntry} className="space-y-4">
-              {formError && (
-                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
-              )}
-              <p className="text-sm text-gray-400">{editingEntry.staff?.full_name}</p>
+              {formError && <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>}
+              <p className="text-sm font-medium text-white">{editingEntry.staff?.full_name}</p>
               <input type="hidden" name="service_revenue" value={String(editingEntry.service_revenue ?? 0)} />
               <input type="hidden" name="product_revenue" value={String(editingEntry.product_revenue ?? 0)} />
               <input type="hidden" name="services_count" value={String(editingEntry.services_count ?? 0)} />
               <input type="hidden" name="customers_served" value={String(editingEntry.customers_served ?? 0)} />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.colBase}</label>
-                  <input
-                    name="base_salary"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingEntry.base_salary}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="base_salary" type="number" step="0.01" defaultValue={editingEntry.base_salary} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.colSvcComm}</label>
-                  <input
-                    name="service_commission"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingEntry.service_commission}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="service_commission" type="number" step="0.01" defaultValue={editingEntry.service_commission} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.colProdComm}</label>
-                  <input
-                    name="product_commission"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingEntry.product_commission}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="product_commission" type="number" step="0.01" defaultValue={editingEntry.product_commission} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.bonuses}</label>
-                  <input
-                    name="bonuses"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingEntry.bonuses}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="bonuses" type="number" step="0.01" defaultValue={editingEntry.bonuses} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.deductions}</label>
-                  <input
-                    name="deductions"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingEntry.deductions}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="deductions" type="number" step="0.01" defaultValue={editingEntry.deductions} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.advances}</label>
-                  <input
-                    name="advances"
-                    type="number"
-                    step="0.01"
-                    defaultValue={editingEntry.advances}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="advances" type="number" step="0.01" defaultValue={editingEntry.advances} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.colDays}</label>
-                  <input
-                    name="days_worked"
-                    type="number"
-                    defaultValue={editingEntry.days_worked ?? ""}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="days_worked" type="number" defaultValue={editingEntry.days_worked ?? ""} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.totalWorkingDays}</label>
-                  <input
-                    name="total_working_days"
-                    type="number"
-                    defaultValue={editingEntry.total_working_days ?? ""}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
+                  <input name="total_working_days" type="number" defaultValue={editingEntry.total_working_days ?? ""} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
                 </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">{t.payroll.notesOptional}</label>
-                <textarea
-                  name="notes"
-                  rows={2}
-                  defaultValue={editingEntry.notes ?? ""}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                />
+                <textarea name="notes" rows={2} defaultValue={editingEntry.notes ?? ""} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
               </div>
-              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#D4AF37]">{t.payroll.statutoryBlock}</p>
+              <div className="rounded-lg border border-white/10 bg-[#111]/50 p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#D4AF37]">{t.payroll.statutoryBlock}</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.age}</label>
-                    <input
-                      name="statutory_age"
-                      type="number"
-                      min={16}
-                      max={100}
-                      defaultValue={30}
-                      className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                    />
+                    <input name="statutory_age" type="number" min={16} max={100} defaultValue={30} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
                   </div>
                   <div className="col-span-2">
                     <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.marital}</label>
-                    <select
-                      name="marital_status"
-                      className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                    >
+                    <select name="marital_status" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
                       <option value="single">Single / divorced / widowed</option>
                       <option value="married_spouse_no_income">Married, spouse not working</option>
                       <option value="married_spouse_income">Married, spouse has income</option>
@@ -1443,42 +1070,14 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                   </div>
                   <div>
                     <label className="mb-1 block text-[10px] text-gray-500">{t.payroll.children}</label>
-                    <input
-                      name="num_dependents"
-                      type="number"
-                      min={0}
-                      max={20}
-                      defaultValue={0}
-                      className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                    />
+                    <input name="num_dependents" type="number" min={0} max={20} defaultValue={0} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => applyStatutoryToForm(editFormRef)}
-                  className="mt-3 w-full rounded-lg border border-[#D4AF37]/40 bg-[#D4AF37]/10 py-2 text-xs font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/20"
-                >
-                  {t.payroll.applyStatutory}
-                </button>
+                <button type="button" onClick={() => applyStatutoryToForm(editFormRef)} className="mt-3 w-full rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 py-2 text-xs font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/20">{t.payroll.applyStatutory}</button>
               </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditEntryModal(false);
-                    setEditingEntry(null);
-                  }}
-                  className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5"
-                >
-                  {t.payroll.cancel}
-                </button>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50"
-                >
-                  {pending ? t.payroll.saving : t.payroll.saveEntry}
-                </button>
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { setShowEditEntryModal(false); setEditingEntry(null); }} className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5">{t.payroll.cancel}</button>
+                <button type="submit" disabled={pending} className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50">{pending ? t.payroll.saving : t.payroll.saveEntry}</button>
               </div>
             </form>
           </div>

@@ -1,22 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  CalendarClock,
   Eye,
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Star,
-  Users
+  Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useStaffMembers, useBranches } from "@/hooks";
+import { useStaffMembers, useBranches, useStaffAttendance } from "@/hooks";
 import { createStaffMember } from "@/actions/staff";
+import { recordAttendance } from "@/actions/attendance";
 import { useT } from "@/lib/i18n/language-context";
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -39,12 +39,40 @@ function formatRole(role: string): string {
     manager: "Manager",
     staff: "Staff",
     senior_barber: "Senior Barber",
-    junior_barber: "Junior Barber"
+    junior_barber: "Junior Barber",
   };
   return map[role] ?? role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// ─── Page ──────────────────────────────────────────────────────────────────────
+function calendarMonthBounds(): { from: string; to: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const from = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const to = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { from, to };
+}
+
+function formatTime(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
+}
+
+function attendanceStatusLabel(t: ReturnType<typeof useT>, s: string): string {
+  const m: Record<string, string> = {
+    present: t.staff.present,
+    absent: t.staff.absent,
+    late: t.staff.late,
+    half_day: t.staff.halfDay,
+    leave: t.staff.leave,
+  };
+  return m[s] ?? s;
+}
 
 export default function StaffPage() {
   const t = useT();
@@ -52,9 +80,21 @@ export default function StaffPage() {
   const { data: staffResult, isLoading: staffLoading } = useStaffMembers();
   const { data: branchesResult } = useBranches();
 
+  const initialRange = useMemo(() => calendarMonthBounds(), []);
+  const [attFrom, setAttFrom] = useState(initialRange.from);
+  const [attTo, setAttTo] = useState(initialRange.to);
+  const [attStaffId, setAttStaffId] = useState("");
+  const [attDate, setAttDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [attStatus, setAttStatus] = useState("present");
+  const [attPending, setAttPending] = useState(false);
+  const [attBanner, setAttBanner] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [pending, setPending] = useState(false);
+
+  const { data: attendanceWrap, isFetching: attLoading } = useStaffAttendance(attFrom, attTo);
+  const attendanceRows = attendanceWrap?.data ?? [];
 
   const staffList = staffResult?.data ?? [];
   const branches = branchesResult?.data ?? [];
@@ -84,22 +124,47 @@ export default function StaffPage() {
     }
   }
 
+  async function handleAttendanceSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!attStaffId || !attDate) return;
+    setAttPending(true);
+    setAttBanner(null);
+    const fd = new FormData();
+    fd.set("staff_id", attStaffId);
+    fd.set("date", attDate);
+    fd.set("status", attStatus);
+    const result = await recordAttendance(fd);
+    setAttPending(false);
+    if (result.success) {
+      void queryClient.invalidateQueries({ queryKey: ["staff-attendance"] });
+      void queryClient.invalidateQueries({ queryKey: ["staff-attendance-summary"] });
+      setAttBanner(null);
+    } else {
+      setAttBanner(result.error ?? "Failed to save");
+    }
+  }
+
+  const sortedAttendance = [...attendanceRows].sort((a, b) => {
+    const d = b.date.localeCompare(a.date);
+    return d !== 0 ? d : (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">{t.staff.title}</h2>
-          <p className="mt-1 text-sm text-gray-400">{t.staff.subtitle}</p>
+          <h2 className="text-2xl font-bold tracking-tight text-white">{t.staff.title}</h2>
+          <p className="mt-0.5 text-sm text-gray-500">{t.staff.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
-              placeholder="Search staff..."
+              placeholder={t.staff.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-52 rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none"
+              className="w-52 rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]/40"
             />
           </div>
           <button
@@ -107,28 +172,155 @@ export default function StaffPage() {
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
           >
-            <Plus className="h-4 w-4" /> Add Staff
+            <Plus className="h-4 w-4" /> {t.staff.addStaff}
           </button>
         </div>
       </div>
+
+      {/* Attendance — primary ops for payroll days-worked */}
+      <Card className="overflow-hidden">
+        <div className="border-b border-white/5 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37]/10 text-[#D4AF37]">
+                <CalendarClock className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold text-white">{t.staff.attendanceTitle}</h3>
+                <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-gray-500">{t.staff.attendanceSubtitle}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                  {t.staff.dateFrom}
+                </label>
+                <input
+                  type="date"
+                  value={attFrom}
+                  onChange={(e) => setAttFrom(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                  {t.staff.dateTo}
+                </label>
+                <input
+                  type="date"
+                  value={attTo}
+                  onChange={(e) => setAttTo(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleAttendanceSave} className="flex flex-wrap items-end gap-3 border-b border-white/5 px-5 py-4">
+          <div className="min-w-[160px] flex-1">
+            <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.colStaff}</label>
+            <select
+              value={attStaffId}
+              onChange={(e) => setAttStaffId(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+            >
+              <option value="">{t.staff.selectStaff}</option>
+              {staffList.map((s) => (
+                <option key={s.staff_profile_id} value={s.staff_profile_id}>
+                  {s.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.dateLabel}</label>
+            <input
+              type="date"
+              value={attDate}
+              min={attFrom}
+              max={attTo}
+              onChange={(e) => setAttDate(e.target.value)}
+              className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+            />
+          </div>
+          <div className="min-w-[130px]">
+            <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.statusLabel}</label>
+            <select
+              value={attStatus}
+              onChange={(e) => setAttStatus(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+            >
+              <option value="present">{t.staff.present}</option>
+              <option value="late">{t.staff.late}</option>
+              <option value="half_day">{t.staff.halfDay}</option>
+              <option value="absent">{t.staff.absent}</option>
+              <option value="leave">{t.staff.leave}</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={attPending || !attStaffId}
+            className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t.staff.saveAttendance}
+          </button>
+        </form>
+
+        {attBanner && (
+          <div className="border-b border-red-500/20 bg-red-500/5 px-5 py-2 text-xs text-red-400">{attBanner}</div>
+        )}
+
+        <div className="max-h-[min(360px,50vh)] overflow-auto">
+          {attLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+            </div>
+          ) : sortedAttendance.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <CalendarClock className="mx-auto mb-2 h-8 w-8 text-gray-700" />
+              <p className="text-sm text-gray-500">{t.staff.noAttendance}</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="sticky top-0 border-b border-white/5 bg-[#141414] text-left text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-5 py-3">{t.staff.colStaff}</th>
+                  <th className="px-3 py-3">{t.staff.colDate}</th>
+                  <th className="px-3 py-3">{t.staff.colClockIn}</th>
+                  <th className="px-3 py-3">{t.staff.colClockOut}</th>
+                  <th className="px-5 py-3">{t.staff.colStatus}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedAttendance.slice(0, 100).map((r) => (
+                  <tr key={r.id} className="border-t border-white/[0.04] transition hover:bg-white/[0.02]">
+                    <td className="px-5 py-2.5 font-medium text-white">{r.staff?.full_name ?? "—"}</td>
+                    <td className="px-3 py-2.5 tabular-nums text-gray-400">{r.date}</td>
+                    <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_in)}</td>
+                    <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_out)}</td>
+                    <td className="px-5 py-2.5 text-gray-300">{attendanceStatusLabel(t, r.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Card>
 
       {/* Summary bar */}
       <Card className="flex flex-wrap items-center gap-6 p-4">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-gray-500" />
-          <span className="text-sm text-gray-400">Total: <span className="font-bold text-white">{staffLoading ? "…" : staffList.length}</span></span>
+          <span className="text-sm text-gray-400">
+            Total: <span className="font-bold text-white">{staffLoading ? "…" : staffList.length}</span>
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-sm text-gray-400">Available: <span className="font-bold text-white">{activeCount}</span></span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-red-400" />
-          <span className="text-sm text-gray-400">Serving: <span className="font-bold text-white">0</span></span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-yellow-400" />
-          <span className="text-sm text-gray-400">Break: <span className="font-bold text-white">0</span></span>
+          <span className="text-sm text-gray-400">
+            {t.staff.active}: <span className="font-bold text-white">{activeCount}</span>
+          </span>
         </div>
       </Card>
 
@@ -140,10 +332,15 @@ export default function StaffPage() {
           </div>
         ) : (
           filteredStaff.map((s) => {
-            const statusCls = s.is_active ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-gray-500/10 text-gray-400 border-gray-500/30";
+            const statusCls = s.is_active
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+              : "bg-gray-500/10 text-gray-400 border-gray-500/30";
             const branchName = s.branch_id ? (branchMap[s.branch_id] ?? "—") : "—";
             return (
-              <Card key={s.staff_profile_id} className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
+              <Card
+                key={s.staff_profile_id}
+                className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl"
+              >
                 <div className="mb-4 flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-lg font-bold text-white">
@@ -155,8 +352,10 @@ export default function StaffPage() {
                       <p className="text-[10px] text-gray-500">{branchName}</p>
                     </div>
                   </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusCls}`}>
-                    {s.is_active ? "Active" : "Inactive"}
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusCls}`}
+                  >
+                    {s.is_active ? t.staff.active : t.staff.inactive}
                   </span>
                 </div>
 
@@ -170,7 +369,7 @@ export default function StaffPage() {
                     <p className="text-[10px] text-gray-500">Revenue</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold text-[#D4AF37] flex items-center justify-center gap-0.5">
+                    <p className="flex items-center justify-center gap-0.5 text-lg font-bold text-[#D4AF37]">
                       <Star className="h-3 w-3" /> —
                     </p>
                     <p className="text-[10px] text-gray-500">Rating</p>
@@ -178,11 +377,18 @@ export default function StaffPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Link href={`/staff/${s.staff_profile_id}`} className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-white/10 py-2 text-xs font-medium text-white hover:bg-white/5">
+                  <Link
+                    href={`/staff/${s.staff_profile_id}`}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-white/10 py-2 text-xs font-medium text-white hover:bg-white/5"
+                  >
                     <Eye className="h-3.5 w-3.5" /> View Profile
                   </Link>
-                  <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                  <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </Card>
             );
@@ -190,27 +396,44 @@ export default function StaffPage() {
         )}
       </div>
 
-      {/* Add Staff Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
-            <h3 className="text-lg font-bold text-white">Add Staff</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-white">{t.staff.addStaff}</h3>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Full Name *</label>
-                <input name="full_name" required className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="John Doe" />
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.staff.fullName} *</label>
+                <input
+                  name="full_name"
+                  required
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  placeholder="John Doe"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Email</label>
-                <input name="email" type="email" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="john@example.com" />
+                <input
+                  name="email"
+                  type="email"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  placeholder="john@example.com"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Phone</label>
-                <input name="phone" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="+60 12-345 6789" />
+                <input
+                  name="phone"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  placeholder="+60 12-345 6789"
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Role *</label>
-                <select name="role" required className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.staff.role} *</label>
+                <select
+                  name="role"
+                  required
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                >
                   <option value="barber">Barber</option>
                   <option value="cashier">Cashier</option>
                   <option value="manager">Manager</option>
@@ -221,7 +444,10 @@ export default function StaffPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Employment Type</label>
-                <select name="employment_type" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                <select
+                  name="employment_type"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                >
                   <option value="full_time">Full Time</option>
                   <option value="part_time">Part Time</option>
                   <option value="contract">Contract</option>
@@ -229,14 +455,27 @@ export default function StaffPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Base Salary</label>
-                <input name="base_salary" type="number" min={0} step={0.01} defaultValue={0} className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="0" />
+                <input
+                  name="base_salary"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  defaultValue={0}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  placeholder="0"
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Branch</label>
-                <select name="branch_id" className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.staff.branch}</label>
+                <select
+                  name="branch_id"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                >
                   <option value="">— Select branch —</option>
                   {branches.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -253,7 +492,7 @@ export default function StaffPage() {
                   disabled={pending}
                   className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50"
                 >
-                  {pending ? "Adding…" : "Add Staff"}
+                  {pending ? "Adding…" : t.staff.addStaff}
                 </button>
               </div>
             </form>
