@@ -15,6 +15,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
+import { ProfileEditForm } from "./profile-edit-form";
 
 type CustomerAccount = {
   id: string;
@@ -101,6 +102,12 @@ export default async function ProfilePage() {
     (t) => t.status === "waiting" || t.status === "in_service"
   );
 
+  // Fall back to auth user metadata when customer_accounts row has no name yet
+  const displayName =
+    customer?.full_name ||
+    (user.user_metadata?.full_name as string | undefined) ||
+    "";
+
   const loyaltyPoints = customer?.loyalty_points ?? 0;
   const loyaltyTier =
     loyaltyPoints >= 5000 ? "Gold" : loyaltyPoints >= 2000 ? "Silver" : "Bronze";
@@ -126,7 +133,7 @@ export default async function ProfilePage() {
           <div>
             <h1 className="text-2xl font-bold">My Account</h1>
             <p className="text-sm text-muted-foreground">
-              Welcome back, {customer?.full_name?.split(" ")[0] ?? "there"}
+              Welcome back, {displayName.split(" ")[0] || "there"}
             </p>
           </div>
 
@@ -328,20 +335,14 @@ export default async function ProfilePage() {
               <User className="h-4 w-4 text-primary" />
               Account Details
             </h2>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Name</span>
-                <span className="font-medium">{customer?.full_name || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Email</span>
-                <span className="font-medium">{customer?.email || user.email}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone</span>
-                <span className="font-medium">{customer?.phone || "—"}</span>
-              </div>
+            <div className="mb-3 flex justify-between text-sm">
+              <span className="text-muted-foreground">Email</span>
+              <span className="font-medium">{customer?.email || user.email}</span>
             </div>
+            <ProfileEditForm
+              initialName={displayName}
+              initialPhone={customer?.phone ?? ""}
+            />
           </div>
 
           {/* Queue history */}
