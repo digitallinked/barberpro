@@ -24,7 +24,7 @@ importers:
         version: 0.32.16(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
       expo-router:
         specifier: ~5.0.0
-        version: 5.0.7(e72bf38c784b1788e163b6ab27fd0da2)
+        version: 5.0.7(d50694145c3af7ce487d4a90321b035f)
       expo-secure-store:
         specifier: ~14.2.0
         version: 14.2.4(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))
@@ -73,7 +73,7 @@ importers:
         version: 0.32.16(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
       expo-router:
         specifier: ~5.0.0
-        version: 5.0.7(e72bf38c784b1788e163b6ab27fd0da2)
+        version: 5.0.7(d50694145c3af7ce487d4a90321b035f)
       expo-secure-store:
         specifier: ~14.2.0
         version: 14.2.4(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))
@@ -223,6 +223,9 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.4(react@19.2.4)
+      stripe:
+        specifier: ^20.4.1
+        version: 20.4.1(@types/node@22.19.15)
       tailwind-merge:
         specifier: ^2.6.1
         version: 2.6.1
@@ -8342,7 +8345,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  expo-router@5.0.7(e72bf38c784b1788e163b6ab27fd0da2):
+  expo-router@5.0.7(d50694145c3af7ce487d4a90321b035f):
     dependencies:
       '@expo/metro-runtime': 5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))
       '@expo/server': 0.6.3
@@ -8352,7 +8355,7 @@ snapshots:
       '@react-navigation/native-stack': 7.14.10(@react-navigation/native@7.2.2(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native-safe-area-context@5.7.0(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native-screens@4.24.0(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
       client-only: 0.0.1
       expo: 53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
-      expo-constants: 18.0.13(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))
+      expo-constants: 55.0.9(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(typescript@5.9.3)
       expo-linking: 55.0.9(expo@53.0.27(@babel/core@7.29.0)(@expo/metro-runtime@5.0.4(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4)))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4))(react-native@0.79.7(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       invariant: 2.2.4
       react-fast-compare: 3.2.2
