@@ -550,14 +550,32 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
                     </>
                   )}
                   {selectedPeriod?.status === "pending_review" && (
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateStatus("approved")}
-                      disabled={pending}
-                      className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-400 transition hover:bg-blue-500/20 disabled:opacity-50"
-                    >
-                      {t.payroll.approve}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleGenerateAll}
+                        disabled={pending}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                      >
+                        <Wand2 className="h-3.5 w-3.5" /> {t.payroll.generateAll}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus("draft")}
+                        disabled={pending}
+                        className="rounded-lg border border-gray-500/30 bg-gray-500/10 px-3 py-1.5 text-xs font-medium text-gray-400 transition hover:bg-gray-500/20 disabled:opacity-50"
+                      >
+                        Revert to Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateStatus("approved")}
+                        disabled={pending}
+                        className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-400 transition hover:bg-blue-500/20 disabled:opacity-50"
+                      >
+                        {t.payroll.approve}
+                      </button>
+                    </>
                   )}
                   {selectedPeriod?.status === "approved" && (
                     <button

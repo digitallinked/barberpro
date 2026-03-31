@@ -209,8 +209,8 @@ export async function generatePayrollEntries(periodId: string) {
       return { success: false, error: "Payroll period not found" };
     }
 
-    if (period.status !== "draft") {
-      return { success: false, error: "Can only generate entries for draft periods" };
+    if (period.status === "approved" || period.status === "paid") {
+      return { success: false, error: "Cannot generate entries for approved or paid periods" };
     }
 
     let staffQuery = supabase
@@ -296,15 +296,21 @@ export async function generatePayrollEntries(periodId: string) {
         customers_served: commission.customersServed,
       });
 
-      if (!insertError) generated++;
+      if (!insertError) {
+        generated++;
+      } else {
+        console.error(`[generatePayrollEntries] Insert failed for staff ${staffProfileId}:`, insertError.message);
+      }
     }
 
     revalidatePath("/payroll");
+    const skipped = activeStaff.length - existingStaffIds.size - generated;
     return {
       success: true,
       generated,
-      skipped: activeStaff.length - generated,
+      skipped,
       total: activeStaff.length,
+      alreadyHad: existingStaffIds.size,
     };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
