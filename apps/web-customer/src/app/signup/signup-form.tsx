@@ -16,10 +16,12 @@ export function SignupForm() {
     setError("");
     const formData = new FormData(e.currentTarget);
 
+    const email = formData.get("email") as string;
+
     startTransition(async () => {
       const result = await signupAction({
         name: formData.get("name") as string,
-        email: formData.get("email") as string,
+        email,
         password: formData.get("password") as string,
       });
 
@@ -28,8 +30,7 @@ export function SignupForm() {
         return;
       }
 
-      router.push("/profile");
-      router.refresh();
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     });
   }
 

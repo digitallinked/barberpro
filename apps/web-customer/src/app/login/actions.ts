@@ -2,7 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-type LoginResult = { success: true } | { success: false; error: string };
+type LoginResult =
+  | { success: true }
+  | { success: false; error: string; emailNotConfirmed?: boolean };
 
 export async function loginAction(input: {
   email: string;
@@ -15,7 +17,10 @@ export async function loginAction(input: {
       password: input.password,
     });
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      const emailNotConfirmed = error.message.toLowerCase().includes("email not confirmed");
+      return { success: false, error: error.message, emailNotConfirmed };
+    }
     return { success: true };
   } catch {
     return { success: false, error: "An unexpected error occurred" };

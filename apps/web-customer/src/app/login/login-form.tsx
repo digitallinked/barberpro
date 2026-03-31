@@ -17,13 +17,19 @@ export function LoginForm() {
     setError("");
     const formData = new FormData(e.currentTarget);
 
+    const email = formData.get("email") as string;
+
     startTransition(async () => {
       const result = await loginAction({
-        email: formData.get("email") as string,
+        email,
         password: formData.get("password") as string,
       });
 
       if (!result.success) {
+        if (result.emailNotConfirmed) {
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          return;
+        }
         setError(result.error);
         return;
       }
