@@ -1,0 +1,173 @@
+---
+description: Database migration conventions, RLS policy templates, and schema rules for BarberPro
+globs: ["supabase/migrations/*.sql", "supabase/**/*.sql"]
+alwaysApply: false
+---
+
+# Database Migration Rules
+
+## File Naming
+
+```
+supabase/migrations/{YYYYMMDDHHMMSS}_{snake_case_description}.sql
+```
+
+Example: `20260401120000_add_customer_subscriptions.sql`
+
+**Never edit an existing migration file.** Create a new one for every schema change.
+
+## Migration File Template
+
+Every migration must begin with a description comment:
+
+```sql
+-- {Short description of what this migration does}
+-- {Why it's needed / what feature it enables}
+
+-- 1. Create table
+create table if not exists public.{table_name} (
+  id          uuid primary key default gen_random_uuid(),
+  tenant_id   uuid not null references public.tenants(id) on delete cascade,
+  -- ... columns ...
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+-- 2. Enable RLS
+alter table public.{table_name} enable row level security;
+
+-- 3. RLS policies — use get_my_tenant_id() always
+create policy "tenant_{table_name}_select" on public.{table_name}
+  for select to authenticated
+  using (tenant_id = get_my_tenant_id());
+
+create policy "tenant_{table_name}_insert" on public.{table_name}
+  for insert to authenticated
+  with check (tenant_id = get_my_tenant_id());
+
+create policy "tenant_{table_name}_update" on public.{table_name}
+  for update to authenticated
+  using (tenant_id = get_my_tenant_id());
+
+create policy "tenant_{table_name}_delete" on public.{table_name}
+  for delete to authenticated
+  using (tenant_id = get_my_tenant_id());
+
+-- 4. Indexes
+create index if not exists idx_{table_name}_tenant on public.{table_name}(tenant_id);
+-- Add other query-specific indexes based on expected access patterns
+```
+
+## RLS Policy Rules
+
+### Always use `get_my_tenant_id()`
+```sql
+-- CORRECT — cached per transaction
+using (tenant_id = get_my_tenant_id())
+
+-- WRONG — inline subquery runs per-row, not cached
+using (tenant_id = (select au.tenant_id from public.app_users au
+                    where au.auth_user_id = auth.uid() limit 1))
+```
+
+### Public Tables (Queue Board, Check-in)
+For tables that allow anonymous read access, scope narrowly:
+```sql
+-- CORRECT — scope to active branches only
+create policy "public_{table}_select" on public.{table}
+  for select to anon
+  using (
+    branch_id in (select id from public.branches where is_active = true)
+  );
+
+-- WRONG — exposes ALL tenants' data
+create policy "public_{table}_select" on public.{table}
+  for select to anon
+  using (true);
+```
+
+### Super Admin Bypass
+Tables that super admins need to read across tenants use service role (admin client) — they do not need separate RLS policies for super admin. The admin client bypasses RLS entirely.
+
+## Required Indexes
+
+For any new table, always add:
+```sql
+-- Tenant lookup (required by RLS)
+create index if not exists idx_{table}_tenant_id on public.{table}(tenant_id);
+
+-- Add query-specific indexes:
+-- Date ranges: create index on public.{table}(tenant_id, created_at);
+-- Status filtering: create index on public.{table}(tenant_id, status);
+-- Lookups by branch: create index on public.{table}(branch_id);
+```
+
+## Altering Existing Tables
+
+```sql
+-- Adding a column
+alter table public.customers
+  add column if not exists expo_push_token text;
+
+-- Adding a constraint
+alter table public.queue_tickets
+  add constraint chk_status check (status in ('waiting', 'serving', 'done', 'paid', 'cancelled', 'no_show'));
+
+-- Adding an index to an existing table
+create index if not exists idx_customers_phone on public.customers(tenant_id, phone);
+```
+
+## Realtime
+
+Add tables to Supabase Realtime publication only when needed for live updates:
+```sql
+-- Only add tables that need live updates (queue board, etc.)
+alter publication supabase_realtime add table public.{table_name};
+```
+
+Current tables with Realtime enabled:
+- `queue_tickets`
+- `queue_ticket_seats`
+- `branch_seats`
+
+## After Every Migration
+
+```bash
+# Apply to local Supabase
+supabase db push
+
+# Regenerate TypeScript types
+supabase gen types typescript --local > apps/web/src/types/database.types.ts
+```
+
+## Common Patterns
+
+### Soft Delete
+Use `is_active boolean` instead of deleting rows:
+```sql
+is_active boolean not null default true
+```
+
+### Audit Fields
+All tables must have `created_at` and `updated_at`. Add auto-update trigger if needed:
+```sql
+create or replace function public.update_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger set_updated_at
+  before update on public.{table_name}
+  for each row execute function public.update_updated_at();
+```
+
+### JSONB Columns
+Use JSONB for structured but flexible data (operating hours, rule configurations):
+```sql
+operating_hours jsonb not null default '{}'::jsonb,
+-- Add a GIN index if you query inside the JSON
+create index if not exists idx_{table}_hours on public.{table} using gin(operating_hours);
+```

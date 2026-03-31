@@ -1,0 +1,207 @@
+---
+description: Next.js App Router patterns for BarberPro — server components, server actions, routing, and data fetching
+globs: ["apps/web/src/**/*.tsx", "apps/web/src/**/*.ts", "apps/web-admin/src/**/*.tsx", "apps/customer/src/**/*.tsx"]
+alwaysApply: false
+---
+
+# Next.js App Router Patterns
+
+## Component Hierarchy
+
+Default to **Server Components**. Only add `'use client'` when truly needed.
+
+```
+Page (Server Component)
+  └── fetches data directly from Supabase
+  └── passes data as props to child components
+      └── Interactive parts only → Client Component ('use client')
+```
+
+**Use `'use client'` only for:**
+- `useState`, `useEffect`, `useRef`, `useCallback`
+- Event handlers (onClick, onChange, onSubmit)
+- Browser APIs (localStorage, geolocation)
+- TanStack Query hooks (`useQuery`, `useMutation`)
+- Supabase Realtime subscriptions
+
+## Data Fetching in Server Components
+
+```typescript
+// app/(dashboard)/customers/page.tsx
+import { getAuthContext } from '@/actions/_helpers';
+import { createClient } from '@/lib/supabase/server';
+
+export default async function CustomersPage() {
+  const supabase = await createClient();
+  const { data: customers } = await supabase
+    .from('customers')
+    .select('*')
+    .order('full_name');
+
+  return <CustomerTable customers={customers ?? []} />;
+}
+```
+
+Never use `fetch()` to call your own API routes from server components — query the DB directly.
+
+## Server Actions
+
+```typescript
+'use server';
+import { z } from 'zod';
+import { getAuthContext } from '@/actions/_helpers';
+import { revalidatePath } from 'next/cache';
+
+const schema = z.object({
+  full_name: z.string().min(1).max(100),
+  phone: z.string().min(8),
+});
+
+type ActionResult<T = void> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+export async function createCustomerAction(input: unknown): Promise<ActionResult> {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Invalid input' };
+
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+    const { error } = await supabase
+      .from('customers')
+      .insert({ ...parsed.data, tenant_id: tenantId });
+
+    if (error) throw error;
+    revalidatePath('/customers');
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error('[createCustomerAction]', error);
+    return { success: false, error: 'Failed to create customer' };
+  }
+}
+```
+
+## Form Handling with Server Actions
+
+```typescript
+'use client';
+import { useTransition } from 'react';
+import { createCustomerAction } from '@/actions/customers';
+
+export function CreateCustomerForm() {
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await createCustomerAction(Object.fromEntries(formData));
+      if (!result.success) toast.error(result.error);
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* form fields */}
+      <button type="submit" disabled={isPending}>
+        {isPending ? 'Creating...' : 'Create Customer'}
+      </button>
+    </form>
+  );
+}
+```
+
+## Routing Conventions
+
+```
+app/
+  layout.tsx                    — Root layout (fonts, providers)
+  page.tsx                      — Marketing home page
+  (dashboard)/                  — Route group (no URL segment)
+    layout.tsx                  — Auth gate + TenantProvider + AppShell
+    dashboard/page.tsx          — /dashboard
+    customers/
+      page.tsx                  — /customers (list)
+      [id]/page.tsx             — /customers/[id] (detail)
+  api/
+    webhooks/stripe/route.ts    — POST /api/webhooks/stripe
+    queue-board/route.ts        — GET /api/queue-board
+```
+
+Route groups `(name)` are used for shared layouts without affecting the URL.
+
+## Middleware
+
+Middleware runs on every request. Keep it fast:
+- Refresh Supabase session (required by Supabase SSR)
+- Check auth state from cookie/JWT — **avoid DB queries when possible**
+- Redirect unauthenticated users on dashboard routes
+
+```typescript
+// middleware.ts — keep this lean
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+};
+```
+
+## Loading and Error States
+
+```typescript
+// app/(dashboard)/customers/loading.tsx
+export default function Loading() {
+  return <CustomerTableSkeleton />;
+}
+
+// app/(dashboard)/customers/error.tsx
+'use client';
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div>
+      <p>Failed to load customers</p>
+      <button onClick={reset}>Try again</button>
+    </div>
+  );
+}
+```
+
+## TanStack Query (Client-Side Only)
+
+Use for data that needs real-time updates, optimistic updates, or polling:
+
+```typescript
+'use client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+export function QueueDisplay({ branchId }: { branchId: string }) {
+  const { data: queue } = useQuery({
+    queryKey: ['queue', branchId],
+    queryFn: async () => {
+      const res = await fetch(`/api/queue-board?branch=${branchId}`);
+      return res.json();
+    },
+  });
+}
+```
+
+Prefer Supabase Realtime over polling for queue data.
+
+## Environment Variables
+
+```typescript
+// Access env vars — always through the typed env helper
+import { env } from '@/lib/env';
+const url = env.NEXT_PUBLIC_APP_URL;
+
+// Never access process.env directly — bypasses validation
+const url = process.env.NEXT_PUBLIC_APP_URL; // avoid
+```
+
+## Image Optimization
+
+Always use `next/image` for images:
+```typescript
+import Image from 'next/image';
+<Image src={shop.logo_url} alt={shop.name} width={80} height={80} />
+```
+
+Never use `<img>` tags for content images.

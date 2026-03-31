@@ -1,0 +1,192 @@
+---
+description: Expo React Native patterns for BarberPro mobile apps (mobile-customer, mobile-staff)
+globs: ["apps/mobile-customer/**/*.ts", "apps/mobile-customer/**/*.tsx", "apps/mobile-staff/**/*.ts", "apps/mobile-staff/**/*.tsx", "apps/mobile/**/*.ts", "apps/mobile/**/*.tsx"]
+alwaysApply: false
+---
+
+# Mobile App Patterns (Expo)
+
+## Tech Stack
+
+- **Expo SDK 53+** with **Expo Router** (file-based routing)
+- **NativeWind** — Tailwind CSS for React Native
+- **Supabase JS** (`@supabase/supabase-js`) — same project as web
+- **Expo SecureStore** — token storage (Keychain/Keystore)
+- **Expo Notifications** — push notifications
+- **TanStack Query** — data fetching and caching
+- **EAS Build** — production builds
+- **EAS Update** — OTA JS updates
+
+## Project Structure (Expo Router)
+
+```
+app/
+  _layout.tsx           — Root layout (providers, fonts)
+  (auth)/
+    _layout.tsx         — Unauthenticated layout
+    login.tsx
+    signup.tsx
+  (app)/
+    _layout.tsx         — Tab navigator (authenticated)
+    index.tsx           — Home / queue status
+    discover.tsx        — Shop discovery
+    bookings.tsx        — My bookings
+    profile.tsx         — Account settings
+  shop/[slug].tsx       — Shop profile page
+  queue/[ticketId].tsx  — Live queue tracking
+```
+
+## Authentication
+
+**Never use cookies** — use `expo-secure-store`:
+
+```typescript
+import * as SecureStore from 'expo-secure-store';
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storage: {
+      getItem: (key) => SecureStore.getItemAsync(key),
+      setItem: (key, value) => SecureStore.setItemAsync(key, value),
+      removeItem: (key) => SecureStore.deleteItemAsync(key),
+    },
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+```
+
+## Push Notifications
+
+Register for push notifications on first app launch after sign-in:
+
+```typescript
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+async function registerForPushNotifications(userId: string) {
+  if (!Device.isDevice) return; // Simulator doesn't support push
+
+  const { status } = await Notifications.requestPermissionsAsync();
+  if (status !== 'granted') return;
+
+  const token = (await Notifications.getExpoPushTokenAsync()).data;
+
+  // Save token to Supabase
+  await supabase
+    .from('customers') // or 'staff_profiles' for staff app
+    .update({ expo_push_token: token })
+    .eq('auth_user_id', userId);
+}
+```
+
+## Navigation (Expo Router)
+
+```typescript
+import { router } from 'expo-router';
+
+// Navigate
+router.push('/shop/kedai-ali');
+router.replace('/(app)');
+
+// Go back
+router.back();
+
+// Navigate with params
+router.push({ pathname: '/queue/[ticketId]', params: { ticketId: ticket.id } });
+```
+
+## Styling (NativeWind)
+
+```typescript
+import { View, Text, Pressable } from 'react-native';
+
+// Same Tailwind classes as web
+export function CustomerCard({ name }: { name: string }) {
+  return (
+    <View className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <Text className="text-lg font-semibold text-gray-900">{name}</Text>
+    </View>
+  );
+}
+```
+
+**No StyleSheet.create()** — use NativeWind classes exclusively.
+
+## Data Fetching
+
+Use TanStack Query same as web:
+
+```typescript
+import { useQuery } from '@tanstack/react-query';
+
+export function useShopQueue(branchId: string) {
+  return useQuery({
+    queryKey: ['queue', branchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('queue_tickets')
+        .select('*')
+        .eq('branch_id', branchId)
+        .eq('queue_day', new Date().toISOString().split('T')[0]);
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+```
+
+For live queue data, use Supabase Realtime instead of polling.
+
+## Realtime Subscriptions
+
+```typescript
+import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+
+export function useQueueRealtime(branchId: string, onUpdate: () => void) {
+  useEffect(() => {
+    const channel = supabase
+      .channel(`queue:${branchId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'queue_tickets',
+        filter: `branch_id=eq.${branchId}`,
+      }, onUpdate)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [branchId]);
+}
+```
+
+## Key Mobile-Specific Rules
+
+- **No browser APIs** (`localStorage`, `document`, `window`) — use React Native equivalents
+- **Platform checks** when needed: `import { Platform } from 'react-native'`
+- **Safe area** — always wrap root screens with `SafeAreaView` or use `useSafeAreaInsets()`
+- **Keyboard avoiding** — use `KeyboardAvoidingView` on forms
+- **FlatList not ScrollView** for long lists — FlatList virtualizes; ScrollView renders all items
+- **Loading states** — always show `ActivityIndicator` while data fetches
+- **Error states** — always handle query errors with a user-facing error message + retry button
+
+## EAS Commands
+
+```bash
+# Development build (needed for Expo Router + native modules)
+eas build --profile development --platform ios
+eas build --profile development --platform android
+
+# Production build
+eas build --profile production --platform all
+
+# OTA update (JS-only changes, no native changes)
+eas update --branch production --message "Fix queue display"
+
+# Submit to stores
+eas submit --platform ios
+eas submit --platform android
+```

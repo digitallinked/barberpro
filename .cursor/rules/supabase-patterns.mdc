@@ -1,0 +1,147 @@
+---
+description: Supabase usage patterns, RLS rules, client selection, and multi-tenant data access
+globs: ["apps/web/src/**/*.ts", "apps/web/src/**/*.tsx", "apps/web-admin/src/**/*.ts", "apps/customer/src/**/*.ts", "supabase/migrations/*.sql", "packages/db/**/*.ts"]
+alwaysApply: false
+---
+
+# Supabase Patterns
+
+## Client Selection — Critical
+
+There are three Supabase clients. Use the right one for each context:
+
+| Client | File | When to use |
+|---|---|---|
+| `createClient()` | `@/lib/supabase/server` | Server components, server actions — uses user session, RLS applies |
+| `createBrowserClient()` | `@/lib/supabase/client` | Client components — uses user session, RLS applies |
+| `createAdminClient()` | `@/lib/supabase/admin` | Webhooks, public APIs, super admin — service role, **bypasses RLS** |
+
+```typescript
+// Server component or server action (most common)
+import { createClient } from '@/lib/supabase/server';
+const supabase = await createClient();
+
+// Stripe webhook, queue-board API, check-in API
+import { createAdminClient } from '@/lib/supabase/admin';
+const supabase = createAdminClient();
+
+// NEVER use admin client in apps/web dashboard routes — it bypasses tenant isolation
+```
+
+## Auth Context in Server Actions
+
+Every server action must start with `getAuthContext()`:
+
+```typescript
+'use server';
+import { getAuthContext } from '@/actions/_helpers';
+
+export async function createCustomer(input: unknown) {
+  const { supabase, tenantId, appUserId } = await getAuthContext();
+  // tenantId is verified from the DB — never trust client-supplied tenant_id
+  const { data, error } = await supabase
+    .from('customers')
+    .insert({ ...parsedInput, tenant_id: tenantId });
+}
+```
+
+**Never** trust `tenant_id` from form data or query params — always use `getAuthContext()`.
+
+## RLS Policy Pattern
+
+All migrations must use `get_my_tenant_id()` in RLS policies:
+
+```sql
+-- CORRECT
+create policy "tenant_customers_select" on public.customers
+  for select to authenticated
+  using (tenant_id = get_my_tenant_id());
+
+-- WRONG — inline subquery is not cached per transaction
+create policy "tenant_customers_select" on public.customers
+  for select to authenticated
+  using (
+    tenant_id = (select au.tenant_id from public.app_users au
+                 where au.auth_user_id = auth.uid() and au.is_active = true limit 1)
+  );
+```
+
+Every table needs all four policies: select, insert, update, delete.
+
+## Type Safety
+
+Always use generated types from `database.types.ts`:
+
+```typescript
+import type { Tables, TablesInsert } from '@/types/database.types';
+
+type Customer = Tables<'customers'>;
+type NewCustomer = TablesInsert<'customers'>;
+```
+
+After every migration, regenerate types:
+```bash
+supabase gen types typescript --local > apps/web/src/types/database.types.ts
+```
+
+## Realtime Subscriptions
+
+Use Supabase Realtime for live data (queue board, queue status):
+
+```typescript
+'use client';
+useEffect(() => {
+  const channel = supabase
+    .channel(`queue:${branchId}`)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'queue_tickets',
+      filter: `branch_id=eq.${branchId}`,
+    }, (payload) => {
+      // update local state
+    })
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}, [branchId]);
+```
+
+## Common Queries
+
+```typescript
+// Get tenant for authenticated owner (middleware pattern)
+const { data: tenant } = await supabase
+  .from('tenants')
+  .select('onboarding_completed, subscription_status')
+  .eq('owner_auth_id', user.id)
+  .maybeSingle();
+
+// Get today's queue for a branch
+const today = new Date().toISOString().split('T')[0];
+const { data: tickets } = await supabase
+  .from('queue_tickets')
+  .select('*, queue_ticket_seats(*, branch_seats(*), staff_profiles(*))')
+  .eq('branch_id', branchId)
+  .eq('queue_day', today)
+  .order('ticket_number', { ascending: true });
+```
+
+## Supabase Storage
+
+Files must go directly to Supabase Storage from the client — never through a server action:
+
+```typescript
+// Get upload URL in server action
+async function getUploadUrl(fileName: string, tenantId: string) {
+  const supabase = createAdminClient();
+  const { data } = await supabase.storage
+    .from('receipts')
+    .createSignedUploadUrl(`${tenantId}/${fileName}`);
+  return data?.signedUrl;
+}
+
+// Upload directly from client
+const { data: { signedUrl } } = await getUploadUrl(file.name, tenantId);
+await fetch(signedUrl, { method: 'PUT', body: file });
+```

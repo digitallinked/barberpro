@@ -1,0 +1,72 @@
+---
+description: Security rules for BarberPro — tenant isolation, auth, secrets, webhooks. Apply to all code changes.
+alwaysApply: true
+---
+
+# Security Rules
+
+These rules apply to every file in the codebase. Violating them creates real security vulnerabilities.
+
+## Tenant Isolation
+
+1. **Never trust `tenant_id` from client input** — always use `getAuthContext()` in server actions:
+   ```typescript
+   const { tenantId } = await getAuthContext(); // verified from DB
+   // NOT: const tenantId = formData.get('tenant_id');
+   ```
+
+2. **Every DB write must include `tenant_id` from `getAuthContext()`:**
+   ```typescript
+   await supabase.from('customers').insert({ ...data, tenant_id: tenantId });
+   ```
+
+3. **RLS is a safety net, not the only guard** — the application layer must also scope by tenant
+
+## Auth
+
+4. **Use `supabase.auth.getUser()` not `getSession()`** — getSession reads from cookie (forgeable); getUser validates with Supabase server
+
+5. **Every server action must call `getAuthContext()` as its first line** — throw if unauthenticated
+
+6. **Never use `createAdminClient()` in `apps/web` dashboard routes** — it bypasses RLS and would expose all tenants' data
+
+## Stripe Webhooks
+
+7. **Always verify webhook signature** before processing:
+   ```typescript
+   event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET!);
+   ```
+
+8. **Use `createAdminClient()` in webhook handlers** — there is no user session in a webhook request
+
+9. **Store processed event IDs** to prevent double-processing on Stripe retries
+
+## Environment Variables
+
+10. **`SUPABASE_SERVICE_ROLE_KEY` must never be in any `NEXT_PUBLIC_*` variable** — it would be exposed to all browsers
+
+11. **Never `console.log` env vars, tokens, or IDs** in production code
+
+12. **All secret keys must come from environment variables**, never hardcoded in source
+
+## Input Validation
+
+13. **Validate all user input with Zod** in server actions and API routes before any DB access
+
+14. **Sanitize phone numbers, emails, and free-text fields** — use Zod `.trim()` and length limits
+
+## File Uploads
+
+15. **Never receive file uploads in server actions** — use Supabase Storage presigned URLs for direct client-to-storage upload. The `bodySizeLimit: "8mb"` in `next.config.ts` is a temporary workaround to be removed.
+
+## API Routes
+
+16. **Public API routes** (`/api/queue-board`, `/api/check-in`, `/api/webhooks/stripe`) — use `createAdminClient()` with application-level filtering
+    
+17. **All other API routes** — verify session before any DB access
+
+## Super Admin
+
+18. **`apps/web-admin` must check `is_super_admin()`** in middleware before serving any page
+
+19. **The admin app's service role key must not be shared** with the main web app's environment
