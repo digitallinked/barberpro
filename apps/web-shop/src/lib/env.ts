@@ -12,7 +12,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID: z.string().min(1).optional(),
   NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
-  RESEND_FROM_EMAIL: z.string().email().optional().default("BarberPro <noreply@barberpro.my>"),
+  RESEND_FROM_EMAIL: z.string().min(1).optional().default("BarberPro <noreply@barberpro.my>"),
 });
 
 export const env = parseEnv(envSchema);
