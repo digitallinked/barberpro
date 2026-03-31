@@ -92,7 +92,6 @@ export default async function BookPage({ params }: Props) {
           <p className="mt-1 text-muted-foreground">Select your service and preferred time.</p>
 
           <BookingForm
-            tenantId={tenant.id}
             slug={slug}
             services={services}
             staff={staff.map(s => ({

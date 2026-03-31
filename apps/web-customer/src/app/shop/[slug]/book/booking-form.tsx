@@ -1,59 +1,40 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useActionState, useState } from "react";
 import { CalendarCheck, Clock, Scissors, User, AlertCircle } from "lucide-react";
 
-import { bookAppointmentAction } from "./actions";
+import {
+  bookAppointmentAction,
+  type BookAppointmentState,
+} from "./actions";
 
 type Props = {
-  tenantId: string;
   slug: string;
   services: { id: string; name: string; price: number; duration_min: number }[];
   staff: { id: string; name: string }[];
   branches: { id: string; name: string }[];
 };
 
-export function BookingForm({ tenantId, slug, services, staff, branches }: Props) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState("");
+export function BookingForm({ slug, services, staff, branches }: Props) {
+  const [state, formAction, isPending] = useActionState(
+    bookAppointmentAction,
+    null as BookAppointmentState
+  );
+
   const [selectedService, setSelectedService] = useState("");
 
   const service = services.find((s) => s.id === selectedService);
 
   const today = new Date().toISOString().split("T")[0]!;
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    const formData = new FormData(e.currentTarget);
-
-    startTransition(async () => {
-      const result = await bookAppointmentAction({
-        tenantId,
-        branchId: formData.get("branch") as string,
-        serviceId: formData.get("service") as string,
-        staffId: (formData.get("barber") as string) || null,
-        date: formData.get("date") as string,
-        time: formData.get("time") as string,
-      });
-
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-
-      router.push(`/shop/${slug}?booked=true`);
-    });
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-      {error && (
+    <form action={formAction} className="mt-8 space-y-5">
+      <input type="hidden" name="slug" value={slug} />
+
+      {state?.error && (
         <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          {error}
+          {state.error}
         </div>
       )}
 
@@ -71,7 +52,9 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
             className="block w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
             ))}
           </select>
         </div>
@@ -115,7 +98,9 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
         >
           <option value="">Any available barber</option>
           {staff.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
         </select>
       </div>
