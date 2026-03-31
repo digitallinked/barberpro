@@ -24,10 +24,9 @@ cd barberpro
 pnpm install
 
 # Copy env files
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web-shop/.env.example apps/web-shop/.env.local
 cp apps/web-admin/.env.example apps/web-admin/.env.local
-# (future)
-cp apps/customer/.env.example apps/customer/.env.local
+cp apps/web-customer/.env.example apps/web-customer/.env.local
 ```
 
 Fill in `.env.local` with real credentials from:
@@ -40,12 +39,12 @@ Fill in `.env.local` with real credentials from:
 
 ```bash
 # Barber shop management portal (port 3000)
-pnpm dev:web
+pnpm dev:shop
 
 # Super-admin console (port 3002)
 pnpm dev:admin
 
-# Customer portal (port 3001) — when added
+# Customer portal (port 3001)
 pnpm dev:customer
 
 # Expo mobile (choose platform in Expo DevTools)
@@ -64,7 +63,7 @@ supabase start
 supabase db push
 
 # Generate TypeScript types from local schema
-supabase gen types typescript --local > apps/web/src/types/database.types.ts
+supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts
 ```
 
 ---
@@ -75,9 +74,9 @@ supabase gen types typescript --local > apps/web/src/types/database.types.ts
 
 | App/Package | Package name |
 |---|---|
-| `apps/web` | `@barberpro/web` |
+| `apps/web-shop` | `@barberpro/web-shop` |
 | `apps/web-admin` | `@barberpro/web-admin` |
-| `apps/customer` | `@barberpro/customer` |
+| `apps/web-customer` | `@barberpro/web-customer` |
 | `apps/mobile-customer` | `@barberpro/mobile-customer` |
 | `apps/mobile-staff` | `@barberpro/mobile-staff` |
 | `packages/db` | `@barberpro/db` |
@@ -97,10 +96,10 @@ supabase gen types typescript --local > apps/web/src/types/database.types.ts
 | Auth helpers, `getAuthContext` | `packages/auth/src/` |
 | Shared web UI components | `packages/ui/src/` |
 | Shared RN components | `packages/ui-native/src/` |
-| DB types (auto-generated) | `apps/web/src/types/database.types.ts` (source of truth — copy to packages/types if needed) |
+| DB types (auto-generated) | `apps/web-shop/src/types/database.types.ts` (source of truth — copy to packages/types if needed) |
 | App-specific components | `apps/[app]/src/components/` |
-| Server actions | `apps/web/src/actions/` |
-| API routes | `apps/web/src/app/api/` |
+| Server actions | `apps/web-shop/src/actions/` |
+| API routes | `apps/web-shop/src/app/api/` |
 | DB migrations | `supabase/migrations/` |
 | Documentation | `docs/` |
 
@@ -121,7 +120,7 @@ supabase migration new add_customer_subscriptions
 supabase db push
 
 # Regenerate TypeScript types
-supabase gen types typescript --local > apps/web/src/types/database.types.ts
+supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts
 ```
 
 ### Migration File Rules
@@ -292,8 +291,8 @@ refactor: extract supabase clients to packages/db
 
 ### Pull Request Checklist
 - [ ] `pnpm typecheck` passes with no errors
-- [ ] `pnpm lint:web` passes with no errors
-- [ ] `pnpm build:web` succeeds locally
+- [ ] `pnpm lint:shop` passes with no errors
+- [ ] `pnpm build:shop` succeeds locally
 - [ ] New DB migrations are tested locally with `supabase db push`
 - [ ] TypeScript types regenerated if schema changed
 - [ ] Security checklist items verified (see `docs/SECURITY.md`)
@@ -323,5 +322,5 @@ refactor: extract supabase clients to packages/db
 1. Create `packages/[name]/` with `package.json`, `tsconfig.json`, `src/index.ts`
 2. Name it `@barberpro/[name]` in `package.json`
 3. Extend `packages/config/tsconfig.base.json`
-4. Add it as a workspace dependency in consuming apps: `pnpm --filter @barberpro/web add @barberpro/[name]`
+4. Add it as a workspace dependency in consuming apps: `pnpm --filter @barberpro/web-shop add @barberpro/[name]`
 5. Add `"@barberpro/[name]": "workspace:*"` to the consuming app's `package.json`

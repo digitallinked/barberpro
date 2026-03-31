@@ -8,9 +8,9 @@ BarberPro.my is a **Malaysia-first, multi-tenant barber shop management SaaS** â
 
 | App | Domain | Status | Description |
 |---|---|---|---|
-| `apps/web` | `shop.barberpro.my` | Active | Barber shop management portal (owners + staff) |
+| `apps/web-shop` | `shop.barberpro.my` | Active | Barber shop management portal (owners + staff) |
 | `apps/web-admin` | `admin-pro.barberpro.my` | Active | BarberPro super-admin console |
-| `apps/customer` | `barberpro.my` | Planned (Phase 2) | Customer-facing portal |
+| `apps/web-customer` | `barberpro.my` | Active | Customer-facing portal |
 | `apps/mobile-customer` | App Store / Play Store | Planned (Phase 4) | Customer iOS/Android app |
 | `apps/mobile-staff` | App Store / Play Store | Planned (Phase 5) | Staff iOS/Android app |
 
@@ -22,8 +22,8 @@ BarberPro.my is a **Malaysia-first, multi-tenant barber shop management SaaS** â
 | `packages/env` | Typed environment schema helpers | Active |
 | `packages/ui` | Shared shadcn/ui design tokens | Active |
 | `packages/types` | Shared type placeholders | Active |
-| `packages/db` | Shared Supabase clients + queries | Planned (Phase 1) |
-| `packages/auth` | Shared auth helpers | Planned (Phase 1) |
+| `packages/db` | Shared Supabase clients + queries | Active |
+| `packages/auth` | Shared auth helpers | Active |
 | `packages/ui-native` | Shared React Native components | Planned (Phase 4) |
 | `packages/notifications` | Expo push notification helpers | Planned (Phase 4) |
 
@@ -45,8 +45,9 @@ pnpm install
 ### Environment Setup
 
 ```bash
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web-shop/.env.example apps/web-shop/.env.local
 cp apps/web-admin/.env.example apps/web-admin/.env.local
+cp apps/web-customer/.env.example apps/web-customer/.env.local
 ```
 
 Fill in credentials from your Supabase project and Stripe dashboard. See `docs/DEPLOYMENT.md` for the full variable list.
@@ -61,7 +62,7 @@ supabase start
 supabase db push
 
 # Regenerate TypeScript types
-supabase gen types typescript --local > apps/web/src/types/database.types.ts
+supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts
 ```
 
 ---
@@ -70,10 +71,13 @@ supabase gen types typescript --local > apps/web/src/types/database.types.ts
 
 ```bash
 # Barber shop management portal (port 3000)
-pnpm dev:web
+pnpm dev:shop
 
 # Super-admin console (port 3002)
 pnpm dev:admin
+
+# Customer portal (port 3001)
+pnpm dev:customer
 
 # Mobile (Expo DevTools)
 pnpm dev:mobile
@@ -85,16 +89,20 @@ pnpm dev:mobile
 
 | Script | Description |
 |---|---|
-| `pnpm dev:web` | Start `apps/web` dev server (port 3000) |
+| `pnpm dev:shop` | Start `apps/web-shop` dev server (port 3000) |
 | `pnpm dev:admin` | Start `apps/web-admin` dev server (port 3002) |
+| `pnpm dev:customer` | Start `apps/web-customer` dev server (port 3001) |
 | `pnpm dev:mobile` | Start Expo dev server |
-| `pnpm build:web` | Production build for `apps/web` |
+| `pnpm build:shop` | Production build for `apps/web-shop` |
 | `pnpm build:admin` | Production build for `apps/web-admin` |
+| `pnpm build:customer` | Production build for `apps/web-customer` |
 | `pnpm typecheck` | Type-check all apps |
-| `pnpm typecheck:web` | Type-check `apps/web` only |
+| `pnpm typecheck:shop` | Type-check `apps/web-shop` only |
 | `pnpm typecheck:admin` | Type-check `apps/web-admin` only |
-| `pnpm lint:web` | Lint `apps/web` |
+| `pnpm typecheck:customer` | Type-check `apps/web-customer` only |
+| `pnpm lint:shop` | Lint `apps/web-shop` |
 | `pnpm lint:admin` | Lint `apps/web-admin` |
+| `pnpm lint:customer` | Lint `apps/web-customer` |
 
 ---
 
@@ -102,9 +110,9 @@ pnpm dev:mobile
 
 ```
 apps/
-  web/                  # Barber shop management (shop.barberpro.my)
+  web-shop/             # Barber shop management (shop.barberpro.my)
   web-admin/            # Super-admin console (admin-pro.barberpro.my)
-  customer/             # Customer portal [Planned]
+  web-customer/         # Customer portal (barberpro.my)
   mobile-customer/      # Customer iOS/Android app [Planned]
   mobile-staff/         # Staff iOS/Android app [Planned]
 packages/
@@ -112,8 +120,8 @@ packages/
   env/                  # Typed env helpers
   ui/                   # Shared web UI components
   types/                # Shared types
-  db/                   # Supabase clients [Planned]
-  auth/                 # Auth helpers [Planned]
+  db/                   # Supabase clients
+  auth/                 # Auth helpers
   ui-native/            # React Native components [Planned]
   notifications/        # Push notification helpers [Planned]
 supabase/
@@ -148,20 +156,9 @@ docs/
 
 ---
 
-## Current Priority (Phase 0 â€” Production Hardening)
+## Current Status
 
-Before adding new features, these production correctness issues must be fixed:
-
-- [ ] Fix Stripe webhook to use `createAdminClient()` (not session client)
-- [ ] Fix queue board RLS policy scope (currently exposes all tenants' data)
-- [ ] Cache tenant state in cookie to eliminate middleware DB queries per request
-- [ ] Add Sentry error monitoring
-- [ ] Add transactional email (Resend)
-- [ ] Set up GitHub Actions CI pipeline
-- [ ] Create `.env.example` files for all apps
-- [ ] Add critical database indexes
-
-See `docs/ROADMAP.md` for the full phased plan.
+All phases (0â€“6) have been implemented. See `docs/ROADMAP.md` for the full phased plan.
 
 ---
 

@@ -28,7 +28,7 @@ These rules apply to every file in the codebase. Violating them creates real sec
 
 5. **Every server action must call `getAuthContext()` as its first line** — throw if unauthenticated
 
-6. **Never use `createAdminClient()` in `apps/web` dashboard routes** — it bypasses RLS and would expose all tenants' data
+6. **Never use `createAdminClient()` in `apps/web-shop` dashboard routes** — it bypasses RLS and would expose all tenants' data
 
 ## Stripe Webhooks
 

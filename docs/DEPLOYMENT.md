@@ -14,13 +14,13 @@ Mobile apps use **EAS Build** (Expo Application Services) for iOS and Android bu
 
 | App | Vercel Project Name | Root Directory | Domain |
 |---|---|---|---|
-| `apps/web` | `barberpro-web` | `apps/web` | `shop.barberpro.my` |
+| `apps/web-shop` | `barberpro-shop` | `apps/web-shop` | `shop.barberpro.my` |
 | `apps/web-admin` | `barberpro-admin` | `apps/web-admin` | `admin-pro.barberpro.my` |
-| `apps/customer` | `barberpro-customer` | `apps/customer` | `barberpro.my` |
+| `apps/web-customer` | `barberpro-customer` | `apps/web-customer` | `barberpro.my` |
 
 ### Vercel Project Setup
 1. Create a new Vercel project → Import Git Repository
-2. Set **Root Directory** to `apps/web` (or the respective app)
+2. Set **Root Directory** to `apps/web-shop` (or the respective app)
 3. Framework: Next.js (auto-detected)
 4. Build command: `pnpm build` (Vercel uses the `package.json` in the root directory)
 5. Install command: `pnpm install --frozen-lockfile`
@@ -31,14 +31,14 @@ To avoid rebuilding an app when unrelated files change, configure ignored build 
 
 ```bash
 # In each Vercel project's "Ignored Build Step" setting:
-# For apps/web:
-git diff HEAD^ HEAD --quiet -- apps/web/ packages/
+# For apps/web-shop:
+git diff HEAD^ HEAD --quiet -- apps/web-shop/ packages/
 
 # For apps/web-admin:
 git diff HEAD^ HEAD --quiet -- apps/web-admin/ packages/
 
-# For apps/customer:
-git diff HEAD^ HEAD --quiet -- apps/customer/ packages/
+# For apps/web-customer:
+git diff HEAD^ HEAD --quiet -- apps/web-customer/ packages/
 ```
 
 ---
@@ -47,7 +47,7 @@ git diff HEAD^ HEAD --quiet -- apps/customer/ packages/
 
 ### Per-App Variables (set in each Vercel project)
 
-**`apps/web` environment:**
+**`apps/web-shop` environment:**
 ```
 NEXT_PUBLIC_APP_URL=https://shop.barberpro.my
 NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
@@ -152,14 +152,17 @@ jobs:
       - name: Typecheck all apps
         run: pnpm typecheck
 
-      - name: Lint web app
-        run: pnpm lint:web
+      - name: Lint shop app
+        run: pnpm lint:shop
 
       - name: Lint admin app
         run: pnpm lint:admin
 
-      - name: Build web app
-        run: pnpm build:web
+      - name: Lint customer app
+        run: pnpm lint:customer
+
+      - name: Build shop app
+        run: pnpm build:shop
         env:
           NEXT_PUBLIC_APP_URL: https://shop.barberpro.my
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -219,7 +222,7 @@ This is used if you ever add Prisma or Drizzle. For Supabase JS client (which ma
 ### Vercel Domain Assignment
 In each Vercel project → Settings → Domains:
 - `barberpro-customer` project → Add `barberpro.my` and `www.barberpro.my`
-- `barberpro-web` project → Add `shop.barberpro.my`
+- `barberpro-shop` project → Add `shop.barberpro.my`
 - `barberpro-admin` project → Add `admin-pro.barberpro.my`
 
 ---
@@ -250,7 +253,7 @@ In Stripe Dashboard → Developers → Webhooks → Add endpoint:
 ### Sentry (Error Tracking)
 Add to all web apps. Install via:
 ```bash
-cd apps/web && npx @sentry/wizard@latest -i nextjs
+cd apps/web-shop && npx @sentry/wizard@latest -i nextjs
 ```
 
 Configure in `sentry.client.config.ts` and `sentry.server.config.ts`. Key settings:

@@ -42,7 +42,7 @@ Every piece of data belongs to a tenant. The database enforces this through RLS,
 All server actions must call `getAuthContext()` as the first line. This verifies the Supabase session and returns a verified `tenantId` from the database:
 
 ```typescript
-// apps/web/src/actions/_helpers.ts
+// apps/web-shop/src/actions/_helpers.ts
 export async function getAuthContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -150,7 +150,7 @@ if (!isSuperAdmin) return redirect('/login');
 ### Use Service Role for Admin Queries
 The super admin console must use the service role (admin client) to bypass RLS when reading across all tenants:
 ```typescript
-// Only in apps/web-admin — never in apps/web
+// Only in apps/web-admin — never in apps/web-shop
 const supabase = createAdminClient();
 const { data: allTenants } = await supabase.from('tenants').select('*');
 ```
@@ -167,7 +167,7 @@ It must never appear in any `NEXT_PUBLIC_*` environment variable.
 
 ## Environment Variables
 
-### Required for Production `apps/web`
+### Required for Production `apps/web-shop`
 
 | Variable | Required | Notes |
 |---|---|---|

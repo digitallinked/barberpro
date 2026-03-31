@@ -11,9 +11,9 @@ BarberPro is a **Malaysia-first, multi-tenant barber shop management SaaS** buil
 
 | App | Package | Domain | Status |
 |---|---|---|---|
-| `apps/web` | `@barberpro/web` | `shop.barberpro.my` | Active — barber shop owners & staff |
+| `apps/web-shop` | `@barberpro/web-shop` | `shop.barberpro.my` | Active — barber shop owners & staff |
 | `apps/web-admin` | `@barberpro/web-admin` | `admin-pro.barberpro.my` | Active — BarberPro super admin |
-| `apps/customer` | `@barberpro/customer` | `barberpro.my` | Planned Phase 2 — end customers |
+| `apps/web-customer` | `@barberpro/web-customer` | `barberpro.my` | Active — end customers |
 | `apps/mobile-customer` | `@barberpro/mobile-customer` | App Store / Play Store | Planned Phase 4 |
 | `apps/mobile-staff` | `@barberpro/mobile-staff` | App Store / Play Store | Planned Phase 5 |
 
@@ -21,8 +21,8 @@ BarberPro is a **Malaysia-first, multi-tenant barber shop management SaaS** buil
 
 | Package | Purpose | Status |
 |---|---|---|
-| `packages/db` | Supabase clients + shared queries | Planned (extract from apps/web) |
-| `packages/auth` | Auth helpers, getAuthContext | Planned (extract from apps/web) |
+| `packages/db` | Supabase clients + shared queries | Exists |
+| `packages/auth` | Auth helpers, getAuthContext | Exists |
 | `packages/ui` | shadcn/ui design tokens + shared web components | Exists |
 | `packages/ui-native` | NativeWind React Native components | Planned |
 | `packages/types` | Shared TypeScript types | Exists (placeholder) |
@@ -37,14 +37,8 @@ BarberPro is a **Malaysia-first, multi-tenant barber shop management SaaS** buil
 - **Vercel** — deployment platform, separate project per web app
 - **Expo EAS** — mobile app builds and OTA updates
 
-## Current Active Work (Phase 0)
-Before adding features, fix these production correctness issues:
-1. Stripe webhook must use `createAdminClient()` not `createClient()` — no session in webhook
-2. Queue board RLS `using (true)` exposes all tenants' data — must scope to active branches
-3. Middleware makes 1–3 DB queries per request — cache tenant state in cookie post-login
-4. Add Sentry error monitoring
-5. Add Resend for transactional email
-6. Set up GitHub Actions CI
+## Current Status
+All phases (0–6) have been implemented. Production hardening, shared packages, all web apps, mobile app scaffolds, and enterprise features are in place.
 
 ## Key Documentation
 - `docs/ARCHITECTURE.md` — full system architecture
@@ -60,4 +54,4 @@ Before adding features, fix these production correctness issues:
 - Primary market: Malaysia
 - Currency: Malaysian Ringgit (MYR / RM)
 - Languages: Bahasa Malaysia (ms), English (en), Mandarin (zh)
-- i18n is already integrated in `apps/web` via `LanguageProvider`
+- i18n is already integrated in `apps/web-shop` via `LanguageProvider`

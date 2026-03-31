@@ -1,0 +1,39 @@
+type LogLevel = "info" | "warn" | "error";
+
+type LogContext = {
+  tenantId?: string;
+  userId?: string;
+  action?: string;
+  path?: string;
+  [key: string]: unknown;
+};
+
+function formatLog(level: LogLevel, message: string, context?: LogContext) {
+  const entry = {
+    level,
+    message,
+    timestamp: new Date().toISOString(),
+    ...context,
+  };
+
+  return JSON.stringify(entry);
+}
+
+export const logger = {
+  info(message: string, context?: LogContext) {
+    console.log(formatLog("info", message, context));
+  },
+
+  warn(message: string, context?: LogContext) {
+    console.warn(formatLog("warn", message, context));
+  },
+
+  error(message: string, error?: unknown, context?: LogContext) {
+    const errorInfo =
+      error instanceof Error
+        ? { errorMessage: error.message, stack: error.stack }
+        : { errorMessage: String(error) };
+
+    console.error(formatLog("error", message, { ...errorInfo, ...context }));
+  },
+};

@@ -1,6 +1,6 @@
 ---
 description: Supabase usage patterns, RLS rules, client selection, and multi-tenant data access
-globs: ["apps/web/src/**/*.ts", "apps/web/src/**/*.tsx", "apps/web-admin/src/**/*.ts", "apps/customer/src/**/*.ts", "supabase/migrations/*.sql", "packages/db/**/*.ts"]
+globs: ["apps/web-shop/src/**/*.ts", "apps/web-shop/src/**/*.tsx", "apps/web-admin/src/**/*.ts", "apps/web-customer/src/**/*.ts", "supabase/migrations/*.sql", "packages/db/**/*.ts"]
 alwaysApply: false
 ---
 
@@ -81,7 +81,7 @@ type NewCustomer = TablesInsert<'customers'>;
 
 After every migration, regenerate types:
 ```bash
-supabase gen types typescript --local > apps/web/src/types/database.types.ts
+supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts
 ```
 
 ## Realtime Subscriptions

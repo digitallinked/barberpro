@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import { type ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { BRAND_NAME } from "@barberpro/ui";
 import { env } from "@/lib/env";
@@ -27,6 +29,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="en">
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
         {children}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

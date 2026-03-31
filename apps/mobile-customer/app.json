@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "BarberPro",
+    "slug": "barberpro-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "barberpro",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "my.barberpro.customer"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "my.barberpro.customer"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1a1a2e"
+        }
+      ]
+    ]
+  }
+}

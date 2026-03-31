@@ -10,8 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@barberpro/auth": "workspace:*",
+    "@barberpro/db": "workspace:*",
     "@barberpro/env": "workspace:*",
     "@barberpro/ui": "workspace:*",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.98.0",
+    "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.503.0",
     "next": "^15.5.12",

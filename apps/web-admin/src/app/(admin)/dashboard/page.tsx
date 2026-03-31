@@ -1,52 +1,76 @@
-import { Activity, Building2, ShieldCheck, Users } from "lucide-react";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export default function DashboardPage() {
+export const revalidate = 60;
+
+export default async function DashboardPage() {
+  const supabase = createAdminClient();
+
+  const [tenantsResult, usersResult, activeResult] = await Promise.all([
+    supabase.from("tenants").select("id", { count: "exact", head: true }),
+    supabase.from("app_users").select("id", { count: "exact", head: true }),
+    supabase
+      .from("tenants")
+      .select("id", { count: "exact", head: true })
+      .in("subscription_status", ["active", "trialing"]),
+  ]);
+
+  const totalTenants = tenantsResult.count ?? 0;
+  const totalUsers = usersResult.count ?? 0;
+  const activeSubscriptions = activeResult.count ?? 0;
+
+  const { data: recentTenants } = await supabase
+    .from("tenants")
+    .select("id, name, plan, subscription_status, created_at")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Super Admin Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Platform-level monitoring for tenants, usage, and system health.
-        </p>
-      </header>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Active Tenants", value: "42", icon: Building2 },
-          { label: "Platform Users", value: "1,248", icon: Users },
-          { label: "API Health", value: "99.98%", icon: Activity },
-          { label: "Security Alerts", value: "0", icon: ShieldCheck }
-        ].map((card) => (
-          <article
-            key={card.label}
-            className="rounded-xl border border-border/70 bg-card p-5"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{card.label}</p>
-              <card.icon className="h-4 w-4 text-primary" />
-            </div>
-            <p className="mt-3 text-2xl font-semibold">{card.value}</p>
-          </article>
-        ))}
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold">Platform Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Live platform metrics</p>
       </div>
 
-      <section className="rounded-xl border border-border/70 bg-card p-6">
-        <h2 className="text-base font-semibold">Recent Platform Events</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tenant creation, billing changes, and admin-level actions.
-        </p>
-        <ul className="mt-4 space-y-2 text-sm">
-          <li className="rounded-md border border-border/70 bg-background/40 px-3 py-2">
-            New tenant created: <span className="font-medium">FadeLab Barbershop</span>
-          </li>
-          <li className="rounded-md border border-border/70 bg-background/40 px-3 py-2">
-            Billing plan upgraded: <span className="font-medium">CutCraft HQ</span>
-          </li>
-          <li className="rounded-md border border-border/70 bg-background/40 px-3 py-2">
-            Super admin login: <span className="font-medium">admin@barberpro.my</span>
-          </li>
-        </ul>
-      </section>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard label="Total Tenants" value={totalTenants} />
+        <MetricCard label="Active Subscriptions" value={activeSubscriptions} />
+        <MetricCard label="Total Users" value={totalUsers} />
+      </div>
+
+      <div className="rounded-lg border border-border">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="font-semibold">Recent Tenants</h2>
+        </div>
+        <div className="divide-y divide-border">
+          {recentTenants?.map((tenant) => (
+            <div key={tenant.id} className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="font-medium">{tenant.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {tenant.plan ?? "starter"} &middot; {tenant.subscription_status ?? "no subscription"}
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {new Date(tenant.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          ))}
+          {(!recentTenants || recentTenants.length === 0) && (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No tenants yet
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 text-3xl font-bold">{value.toLocaleString()}</p>
     </div>
   );
 }

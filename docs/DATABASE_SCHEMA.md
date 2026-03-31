@@ -534,7 +534,7 @@ The following tables have Supabase Realtime enabled (via `supabase_realtime` pub
    - `updated_at timestamptz not null default now()`
    - `enable row level security`
    - RLS policies for `select`, `insert`, `update`, `delete` using `get_my_tenant_id()`
-5. After every migration: `pnpm supabase gen types typescript --local > apps/web/src/types/database.types.ts`
+5. After every migration: `pnpm supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts`
 
 ---
 

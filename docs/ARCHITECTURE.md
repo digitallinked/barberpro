@@ -11,9 +11,9 @@ BarberPro is a Malaysia-first, multi-tenant barber shop management SaaS. The sys
 ```
 barberpro/
 ├── apps/
-│   ├── web/                  # Barber shop management portal (shop.barberpro.my)
+│   ├── web-shop/             # Barber shop management portal (shop.barberpro.my)
 │   ├── web-admin/            # Super-admin console (admin-pro.barberpro.my)
-│   ├── customer/             # Customer-facing portal (barberpro.my)  [PLANNED]
+│   ├── web-customer/         # Customer-facing portal (barberpro.my)
 │   ├── mobile-customer/      # Customer iOS/Android app               [PLANNED]
 │   └── mobile-staff/         # Staff/barber iOS/Android app           [PLANNED]
 ├── packages/
@@ -21,8 +21,8 @@ barberpro/
 │   ├── env/                  # Shared typed env schema helpers
 │   ├── types/                # Shared TypeScript type placeholders
 │   ├── ui/                   # Shared web UI design tokens (shadcn base)
-│   ├── db/                   # Shared Supabase clients + queries       [PLANNED]
-│   ├── auth/                 # Shared auth helpers                     [PLANNED]
+│   ├── db/                   # Shared Supabase clients + queries
+│   ├── auth/                 # Shared auth helpers
 │   ├── ui-native/            # Shared React Native UI components       [PLANNED]
 │   └── notifications/        # Shared Expo push notification helpers   [PLANNED]
 ├── supabase/
@@ -34,7 +34,7 @@ barberpro/
 
 ## Apps
 
-### 1. `apps/web` — Barber Shop Management Portal
+### 1. `apps/web-shop` — Barber Shop Management Portal
 **Domain:** `shop.barberpro.my`
 **Port (dev):** 3000
 **Audience:** Barber shop owners and their staff
@@ -81,7 +81,7 @@ Platform-level administration:
 
 ---
 
-### 3. `apps/customer` — Customer Portal [PLANNED]
+### 3. `apps/web-customer` — Customer Portal
 **Domain:** `barberpro.my`
 **Audience:** End customers (people getting haircuts)
 
@@ -97,7 +97,7 @@ The public-facing product that drives growth and retention:
 - **Loyalty & rewards** — points balance, rewards redemption
 - **Customer subscription** — premium booking features (optional, future)
 
-**Tech stack:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Supabase SSR, same Supabase project as `apps/web`
+**Tech stack:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui, Supabase SSR, same Supabase project as `apps/web-shop`
 
 ---
 
@@ -135,7 +135,7 @@ Lightweight companion to the web dashboard:
 
 ## Shared Packages
 
-### `packages/db` [PLANNED — Extract from apps/web]
+### `packages/db`
 Shared Supabase clients and common queries used across all apps. Eliminates copy-paste of auth/query logic.
 
 **Contents:**
@@ -145,7 +145,7 @@ Shared Supabase clients and common queries used across all apps. Eliminates copy
 - `src/queries.ts` — shared query helpers (getCurrentTenant, etc.)
 - `src/middleware.ts` — session refresh helper for Next.js middleware
 
-### `packages/auth` [PLANNED — Extract from apps/web]
+### `packages/auth`
 Shared authentication utilities.
 
 **Contents:**
@@ -219,9 +219,9 @@ Each app is a **separate Vercel project** linked to this monorepo. Vercel detect
 
 | App | Vercel Project | Domain |
 |---|---|---|
-| `apps/web` | `barberpro-web` | `shop.barberpro.my` |
+| `apps/web-shop` | `barberpro-shop` | `shop.barberpro.my` |
 | `apps/web-admin` | `barberpro-admin` | `admin-pro.barberpro.my` |
-| `apps/customer` | `barberpro-customer` | `barberpro.my` |
+| `apps/web-customer` | `barberpro-customer` | `barberpro.my` |
 | `apps/mobile-customer` | EAS (Expo) | App Store / Play Store |
 | `apps/mobile-staff` | EAS (Expo) | App Store / Play Store |
 

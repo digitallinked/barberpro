@@ -137,7 +137,7 @@ Current tables with Realtime enabled:
 supabase db push
 
 # Regenerate TypeScript types
-supabase gen types typescript --local > apps/web/src/types/database.types.ts
+supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts
 ```
 
 ## Common Patterns

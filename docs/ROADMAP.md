@@ -10,7 +10,7 @@
 ---
 
 ## Phase 0 — Production Hardening (Current Priority)
-**Goal:** Make `apps/web` production-safe before any real customers use it.
+**Goal:** Make `apps/web-shop` production-safe before any real customers use it.
 **Timeline:** Complete before first paying tenant
 
 ### Security Fixes
@@ -26,8 +26,8 @@
 - [ ] Add critical indexes: `app_users(auth_user_id)`, `app_users(tenant_id, is_active)`, `tenants(owner_auth_id)`, `tenants(slug)`, `queue_tickets(branch_id, status, created_at)`
 
 ### Observability
-- [ ] Add Sentry error monitoring to `apps/web` (Next.js SDK)
-- [ ] Configure Vercel Analytics + Speed Insights on `apps/web`
+- [ ] Add Sentry error monitoring to `apps/web-shop` (Next.js SDK)
+- [ ] Configure Vercel Analytics + Speed Insights on `apps/web-shop`
 - [ ] Set up structured logging via Axiom or Logtail
 
 ### Email
@@ -39,7 +39,7 @@
 ### DevOps
 - [ ] Create `.env.example` files for all apps documenting required variables
 - [ ] Set up GitHub Actions CI: `typecheck → lint → build` on every PR
-- [ ] Configure separate Vercel projects for `apps/web` and `apps/web-admin` with proper domains
+- [ ] Configure separate Vercel projects for `apps/web-shop` and `apps/web-admin` with proper domains
 - [ ] Automate `supabase db push` as part of deployment pipeline
 
 ---
@@ -62,18 +62,18 @@
 - [ ] Audit log viewer
 
 ### Package Extraction
-- [ ] Create `packages/db` — move Supabase clients from `apps/web/src/lib/supabase/` to shared package
+- [ ] Create `packages/db` — move Supabase clients from `apps/web-shop/src/lib/supabase/` to shared package
 - [ ] Create `packages/auth` — move `getAuthContext` and auth helpers to shared package
-- [ ] Update `apps/web` and `apps/web-admin` to import from `@barberpro/db` and `@barberpro/auth`
+- [ ] Update `apps/web-shop` and `apps/web-admin` to import from `@barberpro/db` and `@barberpro/auth`
 
 ---
 
-## Phase 2 — Customer Portal (`apps/customer`)
+## Phase 2 — Customer Portal (`apps/web-customer`)
 **Goal:** Launch the customer-facing web app at `barberpro.my` to drive growth and enable online booking.
 **Prerequisite:** Phase 1 complete (shared packages must exist first)
 
 ### Setup
-- [ ] Scaffold `apps/customer` as a new Next.js 15 app in the monorepo
+- [ ] Scaffold `apps/web-customer` as a new Next.js 15 app in the monorepo
 - [ ] Configure domain `barberpro.my` in Vercel
 - [ ] Add to root `package.json` workspace scripts
 - [ ] Add Sentry, Vercel Analytics
@@ -81,7 +81,7 @@
 ### Marketing Pages
 - [ ] Landing page (`/`) — "Find your barber, skip the wait" hero, features, shop count CTA
 - [ ] How it works page
-- [ ] For Businesses page (upsell to `shop.barberpro.my`)
+- [ ] For Businesses page (upsell to `shop.barberpro.my` via `apps/web-shop`)
 - [ ] Blog/SEO placeholder structure
 
 ### Shop Discovery
