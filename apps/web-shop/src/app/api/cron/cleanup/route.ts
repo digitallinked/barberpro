@@ -20,9 +20,8 @@ export async function GET(request: Request) {
 
     const { count } = await supabase
       .from("processed_webhook_events")
-      .delete()
-      .lt("created_at", thirtyDaysAgo.toISOString())
-      .select("id", { count: "exact", head: true });
+      .delete({ count: "exact" })
+      .lt("created_at", thirtyDaysAgo.toISOString());
 
     logger.info("Cleanup cron completed", {
       action: "cron:cleanup",

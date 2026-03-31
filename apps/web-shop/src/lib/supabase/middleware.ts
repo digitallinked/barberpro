@@ -1,7 +1,9 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createMiddlewareClient } from "@barberpro/db/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
+import type { Database } from "@/types/database.types";
 
 const ACTIVE_STATUSES = ["trialing", "active", "past_due"];
 const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete_expired", "paused"];
@@ -31,7 +33,7 @@ function decodeTenantCache(value: string): TenantCachePayload | null {
 }
 
 async function fetchTenantState(
-  supabase: Awaited<ReturnType<typeof createMiddlewareClient>>["supabase"],
+  supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<TenantCachePayload | null> {
   const { data: tenant } = await supabase
@@ -63,7 +65,7 @@ function setTenantCacheCookie(
 }
 
 export async function updateSession(request: NextRequest) {
-  const { supabase, getResponse } = createMiddlewareClient(
+  const { supabase, getResponse } = createMiddlewareClient<Database>(
     request,
     env.NEXT_PUBLIC_SUPABASE_URL!,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
