@@ -35,7 +35,7 @@ export async function bookAppointmentAction(input: BookingInput): Promise<Bookin
         .from("customers")
         .insert({
           tenant_id: input.tenantId,
-          name: user.user_metadata?.full_name ?? user.email ?? "Online Customer",
+          full_name: user.user_metadata?.full_name ?? user.email ?? "Online Customer",
           phone: user.email ?? "",
         })
         .select("id")

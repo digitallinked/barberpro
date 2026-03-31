@@ -9,11 +9,12 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
-  const { data: customer } = await supabase
+  type CustomerAccount = { full_name: string; email: string; phone: string | null; loyalty_points: number };
+  const { data: customer } = await (supabase as any)
     .from("customer_accounts")
     .select("*")
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .maybeSingle() as { data: CustomerAccount | null };
 
   return (
     <div className="flex min-h-screen flex-col">

@@ -8,8 +8,8 @@ import { bookAppointmentAction } from "./actions";
 type Props = {
   tenantId: string;
   slug: string;
-  services: { id: string; name: string; price: number; duration_minutes: number }[];
-  staff: { id: string; nickname: string }[];
+  services: { id: string; name: string; price: number; duration_min: number }[];
+  staff: { id: string; name: string }[];
   branches: { id: string; name: string }[];
 };
 
@@ -84,7 +84,7 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
           <option value="">Select a service</option>
           {services.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name} — RM {Number(s.price).toFixed(2)} ({s.duration_minutes} min)
+              {s.name} — RM {Number(s.price).toFixed(2)} ({s.duration_min} min)
             </option>
           ))}
         </select>
@@ -101,7 +101,7 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
         >
           <option value="">Any available</option>
           {staff.map((s) => (
-            <option key={s.id} value={s.id}>{s.nickname}</option>
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
       </div>
@@ -134,7 +134,7 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
         <div className="rounded-md bg-accent/5 p-4 text-sm">
           <p className="font-medium">{service.name}</p>
           <p className="text-muted-foreground">
-            RM {Number(service.price).toFixed(2)} &middot; {service.duration_minutes} min
+            RM {Number(service.price).toFixed(2)} &middot; {service.duration_min} min
           </p>
         </div>
       )}

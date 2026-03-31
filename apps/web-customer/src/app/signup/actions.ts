@@ -24,7 +24,7 @@ export async function signupAction(input: {
     if (!data.user) return { success: false, error: "Signup failed" };
 
     // Create customer_accounts row
-    await supabase.from("customer_accounts").insert({
+    await (supabase as any).from("customer_accounts").insert({
       auth_user_id: data.user.id,
       full_name: input.name,
       email: input.email,

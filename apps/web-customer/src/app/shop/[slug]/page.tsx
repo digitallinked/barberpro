@@ -26,20 +26,19 @@ export default async function ShopProfilePage({ params }: Props) {
   const [branchesResult, servicesResult, staffResult] = await Promise.all([
     supabase
       .from("branches")
-      .select("id, name, address, city, operating_hours")
+      .select("id, name, address, operating_hours")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true),
     supabase
       .from("services")
-      .select("id, name, price, duration_minutes, is_active")
+      .select("id, name, price, duration_min, is_active")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("name"),
     supabase
       .from("staff_profiles")
-      .select("id, nickname")
-      .eq("tenant_id", tenant.id)
-      .eq("is_active", true),
+      .select("id, user_id, app_users(full_name)")
+      .eq("tenant_id", tenant.id),
   ]);
 
   const branches = branchesResult.data ?? [];
@@ -69,7 +68,7 @@ export default async function ShopProfilePage({ params }: Props) {
           {branches.length > 0 && (
             <div className="mt-2 flex items-center gap-2 text-muted-foreground">
               <MapPin className="h-4 w-4" />
-              <span>{branches[0]?.city || branches[0]?.address || "—"}</span>
+              <span>{branches[0]?.address || "—"}</span>
             </div>
           )}
 
@@ -89,7 +88,7 @@ export default async function ShopProfilePage({ params }: Props) {
                 <div key={service.id} className="flex items-center justify-between px-4 py-3">
                   <div>
                     <p className="font-medium">{service.name}</p>
-                    <p className="text-sm text-muted-foreground">{service.duration_minutes} min</p>
+                    <p className="text-sm text-muted-foreground">{service.duration_min} min</p>
                   </div>
                   <p className="font-semibold">RM {Number(service.price).toFixed(2)}</p>
                 </div>
@@ -106,14 +105,17 @@ export default async function ShopProfilePage({ params }: Props) {
             <div className="mt-10">
               <h2 className="text-xl font-semibold">Barbers</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                {staff.map((barber) => (
-                  <div key={barber.id} className="rounded-lg border border-border p-4 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
-                      <Users className="h-5 w-5" />
+                {staff.map((barber) => {
+                  const appUser = barber.app_users as { full_name: string } | null;
+                  return (
+                    <div key={barber.id} className="rounded-lg border border-border p-4 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <p className="mt-2 font-medium">{appUser?.full_name ?? "Barber"}</p>
                     </div>
-                    <p className="mt-2 font-medium">{barber.nickname}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -125,7 +127,7 @@ export default async function ShopProfilePage({ params }: Props) {
                 {branches.map((branch) => (
                   <div key={branch.id} className="rounded-lg border border-border p-4">
                     <p className="font-medium">{branch.name}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{branch.address || branch.city || "—"}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{branch.address || "—"}</p>
                   </div>
                 ))}
               </div>

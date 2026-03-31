@@ -31,7 +31,7 @@ export default async function QueuePage({ params }: Props) {
 
         <QueueTracker
           ticketId={ticket.id}
-          initialQueueNumber={ticket.queue_number}
+          initialQueueNumber={Number(ticket.queue_number)}
           initialStatus={ticket.status}
           branchId={ticket.branch_id}
           supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL!}

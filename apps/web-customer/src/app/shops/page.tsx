@@ -10,7 +10,7 @@ export default async function ShopsPage() {
 
   const { data: tenants } = await supabase
     .from("tenants")
-    .select("id, name, slug, created_at, branches(id, name, address, city)")
+    .select("id, name, slug, created_at, branches(id, name, address)")
     .eq("status", "active")
     .in("subscription_status", ["active", "trialing"])
     .order("name");
@@ -37,7 +37,7 @@ export default async function ShopsPage() {
 
           <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {tenants?.map((tenant) => {
-              const branches = (tenant.branches ?? []) as { id: string; name: string; address: string | null; city: string | null }[];
+              const branches = (tenant.branches ?? []) as { id: string; name: string; address: string | null }[];
               const primaryBranch = branches[0];
 
               return (
@@ -50,7 +50,7 @@ export default async function ShopsPage() {
                   {primaryBranch && (
                     <div className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{primaryBranch.city || primaryBranch.address || "—"}</span>
+                      <span>{primaryBranch.address || "—"}</span>
                     </div>
                   )}
                   <p className="mt-3 text-sm text-muted-foreground">

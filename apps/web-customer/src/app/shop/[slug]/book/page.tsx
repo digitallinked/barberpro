@@ -30,15 +30,14 @@ export default async function BookPage({ params }: Props) {
   const [servicesResult, staffResult, branchesResult] = await Promise.all([
     admin
       .from("services")
-      .select("id, name, price, duration_minutes")
+      .select("id, name, price, duration_min")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("name"),
     admin
       .from("staff_profiles")
-      .select("id, nickname")
-      .eq("tenant_id", tenant.id)
-      .eq("is_active", true),
+      .select("id, user_id, app_users(full_name)")
+      .eq("tenant_id", tenant.id),
     admin
       .from("branches")
       .select("id, name")
@@ -85,7 +84,7 @@ export default async function BookPage({ params }: Props) {
             tenantId={tenant.id}
             slug={slug}
             services={services}
-            staff={staff}
+            staff={staff.map(s => ({ id: s.id, name: (s.app_users as { full_name: string } | null)?.full_name ?? "Barber" }))}
             branches={branches}
           />
         </div>
