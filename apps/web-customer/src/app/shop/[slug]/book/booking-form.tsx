@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { CalendarCheck, Clock, Scissors, User, AlertCircle } from "lucide-react";
 
 import { bookAppointmentAction } from "./actions";
 
@@ -20,6 +21,8 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
   const [selectedService, setSelectedService] = useState("");
 
   const service = services.find((s) => s.id === selectedService);
+
+  const today = new Date().toISOString().split("T")[0]!;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -48,18 +51,24 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
   return (
     <form onSubmit={handleSubmit} className="mt-8 space-y-5">
       {error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
+        <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          {error}
+        </div>
       )}
 
+      {/* Branch select */}
       {branches.length > 1 && (
         <div>
-          <label htmlFor="branch" className="block text-sm font-medium">Branch</label>
+          <label htmlFor="branch" className="mb-1.5 block text-sm font-medium">
+            Branch
+          </label>
           <select
             id="branch"
             name="branch"
             required
             defaultValue={branches[0]?.id}
-            className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm"
+            className="block w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {branches.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
@@ -71,17 +80,20 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
         <input type="hidden" name="branch" value={branches[0]!.id} />
       )}
 
+      {/* Service select */}
       <div>
-        <label htmlFor="service" className="block text-sm font-medium">Service</label>
+        <label htmlFor="service" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+          <Scissors className="h-3.5 w-3.5 text-primary" /> Service
+        </label>
         <select
           id="service"
           name="service"
           required
           value={selectedService}
           onChange={(e) => setSelectedService(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm"
+          className="block w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="">Select a service</option>
+          <option value="">Choose a service…</option>
           {services.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name} — RM {Number(s.price).toFixed(2)} ({s.duration_min} min)
@@ -90,50 +102,58 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
         </select>
       </div>
 
+      {/* Barber select */}
       <div>
-        <label htmlFor="barber" className="block text-sm font-medium">
-          Barber <span className="text-muted-foreground">(optional)</span>
+        <label htmlFor="barber" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+          <User className="h-3.5 w-3.5 text-primary" /> Barber{" "}
+          <span className="font-normal text-muted-foreground">(optional)</span>
         </label>
         <select
           id="barber"
           name="barber"
-          className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm"
+          className="block w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="">Any available</option>
+          <option value="">Any available barber</option>
           {staff.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
       </div>
 
+      {/* Date & Time */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="date" className="block text-sm font-medium">Date</label>
+          <label htmlFor="date" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            <CalendarCheck className="h-3.5 w-3.5 text-primary" /> Date
+          </label>
           <input
             id="date"
             name="date"
             type="date"
             required
-            min={new Date().toISOString().split("T")[0]}
-            className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm"
+            min={today}
+            className="block w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div>
-          <label htmlFor="time" className="block text-sm font-medium">Time</label>
+          <label htmlFor="time" className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            <Clock className="h-3.5 w-3.5 text-primary" /> Time
+          </label>
           <input
             id="time"
             name="time"
             type="time"
             required
-            className="mt-1 block w-full rounded-md border border-border px-3 py-2 text-sm"
+            className="block w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
 
+      {/* Service summary */}
       {service && (
-        <div className="rounded-md bg-accent/5 p-4 text-sm">
-          <p className="font-medium">{service.name}</p>
-          <p className="text-muted-foreground">
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-sm font-semibold text-primary">{service.name}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
             RM {Number(service.price).toFixed(2)} &middot; {service.duration_min} min
           </p>
         </div>
@@ -142,10 +162,14 @@ export function BookingForm({ tenantId, slug, services, staff, branches }: Props
       <button
         type="submit"
         disabled={isPending || !selectedService}
-        className="w-full rounded-md bg-accent py-2.5 font-medium text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
+        className="w-full rounded-lg bg-primary py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {isPending ? "Booking..." : "Confirm Booking"}
+        {isPending ? "Confirming Booking…" : "Confirm Booking"}
       </button>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Your booking will be confirmed instantly. Check your profile for details.
+      </p>
     </form>
   );
 }

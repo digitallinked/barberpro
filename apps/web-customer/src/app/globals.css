@@ -3,18 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --border: 214 32% 91%;
-  --primary: 222 47% 11%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --accent: 262 83% 58%;
-  --accent-foreground: 0 0% 100%;
+  /* Charcoal-900 base */
+  --background: 0 0% 7%;
+  --foreground: 210 20% 92%;
+
+  /* Charcoal-800 cards */
+  --card: 0 0% 11%;
+  --card-foreground: 210 20% 92%;
+
+  --muted: 0 0% 14%;
+  --muted-foreground: 215 10% 55%;
+  --border: 0 0% 18%;
+
+  /* Gold primary: #D4AF37 = hsl(43, 65%, 52%) */
+  --primary: 43 65% 52%;
+  --primary-foreground: 43 100% 8%;
+  --ring: 43 65% 52%;
+
+  /* Secondary */
+  --secondary: 0 0% 14%;
+  --secondary-foreground: 210 20% 92%;
+
+  /* Accent (gold tint for subtle highlights) */
+  --accent: 43 65% 52%;
+  --accent-foreground: 43 100% 8%;
+
+  /* Status colors */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
 }
 
 body {
@@ -22,4 +38,15 @@ body {
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--card)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 28%); }
+
+/* Dark-mode native form inputs */
+input, select, textarea {
+  color-scheme: dark;
 }

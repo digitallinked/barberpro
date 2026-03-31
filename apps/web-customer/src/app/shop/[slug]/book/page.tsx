@@ -1,8 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, Scissors } from "lucide-react";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { Navbar } from "@/components/navbar";
 import { BookingForm } from "./booking-form";
 
 type Props = {
@@ -52,13 +54,22 @@ export default async function BookPage({ params }: Props) {
 
   if (services.length === 0 || branches.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Booking Unavailable</h1>
-          <p className="mt-2 text-muted-foreground">This shop hasn&apos;t set up services yet.</p>
-          <Link href={`/shop/${slug}`} className="mt-4 inline-block text-sm text-accent hover:underline">
-            Back to shop
-          </Link>
+      <div className="flex min-h-screen flex-col">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-center px-6">
+          <div className="max-w-sm text-center">
+            <Scissors className="mx-auto h-12 w-12 text-muted-foreground/30" />
+            <h1 className="mt-4 text-2xl font-bold">Booking Unavailable</h1>
+            <p className="mt-2 text-muted-foreground">
+              This shop hasn&apos;t set up services yet.
+            </p>
+            <Link
+              href={`/shop/${slug}`}
+              className="mt-6 inline-flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to {tenant.name}
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -66,25 +77,28 @@ export default async function BookPage({ params }: Props) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border/50 px-6 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link href="/" className="text-xl font-bold">BarberPro</Link>
-          <Link href={`/shop/${slug}`} className="text-sm text-muted-foreground hover:text-foreground">
-            Back to {tenant.name}
-          </Link>
-        </div>
-      </header>
+      <Navbar />
 
-      <main className="flex-1 px-6 py-12">
+      <main className="flex-1 px-6 py-10">
         <div className="mx-auto max-w-lg">
+          <Link
+            href={`/shop/${slug}`}
+            className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to {tenant.name}
+          </Link>
+
           <h1 className="text-2xl font-bold">Book at {tenant.name}</h1>
-          <p className="mt-2 text-muted-foreground">Select your service and preferred time.</p>
+          <p className="mt-1 text-muted-foreground">Select your service and preferred time.</p>
 
           <BookingForm
             tenantId={tenant.id}
             slug={slug}
             services={services}
-            staff={staff.map(s => ({ id: s.id, name: (s.app_users as { full_name: string } | null)?.full_name ?? "Barber" }))}
+            staff={staff.map(s => ({
+              id: s.id,
+              name: (s.app_users as { full_name: string } | null)?.full_name ?? "Barber",
+            }))}
             branches={branches}
           />
         </div>
