@@ -1,7 +1,6 @@
 "use client";
 
 import { AlertTriangle, ArrowRight, CreditCard, Loader2, LogOut, Scissors } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { signOut } from "@/actions/auth";
@@ -9,7 +8,6 @@ import { createCheckoutSession } from "@/actions/stripe";
 import { Button } from "@/components/ui/button";
 
 export default function SubscriptionRequiredPage() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [plan, setPlan] = useState<"starter" | "professional">("starter");
   const [error, setError] = useState<string | null>(null);

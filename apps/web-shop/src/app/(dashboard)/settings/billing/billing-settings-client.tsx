@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CreditCard, ExternalLink, Loader2, Receipt } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, Receipt, Zap } from "lucide-react";
 
 import { createBillingPortalSession, listShopInvoicesAction, type ShopInvoiceRow } from "@/actions/billing";
 import { createCheckoutSession, type CheckoutIntent } from "@/actions/stripe";
@@ -11,6 +11,19 @@ import { STRIPE_PLANS, type StripePlan } from "@/lib/stripe";
 type Props = {
   snapshot: ShopBillingSnapshot;
   stripeConfigured: boolean;
+};
+
+const PLAN_FEATURES: Record<StripePlan, string[]> = {
+  starter: ["1 branch", "Up to 5 staff", "Queue & POS", "Appointment booking", "Basic reports"],
+  professional: [
+    "Up to 5 branches",
+    "Unlimited staff",
+    "Queue & POS",
+    "Appointment booking",
+    "Advanced reports",
+    "Inventory & expenses",
+    "Priority support",
+  ],
 };
 
 function formatMoney(amountMinor: number, currency: string) {
@@ -23,11 +36,36 @@ function formatMoney(amountMinor: number, currency: string) {
   }
 }
 
+function trialDaysLeft(trialEndsAt: string | null): number | null {
+  if (!trialEndsAt) return null;
+  const ms = new Date(trialEndsAt).getTime() - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    active: { label: "Active", cls: "bg-green-500/15 text-green-400 border-green-500/30" },
+    trialing: { label: "Trial", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+    past_due: { label: "Past due", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+    unpaid: { label: "Unpaid", cls: "bg-red-500/15 text-red-400 border-red-500/30" },
+    canceled: { label: "Cancelled", cls: "bg-gray-500/15 text-gray-400 border-gray-500/30" },
+    paused: { label: "Paused", cls: "bg-gray-500/15 text-gray-400 border-gray-500/30" },
+    none: { label: "Not subscribed", cls: "bg-gray-500/15 text-gray-400 border-gray-500/30" },
+  };
+  const cfg = map[status] ?? { label: status.replace(/_/g, " "), cls: "bg-gray-500/15 text-gray-400 border-gray-500/30" };
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${cfg.cls}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
 export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<ShopInvoiceRow[] | null>(null);
-  const [plan, setPlan] = useState<StripePlan>("starter");
+  const [plan, setPlan] = useState<StripePlan>(snapshot.planKey ?? "starter");
 
   const loadInvoices = useCallback(async () => {
     if (!stripeConfigured) return;
@@ -44,10 +82,7 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
     setLoading("portal");
     const res = await createBillingPortalSession("/settings/billing");
     setLoading(null);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
+    if (res.error) { setError(res.error); return; }
     if (res.url) window.location.href = res.url;
   }
 
@@ -56,64 +91,91 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
     setLoading("checkout");
     const res = await createCheckoutSession(plan, { intent });
     setLoading(null);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
+    if (res.error) { setError(res.error); return; }
     if (res.url) window.location.href = res.url;
   }
 
   const status = snapshot.subscriptionStatus ?? "none";
   const active = status === "active" || status === "trialing";
-  const canCheckout = !active;
+  const pastDue = status === "past_due" || status === "unpaid";
+  // past_due still has a subscription — they need the portal to fix payment, NOT a new checkout
+  const canCheckout = !active && !pastDue;
+  const daysLeft = trialDaysLeft(snapshot.trialEndsAt);
 
   return (
     <div className="space-y-6">
       {!stripeConfigured && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          Stripe is not configured in this environment. Set{" "}
-          <code className="rounded bg-black/30 px-1">STRIPE_SECRET_KEY</code> and price IDs to enable
-          billing.
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Stripe is not configured. Set <code className="rounded bg-black/30 px-1">STRIPE_SECRET_KEY</code> and price
+            IDs to enable billing.
+          </span>
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
+      {/* Current plan card */}
       <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-6">
-        <h3 className="text-lg font-semibold text-white">Current plan</h3>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">Plan</p>
-            <p className="mt-1 text-xl font-bold text-[#D4AF37]">{snapshot.planLabel}</p>
+            <p className="text-xs uppercase tracking-wider text-gray-500">Current plan</p>
+            <p className="mt-1 text-2xl font-bold text-[#D4AF37]">{snapshot.planLabel}</p>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">Subscription status</p>
-            <p className="mt-1 font-medium capitalize text-white">{status.replace(/_/g, " ")}</p>
-          </div>
-          {snapshot.trialEndsAt && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500">Trial ends</p>
-              <p className="mt-1 text-sm text-gray-300">
-                {new Date(snapshot.trialEndsAt).toLocaleString()}
-              </p>
-            </div>
-          )}
-          {snapshot.currentPeriodEnd && active && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500">Current period ends</p>
-              <p className="mt-1 text-sm text-gray-300">
-                {new Date(snapshot.currentPeriodEnd).toLocaleString()}
-              </p>
-            </div>
-          )}
+          <StatusPill status={status} />
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          {stripeConfigured && snapshot.stripeCustomerId && (
+        {/* Trial countdown */}
+        {status === "trialing" && daysLeft !== null && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-sm text-blue-300">
+            <Zap className="h-4 w-4 shrink-0" />
+            {daysLeft > 0
+              ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining in your free trial.`
+              : "Your trial ended — subscription charges will begin soon."}
+          </div>
+        )}
+
+        {/* Past due alert */}
+        {pastDue && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Your last payment failed. Update your payment method below to restore full access.
+          </div>
+        )}
+
+        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+          {snapshot.currentPeriodEnd && active && (
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-gray-500">
+                {status === "trialing" ? "Trial ends" : "Next billing date"}
+              </dt>
+              <dd className="mt-1 text-sm text-gray-200">
+                {new Date(snapshot.currentPeriodEnd).toLocaleDateString("en-MY", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </dd>
+            </div>
+          )}
+          {snapshot.trialEndsAt && status !== "trialing" && (
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-gray-500">Trial was</dt>
+              <dd className="mt-1 text-sm text-gray-400">
+                {new Date(snapshot.trialEndsAt).toLocaleDateString("en-MY")}
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        {stripeConfigured && (active || pastDue) && snapshot.stripeCustomerId && (
+          <div className="mt-6">
             <button
               type="button"
               onClick={() => void openPortal()}
@@ -121,79 +183,126 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
               className="inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
             >
               {loading === "portal" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              Manage subscription &amp; payment
+              {pastDue ? "Update payment method" : "Manage subscription & payment"}
             </button>
-          )}
-          <p className="w-full text-xs text-gray-500">
-            Opens Stripe Customer Portal — update card, switch between Starter and Professional, view
-            receipts, or cancel.
-          </p>
-        </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Opens Stripe — update card, switch plan, view receipts, or cancel.
+            </p>
+          </div>
+        )}
       </div>
 
+      {/* Subscribe / reactivate */}
       {canCheckout && stripeConfigured && (
         <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-6">
-          <h3 className="text-lg font-semibold text-white">Subscribe or reactivate</h3>
+          <h3 className="text-lg font-semibold text-white">
+            {status === "canceled" || status === "none" ? "Subscribe" : "Reactivate your subscription"}
+          </h3>
           <p className="mt-1 text-sm text-gray-400">
-            Choose a plan and complete checkout. Trials apply only on your first successful subscription.
+            {status === "none"
+              ? "Start with a 14-day free trial. No charge until the trial ends."
+              : "Resubscribe to restore full access. Trials only apply on first subscription."}
           </p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {(Object.keys(STRIPE_PLANS) as StripePlan[]).map((key) => {
               const p = STRIPE_PLANS[key];
+              const selected = plan === key;
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setPlan(key)}
-                  className={`rounded-lg border p-3 text-left text-sm transition ${
-                    plan === key
-                      ? "border-[#D4AF37] bg-[#D4AF37]/10"
+                  className={`relative rounded-xl border p-4 text-left transition-all ${
+                    selected
+                      ? "border-[#D4AF37] bg-[#D4AF37]/10 ring-1 ring-[#D4AF37]/30"
                       : "border-white/10 hover:border-white/20"
                   }`}
                 >
-                  <div className="font-semibold text-white">{p.name}</div>
-                  <div className="text-[#D4AF37]">
-                    RM {p.amount}/mo
+                  {key === "professional" && (
+                    <span className="absolute -top-2.5 right-3 rounded-full bg-[#D4AF37] px-2 py-0.5 text-[10px] font-bold text-[#111]">
+                      Popular
+                    </span>
+                  )}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-white">{p.name}</p>
+                      <p className="mt-0.5 text-lg font-bold text-[#D4AF37]">
+                        RM {p.amount}
+                        <span className="text-xs font-normal text-gray-400">/mo</span>
+                      </p>
+                    </div>
+                    {selected && <CheckCircle2 className="h-5 w-5 text-[#D4AF37]" />}
                   </div>
+                  <ul className="mt-3 space-y-1">
+                    {PLAN_FEATURES[key].map((f) => (
+                      <li key={f} className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <CheckCircle2 className="h-3 w-3 shrink-0 text-[#D4AF37]/60" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
                 </button>
               );
             })}
           </div>
+
           <button
             type="button"
             onClick={() => void startCheckout("billing")}
             disabled={loading !== null}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-transparent px-4 py-2.5 text-sm font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/10 disabled:opacity-50"
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
           >
-            {loading === "checkout" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Continue to secure checkout
+            {loading === "checkout" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CreditCard className="h-4 w-4" />
+            )}
+            Continue to Stripe checkout
           </button>
         </div>
       )}
 
+      {/* Invoice history */}
       <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-6">
         <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-white">
           <Receipt className="h-5 w-5 text-[#D4AF37]" />
           Invoice history
         </h3>
         {!invoices && stripeConfigured && (
-          <p className="text-sm text-gray-500">Loading invoices…</p>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
         )}
         {invoices && invoices.length === 0 && (
           <p className="text-sm text-gray-500">No invoices yet.</p>
         )}
         {invoices && invoices.length > 0 && (
-          <ul className="divide-y divide-white/10">
+          <ul className="divide-y divide-white/5">
             {invoices.map((inv) => (
               <li key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                 <div>
                   <p className="font-medium text-white">
                     {inv.number ?? inv.id.slice(0, 12)}
-                    <span className="ml-2 text-xs capitalize text-gray-500">{inv.status}</span>
+                    <span
+                      className={`ml-2 text-xs capitalize ${
+                        inv.status === "paid"
+                          ? "text-green-400"
+                          : inv.status === "open"
+                          ? "text-amber-400"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {inv.status}
+                    </span>
                   </p>
                   <p className="text-xs text-gray-500">
-                    {new Date(inv.created * 1000).toLocaleDateString("en-MY")} ·{" "}
-                    {formatMoney(inv.amountDue, inv.currency)}
+                    {new Date(inv.created * 1000).toLocaleDateString("en-MY", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}{" "}
+                    · {formatMoney(inv.amountDue, inv.currency)}
                   </p>
                 </div>
                 {inv.hostedInvoiceUrl && (
@@ -203,7 +312,7 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-[#D4AF37] hover:underline"
                   >
-                    View <ExternalLink className="h-3 w-3" />
+                    View invoice <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
               </li>

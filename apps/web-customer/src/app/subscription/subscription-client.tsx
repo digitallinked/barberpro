@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CreditCard, ExternalLink, Loader2, Receipt, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CreditCard,
+  ExternalLink,
+  Loader2,
+  Receipt,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 
 import {
   createCustomerBillingPortalSession,
@@ -10,7 +19,6 @@ import {
   type CustomerInvoiceRow,
 } from "@/actions/subscription";
 import { CUSTOMER_PLUS_PLAN } from "@/lib/stripe";
-import { hasStripeEnv } from "@/lib/env";
 
 type Snapshot = {
   subscriptionStatus: string | null;
@@ -23,6 +31,8 @@ type Props = {
   snapshot: Snapshot;
   stripeConfigured: boolean;
   priceConfigured: boolean;
+  errorMessage?: string | null;
+  wasCanceled?: boolean;
 };
 
 function formatMoney(amountMinor: number, currency: string) {
@@ -35,9 +45,48 @@ function formatMoney(amountMinor: number, currency: string) {
   }
 }
 
-export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured }: Props) {
+function trialDaysLeft(trialEndsAt: string | null): number | null {
+  if (!trialEndsAt) return null;
+  const ms = new Date(trialEndsAt).getTime() - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  active: "Active",
+  trialing: "On trial",
+  past_due: "Past due",
+  unpaid: "Unpaid",
+  canceled: "Cancelled",
+  paused: "Paused",
+  none: "Not subscribed",
+};
+
+const STATUS_PILL: Record<string, string> = {
+  active: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30",
+  trialing: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+  past_due: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+  unpaid: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30",
+  canceled: "bg-muted text-muted-foreground border-border",
+  none: "bg-muted text-muted-foreground border-border",
+};
+
+const PLUS_FEATURES = [
+  "Priority queue position at partner shops",
+  "Exclusive member-only promotions",
+  "Early access to new features",
+  "Queue progress notifications",
+];
+
+export function SubscriptionClient({
+  snapshot,
+  stripeConfigured,
+  priceConfigured,
+  errorMessage,
+  wasCanceled,
+}: Props) {
   const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(errorMessage ?? null);
   const [invoices, setInvoices] = useState<CustomerInvoiceRow[] | null>(null);
 
   const loadInvoices = useCallback(async () => {
@@ -55,10 +104,7 @@ export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured
     setLoading("checkout");
     const res = await createCustomerPlusCheckoutSession();
     setLoading(null);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
+    if (res.error) { setError(res.error); return; }
     if (res.url) window.location.href = res.url;
   }
 
@@ -67,49 +113,65 @@ export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured
     setLoading("portal");
     const res = await createCustomerBillingPortalSession();
     setLoading(null);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
+    if (res.error) { setError(res.error); return; }
     if (res.url) window.location.href = res.url;
   }
 
   const status = snapshot.subscriptionStatus ?? "none";
   const active = status === "active" || status === "trialing";
+  const pastDue = status === "past_due" || status === "unpaid";
+  const daysLeft = trialDaysLeft(snapshot.trialEndsAt);
+  const statusLabel = STATUS_LABELS[status] ?? status.replace(/_/g, " ");
+  const statusCls = STATUS_PILL[status] ?? STATUS_PILL.none!;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="space-y-8">
       {!stripeConfigured && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          Stripe is not configured for this app. Add <code className="rounded bg-black/10 px-1">STRIPE_SECRET_KEY</code>{" "}
-          to enable memberships.
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <span>
+            Payments are not enabled on this app. Add{" "}
+            <code className="rounded bg-black/10 px-1">STRIPE_SECRET_KEY</code> to enable memberships.
+          </span>
         </div>
       )}
 
       {stripeConfigured && !priceConfigured && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-          Set{" "}
-          <code className="rounded bg-black/10 px-1">NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID</code> to your Stripe
-          Price for BarberPro Plus.
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <span>BarberPro Plus is not yet available in your region. Check back soon.</span>
+        </div>
+      )}
+
+      {wasCanceled && !error && (
+        <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          Checkout was cancelled — no charge was made.
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
+      {/* Membership card */}
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
             <Sparkles className="h-6 w-6" />
           </div>
-          <div>
-            <h2 className="text-xl font-bold">{CUSTOMER_PLUS_PLAN.name}</h2>
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-bold">{CUSTOMER_PLUS_PLAN.name}</h2>
+              <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${statusCls}`}>
+                {statusLabel}
+              </span>
+            </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Member perks across BarberPro — early queue alerts, exclusive promos from partner shops, and more as we
-              roll them out.
+              Member perks across all BarberPro partner shops.
             </p>
             <p className="mt-3 text-2xl font-bold text-primary">
               RM {CUSTOMER_PLUS_PLAN.amount}
@@ -118,21 +180,36 @@ export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 border-t border-border pt-6 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</p>
-            <p className="mt-1 capitalize">{status.replace(/_/g, " ")}</p>
+        {/* Feature list */}
+        <ul className="mt-6 grid gap-2 sm:grid-cols-2">
+          {PLUS_FEATURES.map((f) => (
+            <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+              {f}
+            </li>
+          ))}
+        </ul>
+
+        {/* Trial info */}
+        {status === "trialing" && daysLeft !== null && (
+          <div className="mt-6 flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-sm text-blue-600 dark:text-blue-300">
+            <Zap className="h-4 w-4 shrink-0" />
+            {daysLeft > 0
+              ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left on your free trial.`
+              : "Your trial has ended — you'll be charged at the next billing cycle."}
           </div>
-          {snapshot.trialEndsAt && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Trial ends</p>
-              <p className="mt-1 text-sm">{new Date(snapshot.trialEndsAt).toLocaleString()}</p>
-            </div>
-          )}
-        </div>
+        )}
+
+        {/* Past due alert */}
+        {pastDue && (
+          <div className="mt-6 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-300">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Your last payment failed. Please update your payment method.
+          </div>
+        )}
 
         <div className="mt-8 flex flex-wrap gap-3">
-          {active && stripeConfigured && snapshot.stripeCustomerId && (
+          {(active || pastDue) && stripeConfigured && snapshot.stripeCustomerId && (
             <button
               type="button"
               onClick={() => void portal()}
@@ -140,10 +217,10 @@ export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               {loading === "portal" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              Manage billing
+              {pastDue ? "Update payment method" : "Manage billing"}
             </button>
           )}
-          {!active && stripeConfigured && priceConfigured && (
+          {!active && !pastDue && stripeConfigured && priceConfigured && (
             <button
               type="button"
               onClick={() => void checkout()}
@@ -155,22 +232,27 @@ export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              Subscribe with card
+              {status === "canceled" ? "Resubscribe" : "Start free trial"}
             </button>
           )}
         </div>
+
         <p className="mt-4 text-xs text-muted-foreground">
-          Billing is processed by Stripe. Cancel or update your card anytime from Manage billing. Webhook events for
-          renewals are handled by the main BarberPro app webhook endpoint.
+          Payments are securely processed by Stripe. Cancel anytime from Manage billing — no questions asked.
         </p>
       </div>
 
+      {/* Invoice history */}
       <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <h3 className="mb-4 flex items-center gap-2 font-semibold">
           <Receipt className="h-5 w-5 text-primary" />
           Invoice history
         </h3>
-        {!invoices && stripeConfigured && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!invoices && stripeConfigured && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        )}
         {invoices && invoices.length === 0 && (
           <p className="text-sm text-muted-foreground">No invoices yet.</p>
         )}
@@ -181,11 +263,21 @@ export function SubscriptionClient({ snapshot, stripeConfigured, priceConfigured
                 <div>
                   <p className="font-medium">
                     {inv.number ?? inv.id.slice(0, 14)}
-                    <span className="ml-2 text-xs capitalize text-muted-foreground">{inv.status}</span>
+                    <span
+                      className={`ml-2 text-xs capitalize ${
+                        inv.status === "paid" ? "text-green-500" : "text-muted-foreground"
+                      }`}
+                    >
+                      {inv.status}
+                    </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(inv.created * 1000).toLocaleDateString("en-MY")} ·{" "}
-                    {formatMoney(inv.amountDue, inv.currency)}
+                    {new Date(inv.created * 1000).toLocaleDateString("en-MY", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}{" "}
+                    · {formatMoney(inv.amountDue, inv.currency)}
                   </p>
                 </div>
                 {inv.hostedInvoiceUrl && (
