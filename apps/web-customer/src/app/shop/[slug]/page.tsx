@@ -4,6 +4,7 @@ import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 
 export const revalidate = 60;
 
@@ -48,6 +49,17 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const services = servicesResult.data ?? [];
   const staff = staffResult.data ?? [];
 
+  // Determine if shop is open today based on operating_hours
+  function getTodayHours(operatingHours: unknown): string | null {
+    if (!operatingHours || typeof operatingHours !== "object") return null;
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const today = days[new Date().getDay()]!;
+    const hours = (operatingHours as Record<string, { open?: string; close?: string; closed?: boolean }>)[today];
+    if (!hours || hours.closed) return "Closed today";
+    if (hours.open && hours.close) return `${hours.open} – ${hours.close}`;
+    return null;
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
@@ -85,13 +97,24 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
                 </div>
               )}
 
-              <div className="mt-3 flex gap-4 text-sm text-muted-foreground">
+              <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Users className="h-4 w-4" /> {staff.length} barbers
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" /> {services.length} services
                 </span>
+                {branches[0] && (() => {
+                  const todayHours = getTodayHours(branches[0].operating_hours);
+                  return todayHours ? (
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-primary" />
+                      <span className={todayHours === "Closed today" ? "text-destructive" : "text-primary"}>
+                        {todayHours}
+                      </span>
+                    </span>
+                  ) : null;
+                })()}
               </div>
             </div>
 
@@ -142,15 +165,22 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               <div className="grid gap-4 sm:grid-cols-3">
                 {staff.map((barber) => {
                   const appUser = barber.app_users as { full_name: string } | null;
+                  const name = appUser?.full_name ?? "Barber";
+                  const initials = name
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase();
                   return (
                     <div
                       key={barber.id}
                       className="rounded-xl border border-border bg-card p-4 text-center"
                     >
                       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                        <Users className="h-5 w-5 text-primary" />
+                        <span className="text-sm font-bold text-primary">{initials}</span>
                       </div>
-                      <p className="mt-3 font-medium">{appUser?.full_name ?? "Barber"}</p>
+                      <p className="mt-3 font-medium">{name}</p>
                     </div>
                   );
                 })}
@@ -163,15 +193,24 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
             <div className="mt-10">
               <h2 className="mb-4 text-xl font-semibold">Branches</h2>
               <div className="grid gap-4 sm:grid-cols-2">
-                {branches.map((branch) => (
-                  <div key={branch.id} className="rounded-xl border border-border bg-card p-4">
-                    <p className="font-medium">{branch.name}</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {branch.address || "—"}
-                    </p>
-                  </div>
-                ))}
+                {branches.map((branch) => {
+                  const todayHours = getTodayHours(branch.operating_hours);
+                  return (
+                    <div key={branch.id} className="rounded-xl border border-border bg-card p-4">
+                      <p className="font-medium">{branch.name}</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {branch.address || "—"}
+                      </p>
+                      {todayHours && (
+                        <p className={`mt-1.5 flex items-center gap-1.5 text-xs ${todayHours === "Closed today" ? "text-destructive" : "text-primary"}`}>
+                          <Clock className="h-3 w-3" />
+                          {todayHours}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -192,11 +231,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
         </div>
       </main>
 
-      <footer className="border-t border-border/50 px-6 py-6">
-        <div className="mx-auto max-w-6xl text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} BarberPro. All rights reserved.
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

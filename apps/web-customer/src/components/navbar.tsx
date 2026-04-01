@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Scissors, User, LogOut } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
+import { MobileMenu } from "./mobile-menu";
 
 export async function Navbar() {
   const supabase = await createClient();
@@ -29,16 +30,17 @@ export async function Navbar() {
           </span>
         </Link>
 
-        <nav className="flex items-center gap-6">
+        {/* Desktop nav */}
+        <nav className="hidden items-center gap-6 sm:flex">
           <Link
             href="/shops"
-            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             Find Shops
           </Link>
           <Link
             href="/how-it-works"
-            className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             How It Works
           </Link>
@@ -47,7 +49,7 @@ export async function Navbar() {
             <div className="flex items-center gap-3">
               <Link
                 href="/subscription"
-                className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Plus
               </Link>
@@ -56,7 +58,7 @@ export async function Navbar() {
                 className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:border-primary/50 hover:text-primary"
               >
                 <User className="h-4 w-4" />
-                <span className="hidden sm:block">{customerName?.split(" ")[0] ?? "Profile"}</span>
+                {customerName?.split(" ")[0] ?? "Profile"}
               </Link>
               <form action="/auth/signout" method="post">
                 <button
@@ -64,7 +66,7 @@ export async function Navbar() {
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:block">Sign Out</span>
+                  Sign Out
                 </button>
               </form>
             </div>
@@ -85,6 +87,9 @@ export async function Navbar() {
             </div>
           )}
         </nav>
+
+        {/* Mobile menu */}
+        <MobileMenu isLoggedIn={!!user} customerName={customerName} />
       </div>
     </header>
   );

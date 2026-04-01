@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Scissors, CalendarCheck, Bell, Star, Search, ArrowRight, Clock, MapPin } from "lucide-react";
 
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 
 const features = [
   {
@@ -211,20 +212,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t border-border/50 px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
-          <div className="flex items-center gap-2">
-            <Scissors className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-foreground">BarberPro</span>
-            <span>&copy; {new Date().getFullYear()}</span>
-          </div>
-          <div className="flex gap-6">
-            <Link href="/shops" className="hover:text-foreground">Find Shops</Link>
-            <Link href="/how-it-works" className="hover:text-foreground">How It Works</Link>
-            <Link href="/for-businesses" className="hover:text-foreground">For Businesses</Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

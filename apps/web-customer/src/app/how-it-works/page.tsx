@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Search, CalendarCheck, Bell, Star, ArrowRight } from "lucide-react";
 
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 
 const steps = [
   {
@@ -98,11 +99,7 @@ export default function HowItWorksPage() {
         </div>
       </main>
 
-      <footer className="border-t border-border/50 px-6 py-6">
-        <div className="mx-auto max-w-6xl text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} BarberPro. All rights reserved.
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

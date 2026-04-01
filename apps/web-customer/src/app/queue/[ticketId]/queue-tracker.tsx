@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createBrowserSupabaseClient } from "@barberpro/db/client";
-import { CheckCircle2, Clock, XCircle, Scissors } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Scissors, RefreshCw } from "lucide-react";
+
+const AVG_MINUTES_PER_PERSON = 15;
 
 type Props = {
   ticketId: string;
@@ -24,20 +26,23 @@ export function QueueTracker({
   const [queueNumber] = useState(initialQueueNumber);
   const [status, setStatus] = useState(initialStatus);
   const [position, setPosition] = useState<number | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  const fetchPosition = useCallback(async () => {
+    const supabase = createBrowserSupabaseClient(supabaseUrl, supabaseAnonKey);
+    const { count } = await supabase
+      .from("queue_tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("branch_id", branchId)
+      .eq("status", "waiting")
+      .lt("queue_number", queueNumber);
+
+    setPosition(count !== null ? count + 1 : null);
+    setLastUpdated(new Date());
+  }, [branchId, queueNumber, supabaseUrl, supabaseAnonKey]);
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient(supabaseUrl, supabaseAnonKey);
-
-    async function fetchPosition() {
-      const { count } = await supabase
-        .from("queue_tickets")
-        .select("id", { count: "exact", head: true })
-        .eq("branch_id", branchId)
-        .eq("status", "waiting")
-        .lt("queue_number", queueNumber);
-
-      setPosition(count !== null ? count + 1 : null);
-    }
 
     fetchPosition();
 
@@ -54,6 +59,7 @@ export function QueueTracker({
         (payload) => {
           const newStatus = (payload.new as { status: string }).status;
           setStatus(newStatus);
+          setLastUpdated(new Date());
         }
       )
       .on(
@@ -73,12 +79,17 @@ export function QueueTracker({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [ticketId, branchId, queueNumber, supabaseUrl, supabaseAnonKey]);
+  }, [ticketId, branchId, fetchPosition, supabaseUrl, supabaseAnonKey]);
 
   const isWaiting = status === "waiting";
   const isServing = status === "in_service";
   const isDone = status === "completed";
   const isCancelled = status === "cancelled" || status === "no_show";
+
+  const estimatedWait =
+    isWaiting && position !== null && position > 1
+      ? (position - 1) * AVG_MINUTES_PER_PERSON
+      : null;
 
   return (
     <div className="mt-8 space-y-5">
@@ -94,7 +105,6 @@ export function QueueTracker({
             : "border-border bg-card"
         }`}
       >
-        {/* Glow effect when serving */}
         {isServing && (
           <div
             aria-hidden
@@ -113,6 +123,13 @@ export function QueueTracker({
         >
           {queueNumber}
         </p>
+
+        {estimatedWait !== null && (
+          <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            ~{estimatedWait} min estimated wait
+          </div>
+        )}
       </div>
 
       {/* Status */}
@@ -144,8 +161,10 @@ export function QueueTracker({
               <p className="font-semibold text-primary">Now Serving</p>
               <p className="text-sm text-muted-foreground">Please head to your seat</p>
             </div>
-            <span className="ml-auto flex h-2.5 w-2.5 rounded-full bg-primary">
-              <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-primary opacity-75" />
+            {/* Fixed: relative parent needed for ping */}
+            <span className="relative ml-auto flex h-3 w-3 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
             </span>
           </div>
         )}
@@ -177,10 +196,24 @@ export function QueueTracker({
         )}
       </div>
 
-      {/* Tip */}
+      {/* Realtime note + manual refresh */}
+      {(isWaiting || isServing) && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Updates live &mdash; last refreshed {lastUpdated.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          <button
+            onClick={fetchPosition}
+            className="flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <RefreshCw className="h-3 w-3" /> Refresh
+          </button>
+        </div>
+      )}
+
       {isWaiting && position !== null && position > 3 && (
         <p className="text-center text-xs text-muted-foreground">
-          We&apos;ll update this page in real-time — no need to refresh.
+          Feel free to wait nearby — we&apos;ll update this page in real-time.
         </p>
       )}
     </div>

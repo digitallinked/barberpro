@@ -15,7 +15,9 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { ProfileEditForm } from "./profile-edit-form";
+import { CancelAppointmentButton } from "./cancel-appointment-button";
 
 type CustomerAccount = {
   id: string;
@@ -339,10 +341,15 @@ export default async function ProfilePage() {
                             RM {Number(appt.services.price).toFixed(2)}
                           </p>
                         )}
-                        <span className={`flex items-center gap-1 text-xs ${statusCfg.color}`}>
+                        <span className={`flex items-center justify-end gap-1 text-xs ${statusCfg.color}`}>
                           <StatusIcon className="h-3 w-3" />
                           {statusCfg.label}
                         </span>
+                        {appt.status === "confirmed" && (
+                          <div className="mt-1.5">
+                            <CancelAppointmentButton appointmentId={appt.id} />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -431,11 +438,7 @@ export default async function ProfilePage() {
         </div>
       </main>
 
-      <footer className="border-t border-border/50 px-6 py-6 mt-4">
-        <div className="mx-auto max-w-6xl text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} BarberPro. All rights reserved.
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
