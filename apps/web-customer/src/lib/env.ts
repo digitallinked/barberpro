@@ -10,7 +10,14 @@ const envSchema = z.object({
   NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID: z.string().min(1).optional(),
 });
 
-export const env = parseEnv(envSchema);
+export const env = parseEnv(envSchema, {
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID,
+});
 
 export function hasSupabaseEnv() {
   return Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
