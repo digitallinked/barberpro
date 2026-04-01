@@ -20,7 +20,7 @@ export function getStripe(): Stripe {
 export const CUSTOMER_PLUS_PLAN = {
   key: "plus" as const,
   name: "BarberPro Plus",
-  priceId: env.NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID ?? "",
+  priceId: env.NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID ?? "price_1THIssBGoz93lNFY73m47yG7",
   amount: 19,
   currency: "MYR",
 };

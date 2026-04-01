@@ -19,13 +19,13 @@ export function getStripe(): Stripe {
 export const STRIPE_PLANS = {
   starter: {
     name: "Starter",
-    priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? "price_1T8eNUDpmuFgseP5q6OnaggF",
+    priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? "price_1THIsnBGoz93lNFYgCb8FRBx",
     amount: 99,
     currency: "MYR"
   },
   professional: {
     name: "Professional",
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ?? "price_1T8eNVDpmuFgseP57XfuIf1y",
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ?? "price_1THIsqBGoz93lNFYxSAGPcp2",
     amount: 249,
     currency: "MYR"
   }
