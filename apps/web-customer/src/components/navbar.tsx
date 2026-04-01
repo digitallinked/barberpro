@@ -1,96 +1,93 @@
 import Link from "next/link";
-import { Scissors, User, LogOut } from "lucide-react";
+import { Scissors } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
-import { MobileMenu } from "./mobile-menu";
+
+import { BottomNav } from "./bottom-nav";
+import { ProfileMenu } from "./profile-menu";
 
 export async function Navbar() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let customerName: string | null = null;
+  let avatarUrl: string | null = null;
+
   if (user) {
-    const { data: customer } = await (supabase as any)
+    const { data: customer } = (await (supabase as any)
       .from("customer_accounts")
       .select("full_name")
       .eq("auth_user_id", user.id)
-      .maybeSingle() as { data: { full_name: string } | null };
+      .maybeSingle()) as { data: { full_name: string } | null };
+
     customerName = customer?.full_name ?? user.email ?? null;
+    // Pull avatar from OAuth provider metadata (e.g. Google sign-in)
+    avatarUrl =
+      (user.user_metadata?.avatar_url as string | undefined) ??
+      (user.user_metadata?.picture as string | undefined) ??
+      null;
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Scissors className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold tracking-tight">
-            BarberPro<span className="text-primary">.my</span>
-          </span>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 sm:flex">
-          <Link
-            href="/shops"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Find Shops
-          </Link>
-          <Link
-            href="/how-it-works"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            How It Works
+    <>
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0d1013]/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#d4af37]/20">
+              <Scissors className="h-4 w-4 text-[#d4af37]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold leading-none text-white">
+                BarberPro<span className="text-[#d4af37]">.my</span>
+              </p>
+              <p className="hidden text-[9px] font-semibold uppercase tracking-wider text-gray-500 sm:block">
+                Malaysia&apos;s #1 Barber Platform
+              </p>
+            </div>
           </Link>
 
-          {user ? (
-            <div className="flex items-center gap-3">
-              <Link
-                href="/subscription"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Plus
-              </Link>
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:border-primary/50 hover:text-primary"
-              >
-                <User className="h-4 w-4" />
-                {customerName?.split(" ")[0] ?? "Profile"}
-              </Link>
-              <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Link
-                href="/login"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Log In
-              </Link>
-              <Link
-                href="/signup"
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                Sign Up
-              </Link>
-            </div>
-          )}
-        </nav>
+          {/* Desktop nav links — center */}
+          <nav className="hidden items-center gap-6 md:flex">
+            <Link
+              href="/shops"
+              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
+            >
+              Find Shops
+            </Link>
+            <Link
+              href="/how-it-works"
+              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
+            >
+              How It Works
+            </Link>
+            <Link
+              href="/styles"
+              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
+            >
+              Styles
+            </Link>
+            <Link
+              href="/subscription"
+              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
+            >
+              Plus
+            </Link>
+          </nav>
 
-        {/* Mobile menu */}
-        <MobileMenu isLoggedIn={!!user} customerName={customerName} />
-      </div>
-    </header>
+          {/* Profile menu — visible on all screen sizes */}
+          <ProfileMenu
+            isLoggedIn={!!user}
+            customerName={customerName}
+            avatarUrl={avatarUrl}
+          />
+        </div>
+      </header>
+
+      {/* Mobile bottom navigation */}
+      <BottomNav isLoggedIn={!!user} customerName={customerName} />
+    </>
   );
 }
