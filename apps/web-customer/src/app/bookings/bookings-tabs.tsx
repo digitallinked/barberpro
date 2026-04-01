@@ -19,6 +19,7 @@ import {
   Timer,
 } from "lucide-react";
 import { cancelAppointmentAction } from "./actions";
+import { useT } from "@/lib/i18n/language-context";
 
 type Appointment = {
   id: string;
@@ -44,98 +45,16 @@ type Props = {
   queueTickets: QueueTicket[];
 };
 
-const APPOINTMENT_STATUS: Record<
-  string,
-  { label: string; icon: React.ElementType; textCls: string; bgCls: string }
-> = {
-  confirmed: {
-    label: "Confirmed",
-    icon: CalendarCheck,
-    textCls: "text-primary",
-    bgCls: "bg-primary/10",
-  },
-  pending: {
-    label: "Pending",
-    icon: Timer,
-    textCls: "text-amber-500",
-    bgCls: "bg-amber-500/10",
-  },
-  in_progress: {
-    label: "In Progress",
-    icon: RadioTower,
-    textCls: "text-blue-400",
-    bgCls: "bg-blue-400/10",
-  },
-  completed: {
-    label: "Completed",
-    icon: CheckCircle2,
-    textCls: "text-muted-foreground",
-    bgCls: "bg-muted",
-  },
-  cancelled: {
-    label: "Cancelled",
-    icon: XCircle,
-    textCls: "text-destructive",
-    bgCls: "bg-destructive/10",
-  },
-  no_show: {
-    label: "No Show",
-    icon: XCircle,
-    textCls: "text-destructive",
-    bgCls: "bg-destructive/10",
-  },
-};
-
-const QUEUE_STATUS: Record<
-  string,
-  { label: string; textCls: string; bgCls: string }
-> = {
-  waiting: {
-    label: "Waiting",
-    textCls: "text-primary",
-    bgCls: "bg-primary/10",
-  },
-  in_service: {
-    label: "In Service",
-    textCls: "text-blue-400",
-    bgCls: "bg-blue-400/10",
-  },
-  done: {
-    label: "Done",
-    textCls: "text-muted-foreground",
-    bgCls: "bg-muted",
-  },
-  completed: {
-    label: "Done",
-    textCls: "text-muted-foreground",
-    bgCls: "bg-muted",
-  },
-  paid: {
-    label: "Paid",
-    textCls: "text-muted-foreground",
-    bgCls: "bg-muted",
-  },
-  cancelled: {
-    label: "Cancelled",
-    textCls: "text-destructive",
-    bgCls: "bg-destructive/10",
-  },
-  no_show: {
-    label: "No Show",
-    textCls: "text-destructive",
-    bgCls: "bg-destructive/10",
-  },
-};
-
 function CancelButton({ appointmentId }: { appointmentId: string }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
+  const t = useT();
 
   if (cancelled) return null;
 
   function handleCancel() {
-    if (!confirm("Cancel this appointment?")) return;
+    if (!confirm(t.bookings.cancelAppt + "?")) return;
     setError(null);
     startTransition(async () => {
       const result = await cancelAppointmentAction(appointmentId);
@@ -155,7 +74,7 @@ function CancelButton({ appointmentId }: { appointmentId: string }) {
         className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:opacity-50"
       >
         {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
-        Cancel
+        {t.bookings.cancelAppt}
       </button>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
@@ -163,17 +82,26 @@ function CancelButton({ appointmentId }: { appointmentId: string }) {
 }
 
 function AppointmentCard({ appt }: { appt: Appointment }) {
-  const cfg =
-    APPOINTMENT_STATUS[appt.status] ?? APPOINTMENT_STATUS.confirmed!;
+  const t = useT();
+
+  const APPOINTMENT_STATUS: Record<
+    string,
+    { label: string; icon: React.ElementType; textCls: string; bgCls: string }
+  > = {
+    confirmed: { label: t.bookings.tabAppointments, icon: CalendarCheck, textCls: "text-primary", bgCls: "bg-primary/10" },
+    pending: { label: "Pending", icon: Timer, textCls: "text-amber-500", bgCls: "bg-amber-500/10" },
+    in_progress: { label: "In Progress", icon: RadioTower, textCls: "text-blue-400", bgCls: "bg-blue-400/10" },
+    completed: { label: t.profile.statusCompleted, icon: CheckCircle2, textCls: "text-muted-foreground", bgCls: "bg-muted" },
+    cancelled: { label: t.profile.statusCancelled, icon: XCircle, textCls: "text-destructive", bgCls: "bg-destructive/10" },
+    no_show: { label: t.profile.statusNoShow, icon: XCircle, textCls: "text-destructive", bgCls: "bg-destructive/10" },
+  };
+
+  const cfg = APPOINTMENT_STATUS[appt.status] ?? APPOINTMENT_STATUS.confirmed!;
   const StatusIcon = cfg.icon;
-  const tenantName =
-    (appt.branches?.tenants as { name: string; slug: string } | null)?.name;
-  const tenantSlug =
-    (appt.branches?.tenants as { name: string; slug: string } | null)?.slug;
+  const tenantName = (appt.branches?.tenants as { name: string; slug: string } | null)?.name;
+  const tenantSlug = (appt.branches?.tenants as { name: string; slug: string } | null)?.slug;
   const branchName = appt.branches?.name;
-  const barberName =
-    (appt.staff_profiles?.app_users as { full_name: string } | null)
-      ?.full_name;
+  const barberName = (appt.staff_profiles?.app_users as { full_name: string } | null)?.full_name;
   const apptDate = new Date(appt.start_at);
 
   return (
@@ -186,7 +114,7 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate font-medium">
-              {appt.services?.name ?? "Service"}
+              {appt.services?.name ?? t.bookings.service}
             </p>
             {tenantSlug ? (
               <Link
@@ -222,13 +150,13 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {apptDate.toLocaleDateString("en-MY", {
+            {apptDate.toLocaleDateString("ms-MY", {
               weekday: "short",
               day: "numeric",
               month: "short",
               year: "numeric",
             })}{" "}
-            {apptDate.toLocaleTimeString("en-MY", {
+            {apptDate.toLocaleTimeString("ms-MY", {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -236,7 +164,7 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
           {appt.services?.duration_min && (
             <span>{appt.services.duration_min} min</span>
           )}
-          {barberName && <span>with {barberName}</span>}
+          {barberName && <span>{t.bookings.with} {barberName}</span>}
         </div>
 
         {appt.notes && (
@@ -252,7 +180,7 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
                 href={`/shop/${tenantSlug}/book`}
                 className="text-xs text-primary hover:underline"
               >
-                Book again →
+                {t.bookings.bookAgain}
               </Link>
             )}
             <CancelButton appointmentId={appt.id} />
@@ -264,12 +192,22 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
 }
 
 function QueueCard({ ticket }: { ticket: QueueTicket }) {
+  const t = useT();
+
+  const QUEUE_STATUS: Record<string, { label: string; textCls: string; bgCls: string }> = {
+    waiting: { label: t.profile.statusWaiting, textCls: "text-primary", bgCls: "bg-primary/10" },
+    in_service: { label: t.profile.statusInService, textCls: "text-blue-400", bgCls: "bg-blue-400/10" },
+    done: { label: t.profile.statusDone, textCls: "text-muted-foreground", bgCls: "bg-muted" },
+    completed: { label: t.profile.statusDone, textCls: "text-muted-foreground", bgCls: "bg-muted" },
+    paid: { label: t.profile.statusDone, textCls: "text-muted-foreground", bgCls: "bg-muted" },
+    cancelled: { label: t.profile.statusCancelled, textCls: "text-destructive", bgCls: "bg-destructive/10" },
+    no_show: { label: t.profile.statusNoShow, textCls: "text-destructive", bgCls: "bg-destructive/10" },
+  };
+
   const cfg = QUEUE_STATUS[ticket.status] ?? QUEUE_STATUS.waiting!;
-  const tenantName =
-    (ticket.branches?.tenants as { name: string; slug: string } | null)?.name;
+  const tenantName = (ticket.branches?.tenants as { name: string; slug: string } | null)?.name;
   const branchName = ticket.branches?.name;
-  const isActive =
-    ticket.status === "waiting" || ticket.status === "in_service";
+  const isActive = ticket.status === "waiting" || ticket.status === "in_service";
   const ticketDate = new Date(ticket.created_at);
 
   return (
@@ -283,11 +221,11 @@ function QueueCard({ ticket }: { ticket: QueueTicket }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{tenantName ?? "Barbershop"}</p>
+        <p className="truncate font-medium">{tenantName ?? t.profile.barbershop}</p>
         <p className="truncate text-xs text-muted-foreground">
           {branchName}
           {" · "}
-          {ticketDate.toLocaleDateString("en-MY", {
+          {ticketDate.toLocaleDateString("ms-MY", {
             day: "numeric",
             month: "short",
           })}
@@ -300,7 +238,7 @@ function QueueCard({ ticket }: { ticket: QueueTicket }) {
             href={`/queue/${ticket.id}`}
             className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20"
           >
-            Track <ArrowRight className="h-3 w-3" />
+            {t.profile.track} <ArrowRight className="h-3 w-3" />
           </Link>
         ) : (
           <span
@@ -318,6 +256,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
   const [activeTab, setActiveTab] = useState<"appointments" | "queue">(
     "appointments"
   );
+  const t = useT();
 
   const upcomingAppts = appointments.filter((a) =>
     ["confirmed", "pending", "in_progress"].includes(a.status)
@@ -347,7 +286,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
           }`}
         >
           <CalendarClock className="h-4 w-4" />
-          Appointments
+          {t.bookings.tabAppointments}
           {upcomingAppts.length > 0 && (
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
@@ -370,7 +309,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
           }`}
         >
           <Hash className="h-4 w-4" />
-          Queue
+          {t.bookings.tabQueue}
           {activeTickets.length > 0 && (
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
@@ -393,7 +332,10 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
               <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                You have {activeTickets.length} active queue ticket
+                {t.bookings.activeTicketsAlert.replace(
+                  "{count}",
+                  String(activeTickets.length)
+                )}
                 {activeTickets.length > 1 ? "s" : ""}
               </p>
               <button
@@ -401,7 +343,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
                 onClick={() => setActiveTab("queue")}
                 className="text-xs text-primary hover:underline"
               >
-                View queue →
+                {t.bookings.viewQueue}
               </button>
             </div>
           )}
@@ -411,13 +353,10 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
             <div className="flex items-center justify-between px-5 pt-5 pb-2">
               <h2 className="flex items-center gap-2 font-semibold">
                 <CalendarCheck className="h-4 w-4 text-primary" />
-                Upcoming
+                {t.bookings.upcoming}
               </h2>
-              <Link
-                href="/shops"
-                className="text-xs text-primary hover:underline"
-              >
-                + New booking
+              <Link href="/shops" className="text-xs text-primary hover:underline">
+                {t.bookings.newBooking}
               </Link>
             </div>
 
@@ -425,13 +364,13 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
               <div className="px-5 py-10 text-center">
                 <CalendarClock className="mx-auto h-10 w-10 text-muted-foreground/30" />
                 <p className="mt-3 text-sm text-muted-foreground">
-                  No upcoming appointments
+                  {t.bookings.noUpcoming}
                 </p>
                 <Link
                   href="/shops"
                   className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                 >
-                  <Search className="h-3.5 w-3.5" /> Find a barbershop
+                  <Search className="h-3.5 w-3.5" /> {t.bookings.findBarbershop}
                 </Link>
               </div>
             ) : (
@@ -449,7 +388,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
               <div className="flex items-center gap-2 px-5 pt-5 pb-2">
                 <h2 className="flex items-center gap-2 font-semibold">
                   <CalendarX className="h-4 w-4 text-muted-foreground" />
-                  History
+                  {t.bookings.history}
                 </h2>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                   {pastAppts.length}
@@ -466,15 +405,15 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
           {appointments.length === 0 && (
             <div className="rounded-xl border border-dashed border-border py-14 text-center">
               <Scissors className="mx-auto h-10 w-10 text-muted-foreground/20" />
-              <p className="mt-3 font-medium">No bookings yet</p>
+              <p className="mt-3 font-medium">{t.bookings.noBookingsYet}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Find a barbershop and book your first appointment
+                {t.bookings.noBookingsDesc}
               </p>
               <Link
                 href="/shops"
                 className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
               >
-                <Search className="h-4 w-4" /> Find Shops
+                <Search className="h-4 w-4" /> {t.bookings.findShops}
               </Link>
             </div>
           )}
@@ -489,7 +428,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
             <div className="flex items-center gap-2 px-5 pt-5 pb-2">
               <h2 className="flex items-center gap-2 font-semibold">
                 <RadioTower className="h-4 w-4 text-primary" />
-                Active
+                {t.bookings.active}
               </h2>
               {activeTickets.length > 0 && (
                 <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
@@ -500,10 +439,10 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
               <div className="px-5 py-10 text-center">
                 <Hash className="mx-auto h-10 w-10 text-muted-foreground/30" />
                 <p className="mt-3 text-sm text-muted-foreground">
-                  No active queue tickets
+                  {t.bookings.noActiveQueue}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Visit a barbershop to join the queue, or use check-in kiosks on site
+                  {t.bookings.noActiveQueueDesc}
                 </p>
               </div>
             ) : (
@@ -521,7 +460,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
               <div className="flex items-center gap-2 px-5 pt-5 pb-2">
                 <h2 className="flex items-center gap-2 font-semibold text-muted-foreground">
                   <Hash className="h-4 w-4" />
-                  Past Visits
+                  {t.bookings.pastVisits}
                 </h2>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                   {pastTickets.length}
@@ -538,9 +477,9 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
           {queueTickets.length === 0 && (
             <div className="rounded-xl border border-dashed border-border py-14 text-center">
               <Hash className="mx-auto h-10 w-10 text-muted-foreground/20" />
-              <p className="mt-3 font-medium">No queue history</p>
+              <p className="mt-3 font-medium">{t.bookings.noQueueHistory}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Your queue tickets will appear here after visiting a barbershop
+                {t.bookings.noQueueHistoryDesc}
               </p>
             </div>
           )}

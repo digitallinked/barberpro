@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { BottomNav } from "./bottom-nav";
 import { ProfileMenu } from "./profile-menu";
+import { NavDesktopLinks } from "./nav-desktop-links";
 
 export async function Navbar() {
   const supabase = await createClient();
@@ -49,33 +50,8 @@ export async function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop nav links — center */}
-          <nav className="hidden items-center gap-6 md:flex">
-            <Link
-              href="/shops"
-              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
-            >
-              Find Shops
-            </Link>
-            <Link
-              href="/how-it-works"
-              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/styles"
-              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
-            >
-              Styles
-            </Link>
-            <Link
-              href="/subscription"
-              className="text-sm font-medium text-gray-300 transition-colors hover:text-[#d4af37]"
-            >
-              Plus
-            </Link>
-          </nav>
+          {/* Desktop nav links + language switcher — center */}
+          <NavDesktopLinks />
 
           {/* Profile menu — visible on all screen sizes */}
           <ProfileMenu

@@ -14,6 +14,8 @@ import {
   User,
 } from "lucide-react";
 
+import { useT } from "@/lib/i18n/language-context";
+
 type Props = {
   isLoggedIn: boolean;
   customerName: string | null;
@@ -56,6 +58,7 @@ function Avatar({
 export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
@@ -109,7 +112,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   <p className="truncate text-sm font-semibold text-white">
                     {customerName ?? "Customer"}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-gray-500">BarberPro Member</p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">{t.auth.member}</p>
                 </div>
               </div>
 
@@ -121,7 +124,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white"
                 >
                   <User className="h-4 w-4 shrink-0 text-gray-500" />
-                  My Profile
+                  {t.auth.myProfile}
                 </Link>
                 <Link
                   href="/bookings"
@@ -129,7 +132,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white"
                 >
                   <CalendarClock className="h-4 w-4 shrink-0 text-gray-500" />
-                  My Bookings
+                  {t.auth.myBookings}
                 </Link>
                 <Link
                   href="/subscription"
@@ -137,7 +140,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 transition hover:bg-white/5 hover:text-[#d4af37]"
                 >
                   <Star className="h-4 w-4 shrink-0 text-[#d4af37]" />
-                  BarberPro Plus
+                  {t.auth.barberProPlus}
                 </Link>
                 <Link
                   href="/how-it-works"
@@ -145,7 +148,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white"
                 >
                   <BookMarked className="h-4 w-4 shrink-0 text-gray-500" />
-                  How It Works
+                  {t.auth.howItWorks}
                 </Link>
                 <Link
                   href="/settings"
@@ -153,7 +156,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 transition hover:bg-white/5 hover:text-white"
                 >
                   <Settings className="h-4 w-4 shrink-0 text-gray-500" />
-                  Settings
+                  {t.auth.settings}
                 </Link>
               </div>
 
@@ -165,7 +168,7 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-400 transition hover:bg-red-500/10"
                   >
                     <LogOut className="h-4 w-4 shrink-0" />
-                    Sign Out
+                    {t.auth.signOut}
                   </button>
                 </form>
               </div>
@@ -173,9 +176,9 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
           ) : (
             <>
               <div className="border-b border-white/5 px-4 py-3.5">
-                <p className="text-sm font-semibold text-white">Welcome!</p>
+                <p className="text-sm font-semibold text-white">{t.auth.welcomeGuest}</p>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  Sign in to book, track & earn rewards
+                  {t.auth.welcomeGuestDesc}
                 </p>
               </div>
               <div className="p-3 space-y-2">
@@ -185,14 +188,14 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white"
                 >
                   <LogIn className="h-4 w-4" />
-                  Log In
+                  {t.auth.logIn}
                 </Link>
                 <Link
                   href="/signup"
                   onClick={() => setOpen(false)}
                   className="flex w-full items-center justify-center rounded-xl bg-[#d4af37] py-2.5 text-sm font-bold text-black transition hover:brightness-110"
                 >
-                  Sign Up Free
+                  {t.auth.signUpFreeBtn}
                 </Link>
               </div>
             </>

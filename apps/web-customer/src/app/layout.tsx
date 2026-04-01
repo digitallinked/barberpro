@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { env } from "@/lib/env";
+import { ClientProviders } from "@/components/client-providers";
 
 import "./globals.css";
 
@@ -14,8 +15,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "BarberPro — Find & Book Your Barber",
-  description: "Discover barbershops near you. Book appointments, track your queue, and earn loyalty rewards.",
+  title: "BarberPro — Cari & Tempah Barber Anda",
+  description: "Terokai kedai gunting berdekatan. Buat temujanji, pantau giliran, dan kumpul mata ganjaran.",
   metadataBase: new URL(env.NEXT_PUBLIC_APP_URL)
 };
 
@@ -29,9 +30,11 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
+    <html lang="ms">
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
-        {children}
+        <ClientProviders>
+          {children}
+        </ClientProviders>
         <Analytics />
         <SpeedInsights />
       </body>

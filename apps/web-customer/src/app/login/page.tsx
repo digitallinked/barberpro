@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { Scissors } from "lucide-react";
 import { Suspense } from "react";
 
+import { useT } from "@/lib/i18n/language-context";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
+  const t = useT();
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Top bar */}
@@ -22,9 +27,9 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold">Welcome back</h1>
+            <h1 className="text-2xl font-bold">{t.auth.loginTitle}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in to book, track your queue, and earn rewards.
+              {t.auth.loginDesc}
             </p>
           </div>
 
@@ -36,14 +41,14 @@ export default function LoginPage() {
 
           <div className="mt-4 text-center">
             <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Forgot your password?
+              {t.auth.forgotPassword}
             </Link>
           </div>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            {t.auth.noAccount}{" "}
             <Link href="/signup" className="font-medium text-primary hover:underline">
-              Sign up free
+              {t.auth.signUpFreeLink}
             </Link>
           </p>
         </div>

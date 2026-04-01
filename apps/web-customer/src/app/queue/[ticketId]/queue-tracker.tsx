@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createBrowserSupabaseClient } from "@barberpro/db/client";
 import { CheckCircle2, Clock, XCircle, Scissors, RefreshCw } from "lucide-react";
+import { useT } from "@/lib/i18n/language-context";
 
 const AVG_MINUTES_PER_PERSON = 15;
 
@@ -81,6 +82,8 @@ export function QueueTracker({
     };
   }, [ticketId, branchId, fetchPosition, supabaseUrl, supabaseAnonKey]);
 
+  const t = useT();
+
   const isWaiting = status === "waiting";
   const isServing = status === "in_service";
   const isDone = status === "completed";
@@ -115,7 +118,7 @@ export function QueueTracker({
           />
         )}
 
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Your Number</p>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">{t.queue.yourNumber}</p>
         <p
           className={`mt-2 text-8xl font-bold leading-none tabular-nums ${
             isServing ? "text-primary" : isDone || isCancelled ? "text-muted-foreground" : "text-foreground"
@@ -127,7 +130,7 @@ export function QueueTracker({
         {estimatedWait !== null && (
           <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            ~{estimatedWait} min estimated wait
+            ~{estimatedWait} {t.queue.minEstimatedWait}
           </div>
         )}
       </div>
@@ -140,12 +143,12 @@ export function QueueTracker({
               <Clock className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-semibold text-primary">Waiting</p>
+              <p className="font-semibold text-primary">{t.queue.statusWaiting}</p>
               {position !== null && (
                 <p className="text-sm text-muted-foreground">
                   {position === 1
-                    ? "You're next — get ready!"
-                    : `${position - 1} ${position - 1 === 1 ? "person" : "people"} ahead of you`}
+                    ? t.queue.youreNext
+                    : `${position - 1} ${position - 1 === 1 ? t.queue.personAhead : t.queue.peopleAhead}`}
                 </p>
               )}
             </div>
@@ -158,8 +161,8 @@ export function QueueTracker({
               <Scissors className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-semibold text-primary">Now Serving</p>
-              <p className="text-sm text-muted-foreground">Please head to your seat</p>
+              <p className="font-semibold text-primary">{t.queue.statusServing}</p>
+              <p className="text-sm text-muted-foreground">{t.queue.headToSeat}</p>
             </div>
             {/* Fixed: relative parent needed for ping */}
             <span className="relative ml-auto flex h-3 w-3 shrink-0">
@@ -175,8 +178,8 @@ export function QueueTracker({
               <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-semibold">Visit Complete</p>
-              <p className="text-sm text-muted-foreground">Thanks for visiting! See you next time.</p>
+              <p className="font-semibold">{t.queue.statusDone}</p>
+              <p className="text-sm text-muted-foreground">{t.queue.thankYou}</p>
             </div>
           </div>
         )}
@@ -188,9 +191,9 @@ export function QueueTracker({
             </div>
             <div>
               <p className="font-semibold text-destructive">
-                {status === "no_show" ? "Marked No-Show" : "Cancelled"}
+                {status === "no_show" ? t.queue.statusNoShow : t.queue.statusCancelled}
               </p>
-              <p className="text-sm text-muted-foreground">This ticket is no longer active.</p>
+              <p className="text-sm text-muted-foreground">{t.queue.ticketInactive}</p>
             </div>
           </div>
         )}
@@ -200,20 +203,21 @@ export function QueueTracker({
       {(isWaiting || isServing) && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Updates live &mdash; last refreshed {lastUpdated.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}
+            {t.queue.updatesLive}{" "}
+            {lastUpdated.toLocaleTimeString("ms-MY", { hour: "2-digit", minute: "2-digit" })}
           </span>
           <button
             onClick={fetchPosition}
             className="flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-muted hover:text-foreground"
           >
-            <RefreshCw className="h-3 w-3" /> Refresh
+            <RefreshCw className="h-3 w-3" /> {t.queue.refresh}
           </button>
         </div>
       )}
 
       {isWaiting && position !== null && position > 3 && (
         <p className="text-center text-xs text-muted-foreground">
-          Feel free to wait nearby — we&apos;ll update this page in real-time.
+          {t.queue.waitNearby}
         </p>
       )}
     </div>

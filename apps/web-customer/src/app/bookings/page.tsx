@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { CalendarClock, Search } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { BookingsTabs } from "./bookings-tabs";
+import { BookingsHeader } from "./bookings-header";
 
 type Appointment = {
   id: string;
@@ -90,60 +89,10 @@ export default async function BookingsPage() {
 
       <main className="flex-1 px-4 py-8 pb-24 sm:px-6">
         <div className="mx-auto max-w-2xl space-y-6">
-          {/* Page header */}
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="flex items-center gap-2 text-2xl font-bold">
-                <CalendarClock className="h-6 w-6 text-primary" />
-                My Bookings
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Manage your appointments and queue tickets
-              </p>
-            </div>
-            <Link
-              href="/shops"
-              className="flex items-center gap-1.5 rounded-full border border-primary/40 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-            >
-              <Search className="h-3.5 w-3.5" />
-              Find Shops
-            </Link>
-          </div>
-
-          {/* Quick stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Upcoming</p>
-              <p className="mt-1 text-2xl font-bold text-primary">
-                {upcomingCount}
-              </p>
-              <p className="text-xs text-muted-foreground">appointment{upcomingCount !== 1 ? "s" : ""}</p>
-            </div>
-            <div
-              className={`rounded-xl border bg-card p-4 ${
-                activeQueueCount > 0
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-border"
-              }`}
-            >
-              <p className="text-xs text-muted-foreground">Active Queue</p>
-              <div className="mt-1 flex items-center gap-2">
-                <p
-                  className={`text-2xl font-bold ${
-                    activeQueueCount > 0 ? "text-primary" : ""
-                  }`}
-                >
-                  {activeQueueCount}
-                </p>
-                {activeQueueCount > 0 && (
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                ticket{activeQueueCount !== 1 ? "s" : ""} live
-              </p>
-            </div>
-          </div>
+          <BookingsHeader
+            upcomingCount={upcomingCount}
+            activeQueueCount={activeQueueCount}
+          />
 
           {/* Tabs */}
           <BookingsTabs

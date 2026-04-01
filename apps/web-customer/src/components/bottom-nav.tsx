@@ -19,29 +19,26 @@ import {
   X,
 } from "lucide-react";
 
+import { useT } from "@/lib/i18n/language-context";
+import { LanguageSwitcher } from "./language-switcher";
+
 type Props = {
   isLoggedIn: boolean;
   customerName: string | null;
 };
 
-const TABS = [
-  { label: "Home", href: "/", icon: Home },
-  { label: "Find Shops", href: "/shops", icon: Search },
-  { label: "Styles", href: "/styles", icon: Sparkles },
-  { label: "Bookings", href: "/bookings", icon: CalendarClock },
-] as const;
-
 function MoreSheet({
   isOpen,
   onClose,
   isLoggedIn,
-  customerName,
 }: {
   isOpen: boolean;
   onClose: () => void;
   isLoggedIn: boolean;
   customerName: string | null;
 }) {
+  const t = useT();
+
   if (!isOpen) return null;
 
   return (
@@ -57,7 +54,7 @@ function MoreSheet({
         {/* Handle bar */}
         <div className="flex items-center justify-between px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-            More
+            {t.more.title}
           </p>
           <button
             onClick={onClose}
@@ -71,10 +68,10 @@ function MoreSheet({
         {/* Grid of quick links */}
         <div className="grid grid-cols-4 gap-1 px-3 pb-3">
           {[
-            { label: "Plus", href: "/subscription", icon: Star, gold: true },
-            { label: "Articles", href: "/blog", icon: Newspaper, gold: false },
-            { label: "Guides", href: "/how-it-works", icon: BookMarked, gold: false },
-            { label: "Settings", href: "/settings", icon: Settings, gold: false },
+            { label: t.more.plus, href: "/subscription", icon: Star, gold: true },
+            { label: t.more.articles, href: "/blog", icon: Newspaper, gold: false },
+            { label: t.more.guides, href: "/how-it-works", icon: BookMarked, gold: false },
+            { label: t.more.settings, href: "/settings", icon: Settings, gold: false },
           ].map(({ label, href, icon: Icon, gold }) => (
             <Link
               key={href}
@@ -108,13 +105,17 @@ function MoreSheet({
               <Scissors className="h-5 w-5 text-[#d4af37]" strokeWidth={1.75} />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white">AI Haircut Styler</p>
-              <p className="mt-0.5 text-xs text-gray-400">
-                Upload your photo &amp; try different hairstyles
-              </p>
+              <p className="text-sm font-bold text-white">{t.more.aiStylerTitle}</p>
+              <p className="mt-0.5 text-xs text-gray-400">{t.more.aiStylerDesc}</p>
             </div>
             <Sparkles className="ml-auto h-4 w-4 shrink-0 text-[#d4af37]" />
           </Link>
+        </div>
+
+        {/* Language switcher */}
+        <div className="mx-3 mb-3 flex items-center justify-between rounded-xl border border-white/5 bg-white/3 px-4 py-3">
+          <p className="text-xs font-semibold text-gray-400">BM / EN</p>
+          <LanguageSwitcher />
         </div>
 
         {/* Auth section */}
@@ -126,7 +127,7 @@ function MoreSheet({
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition hover:bg-red-500/10"
               >
                 <LogOut className="h-4 w-4" />
-                Sign Out
+                {t.more.signOut}
               </button>
             </form>
           ) : (
@@ -137,14 +138,14 @@ function MoreSheet({
                 className="flex items-center justify-center gap-2 rounded-xl border border-white/10 py-3 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white"
               >
                 <LogIn className="h-4 w-4" />
-                Log In
+                {t.more.logIn}
               </Link>
               <Link
                 href="/signup"
                 onClick={onClose}
                 className="flex items-center justify-center rounded-xl bg-[#d4af37] py-3 text-sm font-bold text-black transition hover:brightness-110"
               >
-                Sign Up Free
+                {t.more.signUpFree}
               </Link>
             </div>
           )}
@@ -157,6 +158,14 @@ function MoreSheet({
 export function BottomNav({ isLoggedIn, customerName }: Props) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const t = useT();
+
+  const TABS = [
+    { label: t.nav.home, href: "/", icon: Home },
+    { label: t.nav.findShops, href: "/shops", icon: Search },
+    { label: t.nav.styles, href: "/styles", icon: Sparkles },
+    { label: t.nav.bookings, href: "/bookings", icon: CalendarClock },
+  ] as const;
 
   return (
     <>
@@ -222,7 +231,7 @@ export function BottomNav({ isLoggedIn, customerName }: Props) {
               />
             </span>
             <span className="max-w-full truncate text-[10px] font-semibold leading-none tracking-wide">
-              More
+              {t.nav.more}
             </span>
           </button>
         </div>

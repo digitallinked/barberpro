@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ShopsGrid } from "./shops-grid";
+import { ShopsHeader } from "./shops-header";
 
 export const revalidate = 60;
 
@@ -28,12 +29,7 @@ export default async function ShopsPage() {
 
       <main className="flex-1 px-6 py-12">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-10">
-            <h1 className="text-3xl font-bold sm:text-4xl">Find a Barbershop</h1>
-            <p className="mt-2 text-muted-foreground">
-              {shops.length} verified shop{shops.length !== 1 ? "s" : ""} on BarberPro
-            </p>
-          </div>
+          <ShopsHeader count={shops.length} />
 
           <ShopsGrid shops={shops} />
         </div>

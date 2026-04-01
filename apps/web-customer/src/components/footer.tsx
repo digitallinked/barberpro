@@ -1,34 +1,39 @@
+"use client";
+
 import Link from "next/link";
 import { Scissors } from "lucide-react";
-
-const footerGroups = [
-  {
-    title: "Discover",
-    links: [
-      { label: "Find Shops", href: "/shops" },
-      { label: "How It Works", href: "/how-it-works" },
-      { label: "Browse Near Me", href: "/shops" },
-    ],
-  },
-  {
-    title: "Account",
-    links: [
-      { label: "My Profile", href: "/profile" },
-      { label: "BarberPro Plus", href: "/subscription" },
-      { label: "Sign Up Free", href: "/signup" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "For Businesses", href: "/for-businesses" },
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" },
-    ],
-  },
-];
+import { useT } from "@/lib/i18n/language-context";
 
 export function Footer() {
+  const t = useT();
+
+  const footerGroups = [
+    {
+      title: t.footer.discover,
+      links: [
+        { label: t.footer.findShops, href: "/shops" },
+        { label: t.footer.howItWorks, href: "/how-it-works" },
+        { label: t.footer.browseNearMe, href: "/shops" },
+      ],
+    },
+    {
+      title: t.footer.account,
+      links: [
+        { label: t.footer.myProfile, href: "/profile" },
+        { label: t.footer.barberProPlus, href: "/subscription" },
+        { label: t.footer.signUpFree, href: "/signup" },
+      ],
+    },
+    {
+      title: t.footer.company,
+      links: [
+        { label: t.footer.forBusinesses, href: "/for-businesses" },
+        { label: t.footer.privacyPolicy, href: "/privacy" },
+        { label: t.footer.termsOfService, href: "/terms" },
+      ],
+    },
+  ];
+
   return (
     <>
       {/* Spacer that reserves space for the fixed bottom nav on mobile */}
@@ -52,8 +57,7 @@ export function Footer() {
                 </p>
               </div>
               <p className="mt-3 max-w-xs text-sm text-gray-400">
-                Discover and book top barbers across Malaysia. Queue tracking,
-                loyalty rewards, and more.
+                {t.footer.tagline}
               </p>
             </div>
 
@@ -62,7 +66,7 @@ export function Footer() {
                 <h4 className="mb-4 font-bold text-white">{group.title}</h4>
                 <ul className="space-y-2">
                   {group.links.map((link) => (
-                    <li key={link.label}>
+                    <li key={link.href + link.label}>
                       <Link
                         href={link.href}
                         className="text-sm text-gray-400 transition hover:text-[#d4af37]"
@@ -79,18 +83,18 @@ export function Footer() {
 
         <div className="border-t border-white/5 py-6 text-center text-sm text-gray-600">
           <p>
-            &copy; {new Date().getFullYear()} BarberPro Technologies Sdn. Bhd.
-            All rights reserved.
+            &copy; {new Date().getFullYear()} BarberPro Technologies Sdn. Bhd.{" "}
+            {t.footer.allRightsReserved}
           </p>
           <p className="mt-1">
-            Made with <span className="text-red-500">♥</span> in Malaysia
+            {t.footer.madeInMalaysia}
             &nbsp;|&nbsp;{" "}
             <Link href="/terms" className="transition hover:text-gray-400">
-              Terms
+              {t.footer.terms}
             </Link>
             {" · "}
             <Link href="/privacy" className="transition hover:text-gray-400">
-              Privacy
+              {t.footer.privacy}
             </Link>
           </p>
         </div>

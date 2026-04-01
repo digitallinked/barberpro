@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { Scissors } from "lucide-react";
 
+import { useT } from "@/lib/i18n/language-context";
 import { SignupForm } from "./signup-form";
 
 export default function SignupPage() {
+  const t = useT();
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Top bar */}
@@ -21,9 +26,9 @@ export default function SignupPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold">Create your account</h1>
+            <h1 className="text-2xl font-bold">{t.auth.signupTitle}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Join BarberPro to book, track queues, and earn loyalty rewards.
+              {t.auth.signupDesc}
             </p>
           </div>
 
@@ -32,9 +37,9 @@ export default function SignupPage() {
           </div>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            {t.auth.haveAccount}{" "}
             <Link href="/login" className="font-medium text-primary hover:underline">
-              Sign in
+              {t.auth.signIn}
             </Link>
           </p>
         </div>
