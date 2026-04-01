@@ -17,7 +17,7 @@ export default function SubscriptionRequiredPage() {
   async function handleResubscribe() {
     setError(null);
     setIsLoading(true);
-    const result = await createCheckoutSession(plan);
+    const result = await createCheckoutSession(plan, { intent: "recovery" });
     setIsLoading(false);
 
     if (result.error) {

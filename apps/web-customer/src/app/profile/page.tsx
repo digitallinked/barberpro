@@ -23,6 +23,8 @@ type CustomerAccount = {
   email: string;
   phone: string | null;
   loyalty_points: number;
+  subscription_status: string | null;
+  subscription_plan: string | null;
 };
 
 type Appointment = {
@@ -65,9 +67,12 @@ export default async function ProfilePage() {
 
   const { data: customer } = await (supabase as any)
     .from("customer_accounts")
-    .select("id, full_name, email, phone, loyalty_points")
+    .select("id, full_name, email, phone, loyalty_points, subscription_status, subscription_plan")
     .eq("auth_user_id", user.id)
     .maybeSingle() as { data: CustomerAccount | null };
+
+  const subStatus = customer?.subscription_status ?? null;
+  const membershipActive = subStatus === "active" || subStatus === "trialing";
 
   // Get CRM customer IDs across all tenants for this user (linked via email)
   const userEmail = customer?.email || user.email || "";
@@ -157,6 +162,23 @@ export default async function ProfilePage() {
               </p>
             </div>
           </div>
+
+          <Link
+            href="/subscription"
+            className="block rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold">BarberPro Plus</p>
+                <p className="text-sm text-muted-foreground">
+                  {membershipActive
+                    ? `Active${customer?.subscription_plan ? ` · ${customer.subscription_plan}` : ""}`
+                    : "Member perks & priority features — tap to subscribe or manage"}
+                </p>
+              </div>
+              <span className="shrink-0 text-sm font-medium text-primary">Manage →</span>
+            </div>
+          </Link>
 
           {/* Active queue tickets */}
           {activeTickets.length > 0 && (

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Globe, Save, Scale, Search, Shield } from "lucide-react";
+import { Building2, CreditCard, Globe, Save, Scale, Search, Shield } from "lucide-react";
+import Link from "next/link";
 
 const SST_SETTINGS_KEY = "barberpro:sst";
 
@@ -76,6 +77,7 @@ export default function SettingsPage() {
     { id: "security",   label: t.settings.security,        icon: Shield },
     { id: "preferences",label: t.settings.preferences,     icon: Globe },
     { id: "tax",        label: "Tax & Compliance (MY)",    icon: Scale },
+    { id: "billing",    label: t.settings.subscriptionBilling, icon: CreditCard, href: "/settings/billing" as const },
   ];
 
   const [activeSection, setActiveSection] = useState("profile");
@@ -160,6 +162,18 @@ export default function SettingsPage() {
             <nav className="space-y-0.5">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
+                if ("href" in item && item.href) {
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 transition hover:bg-white/[0.03] hover:text-white"
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {item.label}
+                    </Link>
+                  );
+                }
                 return (
                   <button
                     key={item.id}

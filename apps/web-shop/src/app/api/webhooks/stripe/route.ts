@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 
 import { env } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
+import { syncStripeSubscriptionToDatabase } from "@/lib/stripe-subscription-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
@@ -30,7 +31,6 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Idempotency: skip events we've already processed (Stripe retries on failure)
   const { data: existing } = await supabase
     .from("processed_webhook_events")
     .select("id")
@@ -41,59 +41,56 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  switch (event.type) {
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object as Stripe.Subscription;
-      const tenantId = subscription.metadata?.tenant_id;
-
-      if (tenantId) {
-        await supabase
-          .from("tenants")
-          .update({
-            stripe_subscription_id: subscription.id,
-            subscription_status: subscription.status,
-            stripe_price_id: subscription.items.data[0]?.price.id,
-            trial_ends_at: subscription.trial_end
-              ? new Date(subscription.trial_end * 1000).toISOString()
-              : null
-          })
-          .eq("id", tenantId);
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== "subscription") break;
+        const subId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : session.subscription?.id;
+        if (!subId) break;
+        const subscription = await stripe.subscriptions.retrieve(subId);
+        await syncStripeSubscriptionToDatabase(supabase, subscription);
+        break;
       }
-      break;
-    }
 
-    case "invoice.payment_failed": {
-      const invoice = event.data.object as Stripe.Invoice;
-      const customerId = invoice.customer as string;
-
-      if (customerId) {
-        await supabase
-          .from("tenants")
-          .update({ subscription_status: "past_due" })
-          .eq("stripe_customer_id", customerId);
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await syncStripeSubscriptionToDatabase(supabase, subscription);
+        break;
       }
-      break;
-    }
 
-    case "invoice.payment_succeeded": {
-      const invoice = event.data.object as Stripe.Invoice;
-      const customerId = invoice.customer as string;
-
-      if (customerId) {
-        await supabase
-          .from("tenants")
-          .update({ subscription_status: "active" })
-          .eq("stripe_customer_id", customerId);
+      case "invoice.payment_failed":
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null;
+        };
+        const subId =
+          typeof invoice.subscription === "string"
+            ? invoice.subscription
+            : invoice.subscription?.id;
+        if (!subId) break;
+        const status = event.type === "invoice.payment_succeeded" ? "active" : "past_due";
+        await supabase.from("tenants").update({ subscription_status: status }).eq("stripe_subscription_id", subId);
+        await (supabase as any)
+          .from("customer_accounts")
+          .update({ subscription_status: status })
+          .eq("stripe_subscription_id", subId);
+        break;
       }
-      break;
+
+      default:
+        break;
     }
+  } catch {
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 
-  // Record event as processed for idempotency
-  await supabase
-    .from("processed_webhook_events")
-    .insert({ event_id: event.id, event_type: event.type });
+  await supabase.from("processed_webhook_events").insert({ event_id: event.id, event_type: event.type });
 
   return NextResponse.json({ received: true });
 }

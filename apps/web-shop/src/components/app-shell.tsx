@@ -58,6 +58,7 @@ function useNavItems() {
     { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone },
     { labelKey: t.nav.reports, href: "/reports", icon: BarChart3 },
     { labelKey: t.nav.branches, href: "/branches", icon: Store },
+    { labelKey: t.nav.billing, href: "/settings/billing", icon: Banknote },
   ];
 
   const NAV_BUSINESS: NavItem[] = [

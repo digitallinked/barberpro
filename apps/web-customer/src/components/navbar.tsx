@@ -46,6 +46,12 @@ export async function Navbar() {
           {user ? (
             <div className="flex items-center gap-3">
               <Link
+                href="/subscription"
+                className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
+              >
+                Plus
+              </Link>
+              <Link
                 href="/profile"
                 className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:border-primary/50 hover:text-primary"
               >

@@ -17,6 +17,17 @@ export default async function UsersPage() {
     );
   }
 
+  type AppUserRow = {
+    id: string;
+    full_name: string;
+    email: string | null;
+    role: string;
+    is_active: boolean;
+    created_at: string;
+    tenants: { name: string } | null;
+  };
+  const userRows = (users ?? []) as AppUserRow[];
+
   return (
     <div className="space-y-6">
       <div>
@@ -37,8 +48,8 @@ export default async function UsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {users?.map((user) => {
-              const tenantName = (user.tenants as { name: string } | null)?.name ?? "—";
+            {userRows.map((user) => {
+              const tenantName = user.tenants?.name ?? "—";
               return (
                 <tr key={user.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{user.full_name}</td>
@@ -58,7 +69,7 @@ export default async function UsersPage() {
                 </tr>
               );
             })}
-            {(!users || users.length === 0) && (
+            {userRows.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No users found

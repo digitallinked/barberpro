@@ -18,11 +18,20 @@ export default async function DashboardPage() {
   const totalUsers = usersResult.count ?? 0;
   const activeSubscriptions = activeResult.count ?? 0;
 
-  const { data: recentTenants } = await supabase
+  const { data: recentRaw } = await supabase
     .from("tenants")
     .select("id, name, plan, subscription_status, created_at")
     .order("created_at", { ascending: false })
     .limit(5);
+
+  type RecentTenant = {
+    id: string;
+    name: string;
+    plan: string | null;
+    subscription_status: string | null;
+    created_at: string;
+  };
+  const recentTenants = (recentRaw ?? []) as RecentTenant[];
 
   return (
     <div className="space-y-8">
@@ -42,7 +51,7 @@ export default async function DashboardPage() {
           <h2 className="font-semibold">Recent Tenants</h2>
         </div>
         <div className="divide-y divide-border">
-          {recentTenants?.map((tenant) => (
+          {recentTenants.map((tenant) => (
             <div key={tenant.id} className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="font-medium">{tenant.name}</p>
@@ -55,7 +64,7 @@ export default async function DashboardPage() {
               </p>
             </div>
           ))}
-          {(!recentTenants || recentTenants.length === 0) && (
+          {recentTenants.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No tenants yet
             </div>

@@ -1,11 +1,28 @@
+import Link from "next/link";
+
+import { StatusBadge } from "@/components/status-badge";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+type TenantTableRow = {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string | null;
+  status: string | null;
+  subscription_status: string | null;
+  created_at: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+};
 
 export default async function TenantsPage() {
   const supabase = createAdminClient();
 
-  const { data: tenants, error } = await supabase
+  const { data: tenantRows, error } = await supabase
     .from("tenants")
-    .select("id, name, slug, plan, status, subscription_status, created_at")
+    .select(
+      "id, name, slug, plan, status, subscription_status, created_at, stripe_customer_id, stripe_subscription_id"
+    )
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -15,6 +32,8 @@ export default async function TenantsPage() {
       </div>
     );
   }
+
+  const tenants = (tenantRows ?? []) as TenantTableRow[];
 
   return (
     <div className="space-y-6">
@@ -34,13 +53,18 @@ export default async function TenantsPage() {
               <th className="px-4 py-3 text-left font-medium">Plan</th>
               <th className="px-4 py-3 text-left font-medium">Status</th>
               <th className="px-4 py-3 text-left font-medium">Subscription</th>
+              <th className="px-4 py-3 text-left font-medium">Stripe</th>
               <th className="px-4 py-3 text-left font-medium">Created</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {tenants?.map((tenant) => (
               <tr key={tenant.id} className="hover:bg-muted/30">
-                <td className="px-4 py-3 font-medium">{tenant.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/tenants/${tenant.id}`} className="text-primary hover:underline">
+                    {tenant.name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">{tenant.slug}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
@@ -53,6 +77,33 @@ export default async function TenantsPage() {
                 <td className="px-4 py-3">
                   <StatusBadge status={tenant.subscription_status ?? "none"} />
                 </td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {tenant.stripe_customer_id ? (
+                    <a
+                      href={`https://dashboard.stripe.com/customers/${tenant.stripe_customer_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      Customer
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                  {tenant.stripe_subscription_id ? (
+                    <>
+                      <br />
+                      <a
+                        href={`https://dashboard.stripe.com/subscriptions/${tenant.stripe_subscription_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Subscription
+                      </a>
+                    </>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {new Date(tenant.created_at).toLocaleDateString()}
                 </td>
@@ -60,7 +111,7 @@ export default async function TenantsPage() {
             ))}
             {(!tenants || tenants.length === 0) && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   No tenants found
                 </td>
               </tr>
@@ -69,22 +120,5 @@ export default async function TenantsPage() {
         </table>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    active: "bg-green-500/10 text-green-400",
-    trialing: "bg-blue-500/10 text-blue-400",
-    past_due: "bg-yellow-500/10 text-yellow-400",
-    canceled: "bg-red-500/10 text-red-400",
-    suspended: "bg-red-500/10 text-red-400",
-    unpaid: "bg-red-500/10 text-red-400",
-  };
-
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? "bg-muted text-muted-foreground"}`}>
-      {status}
-    </span>
   );
 }

@@ -1,9 +1,18 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { getStripe, STRIPE_PLANS, type StripePlan } from "@/lib/stripe";
+import type Stripe from "stripe";
 
-export async function createCheckoutSession(plan: StripePlan) {
+import { createClient } from "@/lib/supabase/server";
+import { env } from "@/lib/env";
+import { getStripe, STRIPE_PLANS, type StripePlan } from "@/lib/stripe";
+import { planFromStripePriceId } from "@/lib/plan-from-price";
+
+export type CheckoutIntent = "onboarding" | "billing" | "recovery";
+
+export async function createCheckoutSession(
+  plan: StripePlan,
+  options?: { intent?: CheckoutIntent }
+) {
   const supabase = await createClient();
   const stripe = getStripe();
 
@@ -17,12 +26,23 @@ export async function createCheckoutSession(plan: StripePlan) {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, stripe_customer_id, name, email")
+    .select("id, stripe_customer_id, name, email, subscription_status, stripe_subscription_id")
     .eq("owner_auth_id", user.id)
     .maybeSingle();
 
   if (!tenant) {
     return { error: "Shop details not found. Please complete the onboarding first." };
+  }
+
+  const activeStates = ["active", "trialing"];
+  if (
+    activeStates.includes((tenant.subscription_status as string) ?? "") &&
+    tenant.stripe_subscription_id
+  ) {
+    return {
+      error:
+        "You already have an active subscription. Use Billing to change your plan or update your payment method."
+    };
   }
 
   let customerId = tenant.stripe_customer_id as string | null;
@@ -38,14 +58,39 @@ export async function createCheckoutSession(plan: StripePlan) {
     });
     customerId = customer.id;
 
-    await supabase
-      .from("tenants")
-      .update({ stripe_customer_id: customerId })
-      .eq("id", tenant.id);
+    await supabase.from("tenants").update({ stripe_customer_id: customerId }).eq("id", tenant.id);
   }
 
   const selectedPlan = STRIPE_PLANS[plan];
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const intent = options?.intent ?? "onboarding";
+
+  const useTrial =
+    !tenant.subscription_status ||
+    tenant.subscription_status === "incomplete" ||
+    tenant.subscription_status === "incomplete_expired";
+
+  const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
+    metadata: {
+      tenant_id: tenant.id,
+      user_id: user.id,
+      plan
+    }
+  };
+  if (useTrial) {
+    subscriptionData.trial_period_days = 14;
+  }
+
+  let successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}`;
+  let cancelUrl = `${appUrl}/register?step=payment&canceled=true`;
+
+  if (intent === "billing") {
+    successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}&next=${encodeURIComponent("/settings/billing")}`;
+    cancelUrl = `${appUrl}/settings/billing?checkout=canceled`;
+  } else if (intent === "recovery") {
+    successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}`;
+    cancelUrl = `${appUrl}/subscription-required?checkout=canceled`;
+  }
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
@@ -57,16 +102,9 @@ export async function createCheckoutSession(plan: StripePlan) {
         quantity: 1
       }
     ],
-    subscription_data: {
-      trial_period_days: 14,
-      metadata: {
-        tenant_id: tenant.id,
-        user_id: user.id,
-        plan
-      }
-    },
-    success_url: `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/register?step=payment&canceled=true`,
+    subscription_data: subscriptionData,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     metadata: {
       tenant_id: tenant.id,
       user_id: user.id,
@@ -105,16 +143,25 @@ export async function finalizeSubscription(sessionId: string) {
 
   if (!tenant) return { error: "Tenant not found" };
 
+  const metaPlan = subscription.metadata?.plan;
+  const priceId = subscription.items.data[0]?.price.id ?? null;
+  const inferredPlan = planFromStripePriceId(priceId);
+  const planValue =
+    metaPlan === "starter" || metaPlan === "professional" || metaPlan === "enterprise"
+      ? metaPlan
+      : inferredPlan;
+
   await supabase
     .from("tenants")
     .update({
       stripe_subscription_id: subscription.id,
-      stripe_price_id: subscription.items.data[0]?.price.id,
+      stripe_price_id: priceId,
       subscription_status: subscription.status,
       trial_ends_at: subscription.trial_end
         ? new Date(subscription.trial_end * 1000).toISOString()
         : null,
-      onboarding_completed: true
+      onboarding_completed: true,
+      ...(planValue ? { plan: planValue } : {})
     })
     .eq("id", tenant.id);
 
