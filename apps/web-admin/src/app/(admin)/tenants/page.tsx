@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
+import { requireAccess } from "@/lib/require-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type TenantTableRow = {
@@ -16,6 +17,7 @@ type TenantTableRow = {
 };
 
 export default async function TenantsPage() {
+  await requireAccess("/tenants");
   const supabase = createAdminClient();
 
   const { data: tenantRows, error } = await supabase

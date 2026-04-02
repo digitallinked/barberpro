@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
+import { requireAccess } from "@/lib/require-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function TenantDetailPage({ params }: PageProps) {
+  await requireAccess("/tenants");
   const { id } = await params;
   const supabase = createAdminClient();
 

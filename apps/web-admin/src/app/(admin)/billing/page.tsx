@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
 import { StatusBadge } from "@/components/status-badge";
+import { requireAccess } from "@/lib/require-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type TenantBillingRow = {
@@ -32,6 +33,7 @@ type PageProps = {
 };
 
 export default async function BillingPage({ searchParams }: PageProps) {
+  await requireAccess("/billing");
   const { status: filterStatus, tab = "shops" } = await searchParams;
   const supabase = createAdminClient();
 

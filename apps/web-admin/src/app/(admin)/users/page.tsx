@@ -1,6 +1,8 @@
+import { requireAccess } from "@/lib/require-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function UsersPage() {
+  await requireAccess("/users");
   const supabase = createAdminClient();
 
   const { data: users, error } = await supabase

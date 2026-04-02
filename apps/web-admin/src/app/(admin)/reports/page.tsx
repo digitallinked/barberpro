@@ -1,6 +1,9 @@
+import { requireAccess } from "@/lib/require-access";
 import { PagePlaceholder } from "@/components/page-placeholder";
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  await requireAccess("/reports");
+
   return (
     <PagePlaceholder
       title="Platform Reports"

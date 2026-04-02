@@ -1,6 +1,9 @@
+import { requireAccess } from "@/lib/require-access";
 import { PagePlaceholder } from "@/components/page-placeholder";
 
-export default function AuditLogsPage() {
+export default async function AuditLogsPage() {
+  await requireAccess("/audit-logs");
+
   return (
     <PagePlaceholder
       title="Audit Logs"
