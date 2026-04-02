@@ -3,7 +3,8 @@
 import { ChevronDown, ChevronUp, Scissors, Check, User, LogIn, UserPlus, ChevronRight, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CheckInService, LoggedInUser } from "./page";
-import { QueueStatusView } from "./queue-status-view";
+import { QueueJoinedSheet } from "./queue-joined-sheet";
+import { setActiveQueue } from "@/lib/active-queue";
 
 function clampPartySize(n: number): number {
   return Math.min(20, Math.max(1, n));
@@ -119,6 +120,14 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
         return;
       }
       if (data.ticket_id && data.queue_number) {
+        // Persist to localStorage so the global banner can track this across pages
+        setActiveQueue({
+          ticketId: data.ticket_id,
+          queueNumber: data.queue_number,
+          branchId,
+          branchName,
+          storedAt: Date.now(),
+        });
         setDone({ ticket_id: data.ticket_id, queue_number: data.queue_number });
       }
     } catch {
@@ -127,20 +136,18 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
     setSubmitting(false);
   }
 
-  if (done) {
-    return (
-      <QueueStatusView
-        ticketId={done.ticket_id}
-        branchId={branchId}
-        queueNumber={done.queue_number}
-        branchName={branchName}
-      />
-    );
-  }
-
   // ─── Auth Choice Screen ───────────────────────────────────────────────────
   if (screen === "auth-choice") {
     return (
+      <>
+      {done && (
+        <QueueJoinedSheet
+          queueNumber={done.queue_number}
+          branchName={branchName}
+          branchId={branchId}
+          ticketId={done.ticket_id}
+        />
+      )}
       <div className="mx-auto max-w-md">
         {/* Hero */}
         <div className="mb-10 text-center">
@@ -217,6 +224,7 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
           <a href="/privacy" className="text-gray-500 underline underline-offset-2">Privacy Policy</a>
         </p>
       </div>
+      </>
     );
   }
 
@@ -226,6 +234,15 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
   const initials = isLoggedIn ? getInitials(loggedInUser!.name || loggedInUser!.email) : null;
 
   return (
+    <>
+    {done && (
+      <QueueJoinedSheet
+        queueNumber={done.queue_number}
+        branchName={branchName}
+        branchId={branchId}
+        ticketId={done.ticket_id}
+      />
+    )}
     <div className="mx-auto max-w-md">
       {/* Hero */}
       <div className="mb-8 text-center">
@@ -498,5 +515,6 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
         </div>
       </div>
     </div>
+    </>
   );
 }

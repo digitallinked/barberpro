@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { env } from "@/lib/env";
 import { ClientProviders } from "@/components/client-providers";
+import { ActiveQueueBanner } from "@/components/active-queue-banner";
 
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
         <ClientProviders>
           {children}
+          <ActiveQueueBanner />
         </ClientProviders>
         <Analytics />
         <SpeedInsights />
