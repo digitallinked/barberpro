@@ -117,12 +117,28 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isAuthRoute) {
-    if (pathname.startsWith("/register")) {
+    // These pages must always be reachable regardless of onboarding/subscription state:
+    // - /register    → mid-onboarding, user needs to complete setup
+    // - /forgot-password → user wants to reset their password
+    // - /reset-password  → user arrived via email link (Supabase gives them a temp session)
+    if (
+      pathname.startsWith("/register") ||
+      pathname.startsWith("/forgot-password") ||
+      pathname.startsWith("/reset-password")
+    ) {
       return getResponse();
     }
 
-    const url = request.nextUrl.clone();
+    // /login: let through if onboarding is incomplete so "Log In" from the marketing
+    // site doesn't silently redirect to /register and confuse the user.
+    if (pathname.startsWith("/login")) {
+      if (!tenantState || !tenantState.onboardingCompleted) {
+        return getResponse();
+      }
+    }
 
+    // Authenticated user with a complete account visiting an auth page — redirect them home.
+    const url = request.nextUrl.clone();
     if (!tenantState || !tenantState.onboardingCompleted) {
       url.pathname = "/register";
       url.searchParams.set("step", tenantState ? "payment" : "onboarding");
