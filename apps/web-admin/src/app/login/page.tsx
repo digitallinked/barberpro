@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
@@ -8,7 +10,9 @@ export default function LoginPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Sign in with your BarberPro super admin account.
         </p>
-        <LoginForm />
+        <Suspense fallback={<div className="mt-6 h-40 animate-pulse rounded-md bg-muted" />}>
+          <LoginForm />
+        </Suspense>
       </section>
     </main>
   );
