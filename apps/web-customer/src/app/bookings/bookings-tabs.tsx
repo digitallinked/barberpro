@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
@@ -17,9 +17,16 @@ import {
   XCircle,
   RadioTower,
   Timer,
+  Plus,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  ExternalLink,
 } from "lucide-react";
-import { cancelAppointmentAction } from "./actions";
+import { cancelAppointmentAction, joinQueueAsCustomerAction } from "./actions";
 import { useT } from "@/lib/i18n/language-context";
+import type { ShopForQueue } from "./page";
 
 type Appointment = {
   id: string;
@@ -43,7 +50,10 @@ type QueueTicket = {
 type Props = {
   appointments: Appointment[];
   queueTickets: QueueTicket[];
+  shops: ShopForQueue[];
 };
+
+// ─── Cancel Appointment Button ──────────────────────────────────────────────
 
 function CancelButton({ appointmentId }: { appointmentId: string }) {
   const [isPending, startTransition] = useTransition();
@@ -81,6 +91,8 @@ function CancelButton({ appointmentId }: { appointmentId: string }) {
   );
 }
 
+// ─── Appointment Card ────────────────────────────────────────────────────────
+
 function AppointmentCard({ appt }: { appt: Appointment }) {
   const t = useT();
 
@@ -88,7 +100,7 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
     string,
     { label: string; icon: React.ElementType; textCls: string; bgCls: string }
   > = {
-    confirmed: { label: t.bookings.tabAppointments, icon: CalendarCheck, textCls: "text-primary", bgCls: "bg-primary/10" },
+    confirmed: { label: "Confirmed", icon: CalendarCheck, textCls: "text-primary", bgCls: "bg-primary/10" },
     pending: { label: "Pending", icon: Timer, textCls: "text-amber-500", bgCls: "bg-amber-500/10" },
     in_progress: { label: "In Progress", icon: RadioTower, textCls: "text-blue-400", bgCls: "bg-blue-400/10" },
     completed: { label: t.profile.statusCompleted, icon: CheckCircle2, textCls: "text-muted-foreground", bgCls: "bg-muted" },
@@ -103,6 +115,9 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
   const branchName = appt.branches?.name;
   const barberName = (appt.staff_profiles?.app_users as { full_name: string } | null)?.full_name;
   const apptDate = new Date(appt.start_at);
+
+  const canCancel = appt.status === "confirmed";
+  const isPast = ["completed", "cancelled", "no_show"].includes(appt.status);
 
   return (
     <div className="flex items-start gap-4 py-4">
@@ -173,23 +188,23 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
           </p>
         )}
 
-        {appt.status === "confirmed" && (
-          <div className="mt-2 flex items-center gap-3">
-            {tenantSlug && (
-              <Link
-                href={`/shop/${tenantSlug}/book`}
-                className="text-xs text-primary hover:underline"
-              >
-                {t.bookings.bookAgain}
-              </Link>
-            )}
-            <CancelButton appointmentId={appt.id} />
-          </div>
-        )}
+        <div className="mt-2 flex items-center gap-3">
+          {tenantSlug && (isPast || canCancel) && (
+            <Link
+              href={`/shop/${tenantSlug}/book`}
+              className="text-xs text-primary hover:underline"
+            >
+              {t.bookings.bookAgain}
+            </Link>
+          )}
+          {canCancel && <CancelButton appointmentId={appt.id} />}
+        </div>
       </div>
     </div>
   );
 }
+
+// ─── Queue Ticket Card ───────────────────────────────────────────────────────
 
 function QueueCard({ ticket }: { ticket: QueueTicket }) {
   const t = useT();
@@ -252,10 +267,305 @@ function QueueCard({ ticket }: { ticket: QueueTicket }) {
   );
 }
 
-export function BookingsTabs({ appointments, queueTickets }: Props) {
-  const [activeTab, setActiveTab] = useState<"appointments" | "queue">(
-    "appointments"
+// ─── Join Queue Panel ────────────────────────────────────────────────────────
+
+type JoinStep = "search" | "branch" | "confirm" | "done";
+
+type JoinDone = {
+  ticketId: string;
+  queueNumber: string;
+  branchName: string;
+};
+
+function JoinQueuePanel({
+  shops,
+  onClose,
+  onJoined,
+}: {
+  shops: ShopForQueue[];
+  onClose: () => void;
+  onJoined: (done: JoinDone) => void;
+}) {
+  const [step, setStep] = useState<JoinStep>("search");
+  const [query, setQuery] = useState("");
+  const [selectedShop, setSelectedShop] = useState<ShopForQueue | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [partySize, setPartySize] = useState(1);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (step === "search") searchRef.current?.focus();
+  }, [step]);
+
+  const filtered = query.trim()
+    ? shops.filter((s) => {
+        const q = query.toLowerCase();
+        return (
+          s.name.toLowerCase().includes(q) ||
+          s.branches.some(
+            (b) =>
+              b.name.toLowerCase().includes(q) ||
+              (b.address ?? "").toLowerCase().includes(q)
+          )
+        );
+      })
+    : shops;
+
+  function pickShop(shop: ShopForQueue) {
+    setSelectedShop(shop);
+    if (shop.branches.length === 1) {
+      setSelectedBranchId(shop.branches[0]!.id);
+      setStep("confirm");
+    } else {
+      setSelectedBranchId(shop.branches[0]?.id ?? "");
+      setStep("branch");
+    }
+  }
+
+  function handleJoin() {
+    if (!selectedBranchId) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await joinQueueAsCustomerAction(selectedBranchId, partySize);
+      if (result.success) {
+        onJoined({
+          ticketId: result.ticketId,
+          queueNumber: result.queueNumber,
+          branchName: result.branchName,
+        });
+      } else {
+        setError(result.error);
+      }
+    });
+  }
+
+  const selectedBranch = selectedShop?.branches.find((b) => b.id === selectedBranchId);
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-card shadow-lg">
+      {/* Panel header */}
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2">
+          {step !== "search" && (
+            <button
+              onClick={() => setStep(step === "confirm" && selectedShop && selectedShop.branches.length > 1 ? "branch" : "search")}
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ChevronDown className="h-4 w-4 rotate-90" />
+            </button>
+          )}
+          <Hash className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">Join a Walk-in Queue</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="p-4">
+        {/* Step 1: Search for shop */}
+        {step === "search" && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by shop name or area…"
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              />
+              {query && (
+                <button onClick={() => setQuery("")} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {filtered.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {query ? `No shops found for "${query}"` : "No shops available"}
+                </p>
+              ) : (
+                filtered.map((shop) => (
+                  <button
+                    key={shop.id}
+                    type="button"
+                    onClick={() => pickShop(shop)}
+                    className="flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:border-border hover:bg-muted/50"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                      <Scissors className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{shop.name}</p>
+                      {shop.branches[0]?.address && (
+                        <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          {shop.branches[0].address}
+                        </p>
+                      )}
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Select branch (if multiple) */}
+        {step === "branch" && selectedShop && (
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                Choose a branch at {selectedShop.name}
+              </p>
+              <div className="space-y-2">
+                {selectedShop.branches.map((branch) => (
+                  <button
+                    key={branch.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBranchId(branch.id);
+                      setStep("confirm");
+                    }}
+                    className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                      selectedBranchId === branch.id
+                        ? "border-primary/50 bg-primary/5"
+                        : "border-border hover:border-primary/30 hover:bg-muted/30"
+                    }`}
+                  >
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{branch.name}</p>
+                      {branch.address && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{branch.address}</p>
+                      )}
+                    </div>
+                    <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground ml-auto" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Confirm — party size + submit */}
+        {step === "confirm" && selectedShop && selectedBranch && (
+          <div className="space-y-4">
+            {/* Summary */}
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <Scissors className="h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold truncate">{selectedShop.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{selectedBranch.name}</p>
+              </div>
+            </div>
+
+            {/* Party size */}
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                How many people?
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={partySize <= 1}
+                  onClick={() => setPartySize((p) => Math.max(1, p - 1))}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <span className="min-w-[2rem] text-center text-xl font-bold tabular-nums">
+                  {partySize}
+                </span>
+                <button
+                  type="button"
+                  disabled={partySize >= 20}
+                  onClick={() => setPartySize((p) => Math.min(20, p + 1))}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <span className="text-sm text-muted-foreground">
+                  {partySize === 1 ? "person" : "people"}
+                </span>
+              </div>
+            </div>
+
+            {error && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={isPending}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Joining…
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Hash className="h-4 w-4" /> Join Queue
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
+}
+
+// ─── Join Queue Success Banner ───────────────────────────────────────────────
+
+function JoinSuccessBanner({ done, onDismiss }: { done: JoinDone; onDismiss: () => void }) {
+  return (
+    <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/20">
+            <span className="text-lg font-black text-primary">#{done.queueNumber}</span>
+          </div>
+          <div>
+            <p className="font-semibold text-primary">You&apos;re in the queue!</p>
+            <p className="text-sm text-muted-foreground">{done.branchName}</p>
+          </div>
+        </div>
+        <button onClick={onDismiss} className="mt-0.5 text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <Link
+        href={`/queue/${done.ticketId}`}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+      >
+        Track my position <ExternalLink className="h-3.5 w-3.5" />
+      </Link>
+    </div>
+  );
+}
+
+// ─── Main Tabs Component ─────────────────────────────────────────────────────
+
+export function BookingsTabs({ appointments, queueTickets, shops }: Props) {
+  const [activeTab, setActiveTab] = useState<"appointments" | "queue">("appointments");
+  const [showJoinPanel, setShowJoinPanel] = useState(false);
+  const [joinDone, setJoinDone] = useState<JoinDone | null>(null);
   const t = useT();
 
   const upcomingAppts = appointments.filter((a) =>
@@ -271,6 +581,11 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
   const pastTickets = queueTickets.filter(
     (t) => !["waiting", "in_service"].includes(t.status)
   );
+
+  function handleJoined(done: JoinDone) {
+    setJoinDone(done);
+    setShowJoinPanel(false);
+  }
 
   return (
     <div>
@@ -324,18 +639,15 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
         </button>
       </div>
 
-      {/* Appointments panel */}
+      {/* ── Appointments Panel ── */}
       {activeTab === "appointments" && (
         <div className="mt-4 space-y-4">
-          {/* Active queue alert when on appointments tab */}
+          {/* Active queue alert */}
           {activeTickets.length > 0 && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
               <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                {t.bookings.activeTicketsAlert.replace(
-                  "{count}",
-                  String(activeTickets.length)
-                )}
+                {t.bookings.activeTicketsAlert.replace("{count}", String(activeTickets.length))}
                 {activeTickets.length > 1 ? "s" : ""}
               </p>
               <button
@@ -348,14 +660,18 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
             </div>
           )}
 
-          {/* Upcoming */}
+          {/* Upcoming appointments */}
           <div className="rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between px-5 pt-5 pb-2">
               <h2 className="flex items-center gap-2 font-semibold">
                 <CalendarCheck className="h-4 w-4 text-primary" />
                 {t.bookings.upcoming}
               </h2>
-              <Link href="/shops" className="text-xs text-primary hover:underline">
+              <Link
+                href="/shops"
+                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <Plus className="h-3.5 w-3.5" />
                 {t.bookings.newBooking}
               </Link>
             </div>
@@ -382,7 +698,7 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
             )}
           </div>
 
-          {/* History */}
+          {/* Past appointments */}
           {pastAppts.length > 0 && (
             <div className="rounded-xl border border-border bg-card">
               <div className="flex items-center gap-2 px-5 pt-5 pb-2">
@@ -420,18 +736,42 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
         </div>
       )}
 
-      {/* Queue panel */}
+      {/* ── Queue Panel ── */}
       {activeTab === "queue" && (
         <div className="mt-4 space-y-4">
+          {/* Join success */}
+          {joinDone && (
+            <JoinSuccessBanner done={joinDone} onDismiss={() => setJoinDone(null)} />
+          )}
+
+          {/* Join queue panel */}
+          {showJoinPanel && (
+            <JoinQueuePanel
+              shops={shops}
+              onClose={() => setShowJoinPanel(false)}
+              onJoined={handleJoined}
+            />
+          )}
+
           {/* Active tickets */}
           <div className="rounded-xl border border-border bg-card">
-            <div className="flex items-center gap-2 px-5 pt-5 pb-2">
+            <div className="flex items-center justify-between px-5 pt-5 pb-2">
               <h2 className="flex items-center gap-2 font-semibold">
                 <RadioTower className="h-4 w-4 text-primary" />
                 {t.bookings.active}
+                {activeTickets.length > 0 && (
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                )}
               </h2>
-              {activeTickets.length > 0 && (
-                <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+              {!showJoinPanel && (
+                <button
+                  type="button"
+                  onClick={() => setShowJoinPanel(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Join a queue
+                </button>
               )}
             </div>
 
@@ -441,9 +781,15 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
                 <p className="mt-3 text-sm text-muted-foreground">
                   {t.bookings.noActiveQueue}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t.bookings.noActiveQueueDesc}
-                </p>
+                {!showJoinPanel && (
+                  <button
+                    type="button"
+                    onClick={() => setShowJoinPanel(true)}
+                    className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                  >
+                    <Hash className="h-3.5 w-3.5" /> Find & join a walk-in queue
+                  </button>
+                )}
               </div>
             ) : (
               <div className="divide-y divide-border px-5">
@@ -474,13 +820,20 @@ export function BookingsTabs({ appointments, queueTickets }: Props) {
             </div>
           )}
 
-          {queueTickets.length === 0 && (
+          {queueTickets.length === 0 && !showJoinPanel && (
             <div className="rounded-xl border border-dashed border-border py-14 text-center">
               <Hash className="mx-auto h-10 w-10 text-muted-foreground/20" />
               <p className="mt-3 font-medium">{t.bookings.noQueueHistory}</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {t.bookings.noQueueHistoryDesc}
               </p>
+              <button
+                type="button"
+                onClick={() => setShowJoinPanel(true)}
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+              >
+                <Hash className="h-4 w-4" /> Find & join a queue
+              </button>
             </div>
           )}
         </div>

@@ -265,6 +265,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      date-fns-tz:
+        specifier: ^3.2.0
+        version: 3.2.0(date-fns@4.1.0)
       lucide-react:
         specifier: ^0.503.0
         version: 0.503.0(react@19.2.4)

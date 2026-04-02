@@ -26,6 +26,13 @@ type QueueTicket = {
   branches: { name: string; tenants: { name: string; slug: string } | null } | null;
 };
 
+export type ShopForQueue = {
+  id: string;
+  name: string;
+  slug: string;
+  branches: { id: string; name: string; address: string | null }[];
+};
+
 export default async function BookingsPage() {
   const supabase = await createClient();
   const {
@@ -35,15 +42,10 @@ export default async function BookingsPage() {
 
   const admin = createAdminClient();
 
-  const { data: customerAccount } = await (supabase as any)
-    .from("customer_accounts")
-    .select("email")
-    .eq("auth_user_id", user.id)
-    .maybeSingle() as { data: { email: string } | null };
+  // Use user email as the CRM phone identifier (how online bookings are stored)
+  const userEmail = user.email ?? "";
 
-  const userEmail = customerAccount?.email || user.email || "";
-
-  // Resolve all CRM customer IDs linked to this user's email across tenants
+  // Resolve CRM customer IDs linked to this email across tenants
   const { data: crmCustomers } = await admin
     .from("customers")
     .select("id, tenant_id")
@@ -51,7 +53,7 @@ export default async function BookingsPage() {
 
   const crmIds = (crmCustomers ?? []).map((c) => c.id);
 
-  // Fetch all appointments
+  // Fetch appointments through customer_id
   let appointments: Appointment[] = [];
   if (crmIds.length > 0) {
     const { data } = await admin
@@ -65,21 +67,41 @@ export default async function BookingsPage() {
     appointments = data ?? [];
   }
 
-  // Fetch all queue tickets for this user
-  const { data: queueTickets } = await admin
-    .from("queue_tickets")
-    .select(
-      "id, queue_number, status, created_at, notes, branches(name, tenants(name, slug))"
-    )
-    .eq("customer_phone", userEmail)
-    .order("created_at", { ascending: false })
-    .limit(50) as { data: QueueTicket[] | null };
+  // Fetch queue tickets through customer_id (fix: was incorrectly using customer_phone)
+  let queueTickets: QueueTicket[] = [];
+  if (crmIds.length > 0) {
+    const { data } = await admin
+      .from("queue_tickets")
+      .select("id, queue_number, status, created_at, notes, branches(name, tenants(name, slug))")
+      .in("customer_id", crmIds)
+      .order("created_at", { ascending: false })
+      .limit(50) as { data: QueueTicket[] | null };
+    queueTickets = data ?? [];
+  }
+
+  // Load active shops for the inline "Join Queue" flow
+  const { data: tenantsRaw } = await admin
+    .from("tenants")
+    .select("id, name, slug, branches(id, name, address)")
+    .eq("status", "active")
+    .order("name", { ascending: true });
+
+  const shops: ShopForQueue[] = (tenantsRaw ?? [])
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      branches: ((t.branches as { id: string; name: string; address: string | null }[] | null) ?? []).filter(
+        (b) => b.id
+      ),
+    }))
+    .filter((t) => t.branches.length > 0);
 
   const upcomingCount = appointments.filter((a) =>
     ["confirmed", "pending", "in_progress"].includes(a.status)
   ).length;
 
-  const activeQueueCount = (queueTickets ?? []).filter((t) =>
+  const activeQueueCount = queueTickets.filter((t) =>
     ["waiting", "in_service"].includes(t.status)
   ).length;
 
@@ -94,10 +116,10 @@ export default async function BookingsPage() {
             activeQueueCount={activeQueueCount}
           />
 
-          {/* Tabs */}
           <BookingsTabs
             appointments={appointments}
-            queueTickets={queueTickets ?? []}
+            queueTickets={queueTickets}
+            shops={shops}
           />
         </div>
       </main>
