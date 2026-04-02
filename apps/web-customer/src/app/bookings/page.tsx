@@ -42,16 +42,23 @@ export default async function BookingsPage() {
 
   const admin = createAdminClient();
 
-  // Use user email as the CRM phone identifier (how online bookings are stored)
+  // Use user email as the CRM phone identifier (email-as-phone convention for auth users)
   const userEmail = user.email ?? "";
 
-  // Resolve CRM customer IDs linked to this email across tenants
-  const { data: crmCustomers } = await admin
-    .from("customers")
-    .select("id, tenant_id")
-    .eq("phone", userEmail);
+  // Resolve CRM customer IDs: by email-as-phone (check-in + appointments) AND by customer_accounts link
+  const [{ data: crmByEmail }, { data: crmByAccount }] = await Promise.all([
+    admin.from("customers").select("id").eq("phone", userEmail),
+    admin.from("customer_accounts" as any).select("customer_id").eq("auth_user_id", user.id),
+  ]);
 
-  const crmIds = (crmCustomers ?? []).map((c) => c.id);
+  const crmIds = Array.from(
+    new Set([
+      ...(crmByEmail ?? []).map((c: { id: string }) => c.id),
+      ...(crmByAccount ?? [])
+        .map((c: { customer_id: string | null }) => c.customer_id)
+        .filter((id): id is string => !!id),
+    ])
+  );
 
   // Fetch appointments through customer_id
   let appointments: Appointment[] = [];

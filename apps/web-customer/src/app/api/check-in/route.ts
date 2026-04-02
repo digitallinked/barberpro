@@ -5,6 +5,7 @@ import { z } from "zod";
 import { malaysiaPhoneLookupVariants, normalizeMalaysiaMobile } from "@/lib/phone-malaysia";
 import { shopCalendarDateString } from "@/lib/shop-day";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 function isUniqueViolation(err: { code?: string; message?: string }): boolean {
   return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
@@ -57,11 +58,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid or expired check-in link" }, { status: 404 });
   }
 
+  // Detect authenticated user server-side — do NOT trust any auth info from the client body
+  let authUserEmail: string | null = null;
+  try {
+    const sessionClient = await createClient();
+    const { data: { user } } = await sessionClient.auth.getUser();
+    if (user?.email) authUserEmail = user.email;
+  } catch {
+    // Not authenticated or session unavailable — continue as guest
+  }
+
   const trimmedPhone = phone?.trim() ?? "";
-  const useSyntheticPhone = trimmedPhone.length === 0;
-  const storePhone = useSyntheticPhone
-    ? `walk-in-${randomUUID().slice(0, 12)}`
-    : normalizeMalaysiaMobile(trimmedPhone) || trimmedPhone;
+  // Authenticated users: use their email as the customer phone so tickets appear in /bookings.
+  // Guest users: use the provided phone or a synthetic walk-in ID.
+  const useSyntheticPhone = !authUserEmail && trimmedPhone.length === 0;
+  const storePhone = authUserEmail
+    ? authUserEmail
+    : useSyntheticPhone
+      ? `walk-in-${randomUUID().slice(0, 12)}`
+      : normalizeMalaysiaMobile(trimmedPhone) || trimmedPhone;
 
   let customerId: string;
 
