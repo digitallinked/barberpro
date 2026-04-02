@@ -6,12 +6,19 @@ import { z } from "zod";
 import { ALL_ADMIN_ROLES, type AdminRole } from "@/constants/permissions";
 import { requireAccess } from "@/lib/require-access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAdminAction } from "@/lib/audit-log";
 
 const AddStaffSchema = z.object({
   email: z.string().email().trim().toLowerCase(),
   name: z.string().min(1).max(100).trim(),
   role: z.enum(["super_admin", "accounts", "support", "reports_viewer"] as [AdminRole, ...AdminRole[]]),
 });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function adminStaff(supabase: ReturnType<typeof createAdminClient>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase as any).from("admin_staff");
+}
 
 export async function addStaff(formData: FormData) {
   await requireAccess("/staff");
@@ -27,9 +34,8 @@ export async function addStaff(formData: FormData) {
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("admin_staff")
-    .insert({ email: parsed.data.email, name: parsed.data.name, role: parsed.data.role });
+  const { error } = await adminStaff(supabase)
+    .insert({ email: parsed.data.email, name: parsed.data.name, role: parsed.data.role }) as { error: { code: string; message: string } | null };
 
   if (error) {
     if (error.code === "23505") {
@@ -38,6 +44,7 @@ export async function addStaff(formData: FormData) {
     return { error: error.message };
   }
 
+  await logAdminAction({ action: "staff.add", metadata: { email: parsed.data.email, role: parsed.data.role } });
   revalidatePath("/staff");
   return { success: true };
 }
@@ -53,10 +60,9 @@ export async function updateStaffRole(formData: FormData) {
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("admin_staff")
+  const { error } = await adminStaff(supabase)
     .update({ role })
-    .eq("id", id);
+    .eq("id", id) as { error: { message: string } | null };
 
   if (error) return { error: error.message };
 
@@ -73,13 +79,13 @@ export async function toggleStaffActive(formData: FormData) {
   if (!id) return { error: "Invalid input." };
 
   const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("admin_staff")
+  const { error } = await adminStaff(supabase)
     .update({ is_active: !isActive })
-    .eq("id", id);
+    .eq("id", id) as { error: { message: string } | null };
 
   if (error) return { error: error.message };
 
+  await logAdminAction({ action: "staff.toggle", targetId: id, metadata: { is_active: !isActive } });
   revalidatePath("/staff");
   return { success: true };
 }

@@ -3,16 +3,60 @@
 @tailwind utilities;
 
 :root {
+  /* Charcoal base — same family as shop/customer */
   --background: 220 14% 7%;
   --foreground: 210 20% 96%;
+
   --card: 222 15% 10%;
+  --card-foreground: 210 20% 96%;
+
+  --popover: 222 15% 10%;
+  --popover-foreground: 210 20% 96%;
+
   --muted: 222 14% 14%;
-  --muted-foreground: 215 13% 67%;
+  --muted-foreground: 215 13% 60%;
+
   --border: 220 10% 22%;
-  --primary: 145 38% 42%;
-  --primary-foreground: 144 100% 97%;
+  --input: 220 13% 18%;
+  --ring: 225 70% 60%;
+
+  --radius: 0.5rem;
+
+  /* Indigo primary — admin identity (vs shop/customer gold) */
+  --primary: 225 70% 60%;
+  --primary-foreground: 225 100% 97%;
+
+  --secondary: 220 13% 18%;
+  --secondary-foreground: 210 20% 90%;
+
+  --accent: 225 30% 20%;
+  --accent-foreground: 225 70% 85%;
+
+  --destructive: 0 62% 54%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Sidebar — subtly darker than background with indigo tint */
+  --sidebar: 224 18% 8%;
+  --sidebar-foreground: 210 20% 90%;
+  --sidebar-primary: 225 70% 60%;
+  --sidebar-primary-foreground: 225 100% 97%;
+  --sidebar-accent: 225 20% 15%;
+  --sidebar-accent-foreground: 225 50% 85%;
+  --sidebar-border: 220 12% 18%;
+
+  /* Status colors */
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --info: 199 89% 48%;
 }
 
 body {
   @apply bg-background text-foreground antialiased;
+  color-scheme: dark;
 }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--card)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(220 10% 30%); }
