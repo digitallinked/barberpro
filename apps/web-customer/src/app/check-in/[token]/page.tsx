@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 import { CheckInForm } from "./check-in-form";
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 };
 
 export type CheckInService = { id: string; name: string; price: number };
+export type LoggedInUser = { name: string; email: string; phone: string | null };
 
 export default async function CheckInPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -69,6 +71,32 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
       price: Number(s.price ?? 0),
     }));
 
+    // Detect logged-in user and pre-fill their details
+    let loggedInUser: LoggedInUser | null = null;
+    try {
+      const userClient = await createClient();
+      const { data: { user } } = await userClient.auth.getUser();
+      if (user) {
+        const metaName = (user.user_metadata?.full_name as string | undefined) ?? "";
+        const metaPhone = (user.user_metadata?.phone as string | undefined) ?? null;
+        // Try to find their customer record in this tenant for a better name/phone
+        const { data: customerRecord } = await admin
+          .from("customers")
+          .select("full_name, phone")
+          .eq("tenant_id", data.tenant_id)
+          .or(`phone.eq.${user.email ?? ""},phone.eq.${metaPhone ?? ""}`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const name = customerRecord?.full_name || metaName || user.email?.split("@")[0] || "";
+        const rawPhone = customerRecord?.phone ?? metaPhone;
+        const phone = rawPhone && !rawPhone.includes("@") ? rawPhone : null;
+        loggedInUser = { name, email: user.email ?? "", phone };
+      }
+    } catch {
+      // Non-critical — continue as guest if user lookup fails
+    }
+
     return (
       <div className="min-h-screen bg-[#0a0a0a] px-4 py-12">
         <CheckInForm
@@ -76,6 +104,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
           branchId={data.id}
           token={token}
           services={services}
+          loggedInUser={loggedInUser}
         />
       </div>
     );
