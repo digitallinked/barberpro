@@ -50,7 +50,7 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
   const [fullName, setFullName] = useState(loggedInUser?.name ?? "");
   const [partySizeInput, setPartySizeInput] = useState("1");
   const [phone, setPhone] = useState(loggedInUser?.phone ?? "");
-  const [memberServiceIds, setMemberServiceIds] = useState<Record<number, string>>({});
+  const [memberServiceIds, setMemberServiceIds] = useState<Record<number, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -60,19 +60,23 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
 
   useEffect(() => {
     setMemberServiceIds((prev) => {
-      const next: Record<number, string> = {};
+      const next: Record<number, string[]> = {};
       for (let i = 0; i < partySize; i++) {
-        if (prev[i]) next[i] = prev[i];
+        if (prev[i]?.length) next[i] = prev[i];
       }
       return next;
     });
   }, [partySize]);
 
-  function setMemberService(memberIndex: number, serviceId: string) {
-    setMemberServiceIds((prev) => ({
-      ...prev,
-      [memberIndex]: serviceId === prev[memberIndex] ? "" : serviceId,
-    }));
+  function toggleMemberService(memberIndex: number, serviceId: string) {
+    setMemberServiceIds((prev) => {
+      const current = prev[memberIndex] ?? [];
+      const exists = current.includes(serviceId);
+      return {
+        ...prev,
+        [memberIndex]: exists ? current.filter((id) => id !== serviceId) : [...current, serviceId],
+      };
+    });
   }
 
   async function handleSubmit() {
@@ -80,12 +84,16 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
     setSubmitting(true);
 
     const memberServices: MemberServiceSelection[] = Array.from({ length: partySize }, (_, i) => {
-      const serviceId = memberServiceIds[i] ?? "";
-      const service = services.find((s) => s.id === serviceId);
-      return service
-        ? { member_index: i, service_id: serviceId, service_name: service.name, service_price: service.price }
-        : null;
-    }).filter((x): x is MemberServiceSelection => x !== null);
+      const selectedIds = memberServiceIds[i] ?? [];
+      return selectedIds
+        .map((serviceId) => {
+          const service = services.find((s) => s.id === serviceId);
+          return service
+            ? { member_index: i, service_id: serviceId, service_name: service.name, service_price: service.price }
+            : null;
+        })
+        .filter((x): x is MemberServiceSelection => x !== null);
+    }).flat();
 
     try {
       const res = await fetch("/api/check-in", {
@@ -382,39 +390,54 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
 
         {/* ── Service Picker ── */}
         {hasServices && Array.from({ length: partySize }, (_, memberIndex) => {
-          const selectedId = memberServiceIds[memberIndex] ?? "";
-          const label = partySize === 1 ? "Choose a Service" : `Person ${memberIndex + 1}`;
-          const hint = partySize === 1
-            ? "What are you getting today?"
-            : memberIndex === 0
-              ? "What service are you getting today?"
-              : `What service is person ${memberIndex + 1} getting?`;
+          const selectedIds = memberServiceIds[memberIndex] ?? [];
+          const label = partySize === 1 ? "Services" : `Person ${memberIndex + 1} — Services`;
+          const totalPrice = selectedIds.reduce((sum, id) => {
+            const s = services.find((sv) => sv.id === id);
+            return sum + (s?.price ?? 0);
+          }, 0);
 
           return (
             <div key={memberIndex} className="rounded-2xl border border-white/10 bg-[#141414] p-6 shadow-xl">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1">{label}</p>
-              <p className="text-xs text-gray-600 mb-4">{hint}</p>
+              <div className="flex items-start justify-between mb-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{label}</p>
+                {selectedIds.length > 0 && (
+                  <span className="text-[11px] font-bold text-[#D4AF37]">
+                    {selectedIds.length} selected · RM {totalPrice.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 mb-4">
+                {partySize === 1
+                  ? "Pick one or more — e.g. Haircut + Beard Trim"
+                  : memberIndex === 0
+                    ? "Pick your services — you can select multiple"
+                    : `Pick services for person ${memberIndex + 1}`}
+              </p>
 
               <div className="grid grid-cols-2 gap-2">
                 {services.map((s) => {
-                  const isSelected = selectedId === s.id;
+                  const isSelected = selectedIds.includes(s.id);
                   return (
                     <button
                       key={s.id}
                       type="button"
-                      onClick={() => setMemberService(memberIndex, s.id)}
-                      className={`relative flex flex-col rounded-xl border p-3.5 text-left transition ${
+                      onClick={() => toggleMemberService(memberIndex, s.id)}
+                      className={`relative flex flex-col rounded-xl border p-3.5 text-left transition active:scale-[0.98] ${
                         isSelected
-                          ? "border-[#D4AF37]/60 bg-[#D4AF37]/10"
+                          ? "border-[#D4AF37]/60 bg-[#D4AF37]/10 shadow-sm shadow-[#D4AF37]/10"
                           : "border-white/10 bg-[#0a0a0a] hover:border-white/20"
                       }`}
                     >
-                      {isSelected && (
-                        <span className="absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#D4AF37]">
-                          <Check className="h-2.5 w-2.5 text-[#111]" strokeWidth={3} />
-                        </span>
-                      )}
-                      <p className={`text-sm font-bold leading-snug ${isSelected ? "text-[#D4AF37]" : "text-white"}`}>
+                      {/* Checkbox indicator */}
+                      <span className={`absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded border transition ${
+                        isSelected
+                          ? "border-[#D4AF37] bg-[#D4AF37]"
+                          : "border-white/20 bg-transparent"
+                      }`}>
+                        {isSelected && <Check className="h-2.5 w-2.5 text-[#111]" strokeWidth={3.5} />}
+                      </span>
+                      <p className={`pr-5 text-sm font-bold leading-snug ${isSelected ? "text-[#D4AF37]" : "text-white"}`}>
                         {s.name}
                       </p>
                       <p className={`mt-1 text-xs font-medium ${isSelected ? "text-[#D4AF37]/70" : "text-gray-500"}`}>
@@ -425,10 +448,18 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
                 })}
               </div>
 
-              {!selectedId && (
-                <p className="mt-2.5 text-[11px] text-gray-600">
+              {selectedIds.length === 0 && (
+                <p className="mt-3 text-[11px] text-gray-600">
                   Optional — skip if unsure
                 </p>
+              )}
+              {selectedIds.length > 1 && (
+                <div className="mt-3 flex items-center gap-1.5">
+                  <Check className="h-3 w-3 text-emerald-400" strokeWidth={3} />
+                  <p className="text-[11px] text-emerald-400/70">
+                    {selectedIds.length} services · total RM {totalPrice.toFixed(2)}
+                  </p>
+                </div>
               )}
             </div>
           );
