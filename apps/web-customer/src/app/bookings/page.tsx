@@ -82,17 +82,18 @@ export default async function BookingsPage() {
   // Load active shops for the inline "Join Queue" flow
   const { data: tenantsRaw } = await admin
     .from("tenants")
-    .select("id, name, slug, branches(id, name, address)")
+    .select("id, name, slug, branches(id, name, address, accepts_walkin_queue)")
     .eq("status", "active")
     .order("name", { ascending: true });
 
+  type RawBranch = { id: string; name: string; address: string | null; accepts_walkin_queue: boolean };
   const shops: ShopForQueue[] = (tenantsRaw ?? [])
     .map((t) => ({
       id: t.id,
       name: t.name,
       slug: t.slug,
-      branches: ((t.branches as { id: string; name: string; address: string | null }[] | null) ?? []).filter(
-        (b) => b.id
+      branches: ((t.branches as RawBranch[] | null) ?? []).filter(
+        (b) => b.id && b.accepts_walkin_queue
       ),
     }))
     .filter((t) => t.branches.length > 0);

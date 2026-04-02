@@ -82,15 +82,18 @@ export async function joinQueueAsCustomerAction(
 
     const admin = createAdminClient();
 
-    // Verify branch exists and is active
+    // Verify branch exists, is active, and accepts walk-in queue
     const { data: branch } = await admin
       .from("branches")
-      .select("id, name, tenant_id")
+      .select("id, name, tenant_id, accepts_walkin_queue")
       .eq("id", branchId)
       .eq("is_active", true)
       .maybeSingle();
 
     if (!branch) return { success: false, error: "Branch not found or inactive" };
+    if (!branch.accepts_walkin_queue) {
+      return { success: false, error: "This branch is not accepting walk-in customers at this time." };
+    }
 
     // Find or create customer record for this tenant (email stored as phone for web users)
     let { data: customer } = await admin

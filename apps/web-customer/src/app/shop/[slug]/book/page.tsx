@@ -42,7 +42,7 @@ export default async function BookPage({ params }: Props) {
       .eq("tenant_id", tenant.id),
     admin
       .from("branches")
-      .select("id, name")
+      .select("id, name, accepts_online_bookings, accepts_walkin_queue")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("is_hq", { ascending: false }),
@@ -50,18 +50,28 @@ export default async function BookPage({ params }: Props) {
 
   const services = servicesResult.data ?? [];
   const staff = staffResult.data ?? [];
-  const branches = branchesResult.data ?? [];
+  const branches = (branchesResult.data ?? []).filter((b) => b.accepts_online_bookings);
 
-  if (services.length === 0 || branches.length === 0) {
+  // Check if any branch accepts online bookings
+  const allBranchesRaw = branchesResult.data ?? [];
+  const walkinOnlyBranches = allBranchesRaw.filter((b) => !b.accepts_online_bookings && b.accepts_walkin_queue);
+  const bookingDisabled = branches.length === 0;
+
+  if (services.length === 0 || bookingDisabled) {
+    const isWalkinOnly = walkinOnlyBranches.length > 0;
     return (
       <div className="flex min-h-screen flex-col">
         <Navbar />
         <div className="flex flex-1 items-center justify-center px-6">
           <div className="max-w-sm text-center">
             <Scissors className="mx-auto h-12 w-12 text-muted-foreground/30" />
-            <h1 className="mt-4 text-2xl font-bold">Booking Unavailable</h1>
+            <h1 className="mt-4 text-2xl font-bold">
+              {isWalkinOnly ? "Walk-ins Only" : "Booking Unavailable"}
+            </h1>
             <p className="mt-2 text-muted-foreground">
-              This shop hasn&apos;t set up services yet.
+              {isWalkinOnly
+                ? `${tenant.name} currently only accepts walk-in customers. Visit the shop and scan the QR code to join the queue.`
+                : "This shop hasn't set up online booking yet."}
             </p>
             <Link
               href={`/shop/${slug}`}

@@ -11,7 +11,7 @@ export async function getBranches(
   const { data, error } = await client
     .from("branches")
     .select(
-      "id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at, checkin_token"
+      "id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at, checkin_token, accepts_online_bookings, accepts_walkin_queue"
     )
     .eq("tenant_id", tenantId)
     .order("is_hq", { ascending: false })
@@ -27,7 +27,7 @@ export async function getBranch(
   const { data, error } = await client
     .from("branches")
     .select(
-      "id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at, checkin_token"
+      "id, name, code, address, phone, email, is_active, is_hq, operating_hours, tenant_id, created_at, updated_at, checkin_token, accepts_online_bookings, accepts_walkin_queue"
     )
     .eq("id", id)
     .single();

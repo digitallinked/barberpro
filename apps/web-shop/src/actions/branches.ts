@@ -92,6 +92,34 @@ export async function updateBranch(id: string, formData: FormData) {
   }
 }
 
+export async function updateBranchMode(
+  id: string,
+  acceptsOnlineBookings: boolean,
+  acceptsWalkinQueue: boolean
+) {
+  try {
+    const { supabase, tenantId } = await getAuthContext();
+
+    const { error } = await supabase
+      .from("branches")
+      .update({
+        accepts_online_bookings: acceptsOnlineBookings,
+        accepts_walkin_queue: acceptsWalkinQueue,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/branches");
+    revalidatePath(`/branches/${id}`);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 export async function deleteBranch(id: string) {
   try {
     const { supabase, tenantId } = await getAuthContext();

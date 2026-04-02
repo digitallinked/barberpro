@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight } from "lucide-react";
+import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight, Hash, Ban } from "lucide-react";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
@@ -27,10 +27,10 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
 
   if (!tenant) notFound();
 
-  const [branchesResult, servicesResult, staffResult] = await Promise.all([
+  const [branchesResult, servicesResult, staffResult, queueResult] = await Promise.all([
     supabase
       .from("branches")
-      .select("id, name, address, operating_hours")
+      .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true),
     supabase
@@ -43,11 +43,23 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
       .from("staff_profiles")
       .select("id, user_id, app_users(full_name)")
       .eq("tenant_id", tenant.id),
+    supabase
+      .from("queue_tickets")
+      .select("id, status, branch_id", { count: "exact", head: false })
+      .eq("tenant_id", tenant.id)
+      .in("status", ["waiting", "in_service"])
+      .limit(1),
   ]);
 
   const branches = branchesResult.data ?? [];
   const services = servicesResult.data ?? [];
   const staff = staffResult.data ?? [];
+  const activeQueueCount = queueResult.count ?? 0;
+
+  // Determine shop-level mode from primary branch
+  const primaryBranch = branches[0];
+  const acceptsBookings = branches.some((b) => b.accepts_online_bookings);
+  const acceptsWalkin = branches.some((b) => b.accepts_walkin_queue);
 
   // Determine if shop is open today based on operating_hours
   function getTodayHours(operatingHours: unknown): string | null {
@@ -104,8 +116,8 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" /> {services.length} services
                 </span>
-                {branches[0] && (() => {
-                  const todayHours = getTodayHours(branches[0].operating_hours);
+                {primaryBranch && (() => {
+                  const todayHours = getTodayHours(primaryBranch.operating_hours);
                   return todayHours ? (
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-4 w-4 text-primary" />
@@ -116,15 +128,50 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
                   ) : null;
                 })()}
               </div>
+
+              {/* Mode + queue badges */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {acceptsBookings ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <CalendarCheck className="h-3 w-3" /> Online Booking
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground line-through">
+                    <Ban className="h-3 w-3" /> No Online Booking
+                  </span>
+                )}
+                {acceptsWalkin ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <Hash className="h-3 w-3" /> Walk-in Queue
+                    {activeQueueCount > 0 && (
+                      <span className="ml-1 flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                        {activeQueueCount} in queue
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground line-through">
+                    <Ban className="h-3 w-3" /> No Walk-ins
+                  </span>
+                )}
+              </div>
             </div>
 
-            <Link
-              href={`/shop/${slug}/book`}
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:self-start"
-            >
-              <CalendarCheck className="h-4 w-4" />
-              Book Appointment
-            </Link>
+            {acceptsBookings ? (
+              <Link
+                href={`/shop/${slug}/book`}
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:self-start"
+              >
+                <CalendarCheck className="h-4 w-4" />
+                Book Appointment
+              </Link>
+            ) : (
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-muted px-6 py-3 font-semibold text-muted-foreground sm:self-start cursor-not-allowed">
+                <Ban className="h-4 w-4" />
+                Booking Unavailable
+              </span>
+            )}
           </div>
 
           {/* Services */}
@@ -215,18 +262,53 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
             </div>
           )}
 
-          {/* Book CTA */}
+          {/* CTA */}
           <div className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
-            <h3 className="text-lg font-semibold">Ready to book?</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Secure your spot at {tenant.name} in just a few taps.
-            </p>
-            <Link
-              href={`/shop/${slug}/book`}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              Book Now <ArrowRight className="h-4 w-4" />
-            </Link>
+            {acceptsBookings && acceptsWalkin ? (
+              <>
+                <h3 className="text-lg font-semibold">Ready to visit?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Book an appointment or walk in and join the queue.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                  <Link
+                    href={`/shop/${slug}/book`}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    <CalendarCheck className="h-4 w-4" /> Book Appointment
+                  </Link>
+                  <span className="text-sm text-muted-foreground">or walk in & scan QR</span>
+                </div>
+              </>
+            ) : acceptsBookings ? (
+              <>
+                <h3 className="text-lg font-semibold">Book your appointment</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {tenant.name} accepts appointments only — no walk-ins.
+                </p>
+                <Link
+                  href={`/shop/${slug}/book`}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  Book Now <ArrowRight className="h-4 w-4" />
+                </Link>
+              </>
+            ) : acceptsWalkin ? (
+              <>
+                <h3 className="text-lg font-semibold">Walk-ins welcome</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {tenant.name} only accepts walk-in customers. Visit the shop and scan the QR code to join the queue.
+                  {activeQueueCount > 0 && ` There ${activeQueueCount === 1 ? "is" : "are"} currently ${activeQueueCount} customer${activeQueueCount === 1 ? "" : "s"} in queue.`}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold">Currently closed to new customers</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  This shop is not accepting bookings or walk-ins right now. Please check back later.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </main>

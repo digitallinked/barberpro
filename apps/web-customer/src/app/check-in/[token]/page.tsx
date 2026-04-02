@@ -25,10 +25,36 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
     const admin = createAdminClient();
     const { data } = await admin
       .from("branches")
-      .select("id, name, tenant_id")
+      .select("id, name, tenant_id, accepts_walkin_queue, accepts_online_bookings")
       .eq("checkin_token", token)
       .maybeSingle();
     if (!data?.name) notFound();
+
+    // Branch has disabled walk-in queue
+    if (!data.accepts_walkin_queue) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-4 text-center">
+          <div className="mx-auto max-w-sm">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
+              <span className="text-3xl">📅</span>
+            </div>
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-2">Appointments Only</p>
+            <h1 className="text-2xl font-black text-white">{data.name}</h1>
+            <p className="mt-3 text-sm text-gray-400">
+              This branch is currently not accepting walk-in customers. Please book an appointment online instead.
+            </p>
+            {data.accepts_online_bookings && (
+              <a
+                href={`/shops`}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-6 py-3 text-sm font-bold text-[#111]"
+              >
+                Book an Appointment
+              </a>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     const { data: servicesRaw } = await admin
       .from("services")

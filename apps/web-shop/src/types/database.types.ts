@@ -215,6 +215,8 @@ export type Database = {
       }
       branches: {
         Row: {
+          accepts_online_bookings: boolean
+          accepts_walkin_queue: boolean
           address: string | null
           checkin_token: string | null
           code: string
@@ -230,6 +232,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepts_online_bookings?: boolean
+          accepts_walkin_queue?: boolean
           address?: string | null
           checkin_token?: string | null
           code: string
@@ -245,6 +249,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepts_online_bookings?: boolean
+          accepts_walkin_queue?: boolean
           address?: string | null
           checkin_token?: string | null
           code?: string

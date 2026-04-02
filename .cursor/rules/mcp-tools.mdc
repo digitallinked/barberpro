@@ -1,0 +1,49 @@
+---
+description: When and how to use MCP tools for Supabase, Stripe, and Vercel
+alwaysApply: true
+---
+
+# MCP Tools — Supabase, Stripe & Vercel
+
+Four MCP servers are available in this project. Prefer MCP tools over manual CLI commands or reading docs, as they provide live data directly.
+
+## Available Servers
+
+| Server identifier | Service | Use for |
+|---|---|---|
+| `project-0-barberpro-supabase` | Supabase (project-scoped) | Inspecting tables, running queries, checking RLS policies, managing migrations for the BarberPro Supabase project |
+| `plugin-supabase-supabase` | Supabase (plugin) | Broader Supabase platform operations |
+| `plugin-stripe-stripe` | Stripe | Inspecting customers, products, prices, subscriptions, and webhooks |
+| `plugin-vercel-vercel` | Vercel | Inspecting deployments, environment variables, domains, logs |
+
+## How to Call MCP Tools
+
+**Always read the tool's schema before calling it:**
+
+```
+mcps/<server-identifier>/tools/<tool-name>.json
+```
+
+Then call it with `CallMcpTool`:
+
+```typescript
+// Example: list Supabase tables
+CallMcpTool({
+  server: "project-0-barberpro-supabase",
+  toolName: "list_tables",
+  arguments: { schema: "public" }
+})
+```
+
+## When to Use Each Server
+
+- **Database schema / queries / RLS** → `project-0-barberpro-supabase`
+- **Stripe products, prices, subscriptions** → `plugin-stripe-stripe`
+- **Vercel deployments, env vars, logs** → `plugin-vercel-vercel`
+- **Supabase platform-level ops** → `plugin-supabase-supabase`
+
+## Workflow
+
+1. List available tools: `ls mcps/<server>/tools/`
+2. Read schema: `Read mcps/<server>/tools/<tool>.json`
+3. Call tool: `CallMcpTool({ server, toolName, arguments })`
