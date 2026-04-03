@@ -29,24 +29,25 @@ export default async function QueuePage({ params }: Props) {
 
   const tenantName = (branch?.tenants as { name: string; slug: string } | null)?.name ?? "Barbershop";
   const tenantSlug = (branch?.tenants as { name: string; slug: string } | null)?.slug ?? "";
+  const branchName = branch?.name ?? "";
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[#0a0a0a]">
       {/* Minimal header */}
-      <header className="border-b border-border/60 px-6 py-4">
+      <header className="border-b border-white/8 px-6 py-4">
         <div className="mx-auto flex max-w-sm items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-              <Scissors className="h-3.5 w-3.5 text-primary-foreground" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#D4AF37]">
+              <Scissors className="h-3.5 w-3.5 text-[#111]" />
             </div>
-            <span className="text-sm font-bold">
-              BarberPro<span className="text-primary">.my</span>
+            <span className="text-sm font-bold text-white">
+              BarberPro<span className="text-[#D4AF37]">.my</span>
             </span>
           </Link>
           {tenantSlug && (
             <Link
               href={`/shop/${tenantSlug}`}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="text-xs text-gray-500 hover:text-gray-300 transition"
             >
               {tenantName} →
             </Link>
@@ -54,20 +55,19 @@ export default async function QueuePage({ params }: Props) {
         </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-6 py-12">
+      <main className="flex flex-1 items-start justify-center px-6 py-10">
         <div className="w-full max-w-sm">
-          <div className="text-center">
-            <p className="text-lg font-bold">{tenantName}</p>
-            <p className="text-sm text-muted-foreground">{branch?.name ?? ""}</p>
+          <div className="mb-1 text-center">
+            <p className="text-base font-bold text-white">{tenantName}</p>
+            <p className="text-sm text-gray-500">{branchName}</p>
           </div>
 
           <QueueTracker
             ticketId={ticket.id}
-            initialQueueNumber={Number(ticket.queue_number)}
+            queueNumber={ticket.queue_number}
             initialStatus={ticket.status}
             branchId={ticket.branch_id}
-            supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL!}
-            supabaseAnonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}
+            branchName={branchName}
           />
         </div>
       </main>

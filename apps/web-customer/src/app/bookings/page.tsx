@@ -17,22 +17,6 @@ type Appointment = {
   staff_profiles: { app_users: { full_name: string } | null } | null;
 };
 
-type QueueTicket = {
-  id: string;
-  queue_number: number | string;
-  status: string;
-  created_at: string;
-  notes: string | null;
-  branches: { name: string; tenants: { name: string; slug: string } | null } | null;
-};
-
-export type ShopForQueue = {
-  id: string;
-  name: string;
-  slug: string;
-  branches: { id: string; name: string; address: string | null }[];
-};
-
 export default async function BookingsPage() {
   const supabase = await createClient();
   const {
@@ -41,18 +25,15 @@ export default async function BookingsPage() {
   if (!user) redirect("/login?next=/bookings");
 
   const admin = createAdminClient();
-
-  // Use user email as the CRM phone identifier (email-as-phone convention for auth users)
   const userEmail = user.email ?? "";
 
-  // Resolve CRM customer IDs: by email-as-phone (check-in + appointments) AND by customer_accounts link
+  // Resolve CRM customer IDs
   const [{ data: crmByEmail }, { data: crmByAccountRaw }] = await Promise.all([
     admin.from("customers").select("id").eq("phone", userEmail),
     (admin as any).from("customer_accounts").select("customer_id").eq("auth_user_id", user.id),
   ]);
 
   const crmByAccount = crmByAccountRaw as Array<{ customer_id: string | null }> | null;
-
   const crmIds = Array.from(
     new Set([
       ...(crmByEmail ?? []).map((c: { id: string }) => c.id),
@@ -62,7 +43,6 @@ export default async function BookingsPage() {
     ])
   );
 
-  // Fetch appointments through customer_id
   let appointments: Appointment[] = [];
   if (crmIds.length > 0) {
     const { data } = await admin
@@ -76,43 +56,8 @@ export default async function BookingsPage() {
     appointments = data ?? [];
   }
 
-  // Fetch queue tickets through customer_id (fix: was incorrectly using customer_phone)
-  let queueTickets: QueueTicket[] = [];
-  if (crmIds.length > 0) {
-    const { data } = await admin
-      .from("queue_tickets")
-      .select("id, queue_number, status, created_at, notes, branches(name, tenants(name, slug))")
-      .in("customer_id", crmIds)
-      .order("created_at", { ascending: false })
-      .limit(50) as { data: QueueTicket[] | null };
-    queueTickets = data ?? [];
-  }
-
-  // Load active shops for the inline "Join Queue" flow
-  const { data: tenantsRaw } = await admin
-    .from("tenants")
-    .select("id, name, slug, branches(id, name, address, accepts_walkin_queue)")
-    .eq("status", "active")
-    .order("name", { ascending: true });
-
-  type RawBranch = { id: string; name: string; address: string | null; accepts_walkin_queue: boolean };
-  const shops: ShopForQueue[] = (tenantsRaw ?? [])
-    .map((t) => ({
-      id: t.id,
-      name: t.name,
-      slug: t.slug,
-      branches: ((t.branches as RawBranch[] | null) ?? []).filter(
-        (b) => b.id && b.accepts_walkin_queue
-      ),
-    }))
-    .filter((t) => t.branches.length > 0);
-
   const upcomingCount = appointments.filter((a) =>
     ["confirmed", "pending", "in_progress"].includes(a.status)
-  ).length;
-
-  const activeQueueCount = queueTickets.filter((t) =>
-    ["waiting", "in_service"].includes(t.status)
   ).length;
 
   return (
@@ -121,16 +66,8 @@ export default async function BookingsPage() {
 
       <main className="flex-1 px-4 py-8 pb-24 sm:px-6">
         <div className="mx-auto max-w-2xl space-y-6">
-          <BookingsHeader
-            upcomingCount={upcomingCount}
-            activeQueueCount={activeQueueCount}
-          />
-
-          <BookingsTabs
-            appointments={appointments}
-            queueTickets={queueTickets}
-            shops={shops}
-          />
+          <BookingsHeader upcomingCount={upcomingCount} />
+          <BookingsTabs appointments={appointments} />
         </div>
       </main>
 

@@ -2,8 +2,8 @@
 
 import { ChevronDown, ChevronUp, Scissors, Check, User, LogIn, UserPlus, ChevronRight, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { CheckInService, LoggedInUser } from "./page";
-import { QueueJoinedSheet } from "./queue-joined-sheet";
 import { setActiveQueue } from "@/lib/active-queue";
 
 function clampPartySize(n: number): number {
@@ -34,11 +34,6 @@ type Props = {
   loggedInUser: LoggedInUser | null;
 };
 
-type Done = {
-  ticket_id: string;
-  queue_number: string;
-};
-
 export type MemberServiceSelection = {
   member_index: number;
   service_id: string;
@@ -47,6 +42,7 @@ export type MemberServiceSelection = {
 };
 
 export function CheckInForm({ branchName, branchId, token, services, loggedInUser }: Props) {
+  const router = useRouter();
   const [screen, setScreen] = useState<Screen>(loggedInUser ? "form" : "auth-choice");
   const [fullName, setFullName] = useState(loggedInUser?.name ?? "");
   const [partySizeInput, setPartySizeInput] = useState("1");
@@ -54,7 +50,6 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
   const [memberServiceIds, setMemberServiceIds] = useState<Record<number, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<Done | null>(null);
   const [editingDetails, setEditingDetails] = useState(false);
 
   const partySize = clampPartySize(parsedPartySize(partySizeInput) || 1);
@@ -120,7 +115,7 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
         return;
       }
       if (data.ticket_id && data.queue_number) {
-        // Persist to localStorage so the global banner can track this across pages
+        // Persist to localStorage so the global banner tracks this across pages
         setActiveQueue({
           ticketId: data.ticket_id,
           queueNumber: data.queue_number,
@@ -128,7 +123,9 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
           branchName,
           storedAt: Date.now(),
         });
-        setDone({ ticket_id: data.ticket_id, queue_number: data.queue_number });
+        // Redirect to the permanent queue status page — bookmarkable, works after closing browser
+        router.push(`/queue/${data.ticket_id}`);
+        return;
       }
     } catch {
       setError("Network error. Please try again.");
@@ -140,14 +137,6 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
   if (screen === "auth-choice") {
     return (
       <>
-      {done && (
-        <QueueJoinedSheet
-          queueNumber={done.queue_number}
-          branchName={branchName}
-          branchId={branchId}
-          ticketId={done.ticket_id}
-        />
-      )}
       <div className="mx-auto max-w-md">
         {/* Hero */}
         <div className="mb-10 text-center">
@@ -235,14 +224,6 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
 
   return (
     <>
-    {done && (
-      <QueueJoinedSheet
-        queueNumber={done.queue_number}
-        branchName={branchName}
-        branchId={branchId}
-        ticketId={done.ticket_id}
-      />
-    )}
     <div className="mx-auto max-w-md">
       {/* Hero */}
       <div className="mb-8 text-center">

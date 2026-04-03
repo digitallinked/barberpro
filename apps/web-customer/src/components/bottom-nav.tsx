@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BookMarked,
   CalendarClock,
+  Hash,
   Home,
   LogIn,
   LogOut,
@@ -69,6 +70,7 @@ function MoreSheet({
         <div className="grid grid-cols-4 gap-1 px-3 pb-3">
           {[
             { label: t.more.plus, href: "/subscription", icon: Star, gold: true },
+            { label: t.nav.styles, href: "/styles", icon: Sparkles, gold: false },
             { label: t.more.articles, href: "/blog", icon: Newspaper, gold: false },
             { label: t.more.guides, href: "/how-it-works", icon: BookMarked, gold: false },
             { label: t.more.settings, href: "/settings", icon: Settings, gold: false },
@@ -163,7 +165,7 @@ export function BottomNav({ isLoggedIn, customerName }: Props) {
   const TABS = [
     { label: t.nav.home, href: "/", icon: Home },
     { label: t.nav.findShops, href: "/shops", icon: Search },
-    { label: t.nav.styles, href: "/styles", icon: Sparkles },
+    { label: t.nav.queue, href: "/queue", icon: Hash },
     { label: t.nav.bookings, href: "/bookings", icon: CalendarClock },
   ] as const;
 

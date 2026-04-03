@@ -60,7 +60,7 @@ function CalledOverlay({
 
   function handleGo() {
     onDismiss();
-    router.push("/bookings");
+    router.push(`/queue/${ticket.ticketId}`);
   }
 
   return (
@@ -233,10 +233,10 @@ export function ActiveQueueBanner() {
             </span>
           )}
 
-          {/* Tap to go to bookings */}
+          {/* Tap to go to queue status page */}
           <button
             type="button"
-            onClick={() => router.push("/bookings")}
+            onClick={() => router.push(`/queue/${ticket.ticketId}`)}
             className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
           >
             <span

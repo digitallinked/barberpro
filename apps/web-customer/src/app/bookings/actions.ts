@@ -152,6 +152,7 @@ export async function joinQueueAsCustomerAction(
 
       if (!ticketError && ticket) {
         revalidatePath("/bookings");
+        revalidatePath("/queue");
         return {
           success: true,
           ticketId: ticket.id,
