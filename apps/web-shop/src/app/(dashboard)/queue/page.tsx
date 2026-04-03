@@ -84,8 +84,27 @@ function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
   const params = new URLSearchParams();
   params.set("queue_ticket_id", ticket.id);
   if (ticket.customer_id) params.set("customer_id", ticket.customer_id);
-  if (ticket.service_id) params.set("service_id", ticket.service_id);
   if (ticket.assigned_staff_id) params.set("staff_id", ticket.assigned_staff_id);
+
+  // Collect all service IDs to pre-fill in POS:
+  // For group tickets use seated members' services + extra check-in services.
+  // For single-person tickets use check-in member_services (supports multiple), fallback to ticket.service_id.
+  const serviceIds = new Set<string>();
+  if (ticket.ticket_seats.length > 0) {
+    for (const seat of ticket.ticket_seats) {
+      if (seat.service_id) serviceIds.add(seat.service_id);
+    }
+    // Extra services from check-in that weren't stored in a seat row
+    for (const ms of ticket.member_services) {
+      if (!serviceIds.has(ms.service_id)) serviceIds.add(ms.service_id);
+    }
+  } else if (ticket.member_services.length > 0) {
+    for (const ms of ticket.member_services) serviceIds.add(ms.service_id);
+  } else if (ticket.service_id) {
+    serviceIds.add(ticket.service_id);
+  }
+  for (const id of serviceIds) params.append("service_id", id);
+
   return `/pos?${params.toString()}`;
 }
 

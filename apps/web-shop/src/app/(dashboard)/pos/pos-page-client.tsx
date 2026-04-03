@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Smartphone,
+  Ticket,
   Trash2,
   User,
   Wallet,
@@ -27,11 +28,13 @@ import {
   useInventoryItems,
   useStaffMembers,
   useCustomers,
+  useQueueTickets,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { createTransaction } from "@/actions/pos";
 import { useT } from "@/lib/i18n/language-context";
 import { SST_RATE } from "@/lib/malaysian-tax";
+import type { QueueTicketWithRelations } from "@/services/queue";
 
 type CartItem = {
   id: string;
@@ -345,12 +348,19 @@ export function PosPageClient() {
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
   const { data: staffData } = useStaffMembers();
   const { data: customersData } = useCustomers();
+  const { data: queueData } = useQueueTickets();
 
   const services = servicesData?.data ?? [];
   const categories = categoriesData?.data ?? [];
   const inventoryItems = inventoryData?.data ?? [];
   const staffMembers = staffData?.data ?? [];
   const customers = customersData?.data ?? [];
+
+  // Active queue tickets the staff can pick from
+  const activeQueueTickets = useMemo(
+    () => (queueData?.data ?? []).filter((q) => ["waiting", "in_service"].includes(q.status)),
+    [queueData]
+  );
 
   const products = useMemo(
     () => inventoryItems.filter((i) => i.item_type === "retail" && i.is_active && (i.sell_price ?? 0) > 0),
@@ -370,11 +380,76 @@ export function PosPageClient() {
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [prefillApplied, setPrefillApplied] = useState(false);
+  const [linkedQueueTicketId, setLinkedQueueTicketId] = useState<string | null>(
+    searchParams.get("queue_ticket_id")
+  );
+  const [queueDropdownOpen, setQueueDropdownOpen] = useState(false);
+  const queueDropdownRef = useRef<HTMLDivElement>(null);
 
-  const queueTicketId = searchParams.get("queue_ticket_id");
+  const urlQueueTicketId = searchParams.get("queue_ticket_id");
   const prefillCustomerId = searchParams.get("customer_id");
-  const prefillServiceId = searchParams.get("service_id");
+  const prefillServiceIds = searchParams.getAll("service_id");
   const prefillStaffId = searchParams.get("staff_id");
+
+  // Close queue dropdown on outside click
+  useEffect(() => {
+    function close(e: MouseEvent) {
+      if (queueDropdownRef.current && !queueDropdownRef.current.contains(e.target as Node))
+        setQueueDropdownOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  /** Build cart items from a queue ticket's services without needing a separate lookup. */
+  function cartItemsFromTicket(ticket: QueueTicketWithRelations): CartItem[] {
+    const items: CartItem[] = [];
+    const seen = new Set<string>();
+    if (ticket.ticket_seats.length > 0) {
+      for (const seat of ticket.ticket_seats) {
+        if (seat.service_id && seat.service && !seen.has(seat.service_id)) {
+          seen.add(seat.service_id);
+          items.push({ id: seat.service_id, name: seat.service.name, price: seat.service.price, qty: 1, type: "service", serviceId: seat.service_id });
+        }
+      }
+      for (const ms of ticket.member_services) {
+        if (!seen.has(ms.service_id)) {
+          seen.add(ms.service_id);
+          items.push({ id: ms.service_id, name: ms.service_name, price: ms.service_price, qty: 1, type: "service", serviceId: ms.service_id });
+        }
+      }
+    } else if (ticket.member_services.length > 0) {
+      for (const ms of ticket.member_services) {
+        if (!seen.has(ms.service_id)) {
+          seen.add(ms.service_id);
+          items.push({ id: ms.service_id, name: ms.service_name, price: ms.service_price, qty: 1, type: "service", serviceId: ms.service_id });
+        }
+      }
+    } else if (ticket.service_id && ticket.service) {
+      items.push({ id: ticket.service_id, name: ticket.service.name, price: ticket.service.price, qty: 1, type: "service", serviceId: ticket.service_id });
+    }
+    return items;
+  }
+
+  function applyQueueTicket(ticket: QueueTicketWithRelations) {
+    setLinkedQueueTicketId(ticket.id);
+    if (ticket.customer_id) setSelectedCustomer(ticket.customer_id);
+    if (ticket.assigned_staff_id) {
+      const idx = barbers.findIndex((b) => b.staff_profile_id === ticket.assigned_staff_id);
+      if (idx >= 0) setSelectedBarber(idx);
+    }
+    const serviceItems = cartItemsFromTicket(ticket);
+    setCart((prev) => {
+      // Keep any manually added products, merge/replace services
+      const products = prev.filter((i) => i.type === "product");
+      return [...products, ...serviceItems];
+    });
+    setQueueDropdownOpen(false);
+  }
+
+  function clearQueueLink() {
+    setLinkedQueueTicketId(null);
+  }
 
   const filteredCustomers = useMemo(
     () =>
@@ -410,11 +485,12 @@ export function PosPageClient() {
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomer);
   const selectedCustomerName = selectedCustomerObj?.full_name ?? "Walk-in";
 
+  // URL-param prefill (when navigating from queue dashboard "Proceed to payment")
   useEffect(() => {
     if (prefillApplied) return;
     if (prefillCustomerId && !customersData) return;
     if (prefillStaffId && !staffData) return;
-    if (prefillServiceId && !servicesData) return;
+    if (prefillServiceIds.length > 0 && !servicesData) return;
 
     if (prefillCustomerId && customers.some((c) => c.id === prefillCustomerId)) {
       setSelectedCustomer(prefillCustomerId);
@@ -423,20 +499,32 @@ export function PosPageClient() {
       const idx = barbers.findIndex((b) => b.staff_profile_id === prefillStaffId);
       if (idx >= 0) setSelectedBarber(idx);
     }
-    if (prefillServiceId) {
-      const service = services.find((s) => s.id === prefillServiceId && s.is_active);
-      if (service) {
+    if (prefillServiceIds.length > 0) {
+      const toAdd: CartItem[] = [];
+      for (const sid of prefillServiceIds) {
+        const service = services.find((s) => s.id === sid && s.is_active);
+        if (service) {
+          toAdd.push({ id: service.id, name: service.name, price: service.price ?? 0, qty: 1, type: "service", serviceId: service.id });
+        }
+      }
+      if (toAdd.length > 0) {
         setCart((prev) => {
-          if (prev.some((i) => i.type === "service" && i.serviceId === service.id)) return prev;
-          return [
-            ...prev,
-            { id: service.id, name: service.name, price: service.price ?? 0, qty: 1, type: "service", serviceId: service.id },
-          ];
+          const next = [...prev];
+          for (const item of toAdd) {
+            const existing = next.findIndex((i) => i.type === "service" && i.serviceId === item.serviceId);
+            if (existing >= 0) {
+              next[existing] = { ...next[existing], qty: next[existing].qty + 1 };
+            } else {
+              next.push(item);
+            }
+          }
+          return next;
         });
       }
     }
+    if (urlQueueTicketId) setLinkedQueueTicketId(urlQueueTicketId);
     setPrefillApplied(true);
-  }, [prefillApplied, prefillCustomerId, prefillServiceId, prefillStaffId, customersData, staffData, servicesData, customers, barbers, services]);
+  }, [prefillApplied, prefillCustomerId, prefillServiceIds, prefillStaffId, urlQueueTicketId, customersData, staffData, servicesData, customers, barbers, services]);
 
   function addToCart(id: string, name: string, price: number, type: "service" | "product", serviceId?: string, inventoryItemId?: string) {
     setCart((prev) => {
@@ -471,7 +559,7 @@ export function PosPageClient() {
       const result = await createTransaction({
         branchId,
         customerId: selectedCustomer || null,
-        queueTicketId: queueTicketId || null,
+        queueTicketId: linkedQueueTicketId || null,
         paymentMethod: method,
         items: cart.map((i) => ({
           itemType: i.type,
@@ -553,10 +641,96 @@ export function PosPageClient() {
     onCheckout: handleCheckout,
   };
 
+  const linkedTicket = activeQueueTickets.find((q) => q.id === linkedQueueTicketId)
+    ?? (queueData?.data ?? []).find((q) => q.id === linkedQueueTicketId);
+
   return (
     <div className="flex min-h-0 flex-col gap-3 lg:h-[calc(100dvh-5rem-3rem)] lg:flex-row lg:gap-5 lg:overflow-hidden">
       {/* ── Left: catalog ──────────────────────────────────────────────── */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-28 lg:space-y-4 lg:pb-0 lg:pr-1">
+
+        {/* Queue ticket selector */}
+        <div ref={queueDropdownRef} className="relative">
+          {linkedTicket ? (
+            <div className="flex items-center gap-2 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/8 px-3 py-2.5">
+              <Ticket className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-bold text-[#D4AF37]">{linkedTicket.queue_number}</span>
+                <span className="ml-2 text-sm text-white">{linkedTicket.customer?.full_name ?? "Walk-in"}</span>
+                {linkedTicket.party_size > 1 && (
+                  <span className="ml-2 text-xs text-gray-400">×{linkedTicket.party_size} cuts</span>
+                )}
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                  linkedTicket.status === "in_service" ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"
+                }`}>{linkedTicket.status === "in_service" ? "In Service" : "Waiting"}</span>
+              </div>
+              <button
+                type="button"
+                onClick={clearQueueLink}
+                className="shrink-0 rounded-lg p-1 text-gray-500 hover:text-gray-300 transition"
+                title="Unlink queue ticket"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setQueueDropdownOpen((p) => !p)}
+              className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-[#1a1a1a] px-3 py-2.5 text-sm text-left transition hover:border-[#D4AF37]/30"
+            >
+              <Ticket className="h-4 w-4 shrink-0 text-gray-500" />
+              <span className="flex-1 text-gray-500">Link to queue ticket (optional)</span>
+              {activeQueueTickets.length > 0 && (
+                <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                  {activeQueueTickets.length} active
+                </span>
+              )}
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform ${queueDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+          )}
+
+          {queueDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 z-40 mt-1.5 overflow-hidden rounded-xl border border-white/10 bg-[#222] shadow-2xl shadow-black/60">
+              {activeQueueTickets.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-gray-500">No active tickets in queue</p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto">
+                  {activeQueueTickets.map((q) => {
+                    const serviceNames = q.ticket_seats.length > 0
+                      ? [...new Set([
+                          ...q.ticket_seats.map((s) => s.service?.name).filter(Boolean),
+                          ...q.member_services.map((ms) => ms.service_name),
+                        ])].join(", ")
+                      : q.member_services.map((ms) => ms.service_name).join(", ") || q.service?.name || "";
+                    return (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => applyQueueTicket(q)}
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-white/5"
+                      >
+                        <span className={`shrink-0 flex items-center justify-center rounded-lg px-2 py-1 text-xs font-black ${
+                          q.status === "in_service" ? "bg-blue-500/20 text-blue-400" : "bg-[#D4AF37]/15 text-[#D4AF37]"
+                        }`}>{q.queue_number}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {q.customer?.full_name ?? "Walk-in"}
+                            {q.party_size > 1 && <span className="ml-1.5 text-xs text-gray-500">×{q.party_size}</span>}
+                          </p>
+                          {serviceNames && <p className="text-[11px] text-gray-500 truncate">{serviceNames}</p>}
+                        </div>
+                        <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wider ${
+                          q.status === "in_service" ? "text-blue-400" : "text-orange-400"
+                        }`}>{q.status === "in_service" ? "serving" : "waiting"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Customer + Barber row */}
         <div className="grid grid-cols-2 gap-2">
