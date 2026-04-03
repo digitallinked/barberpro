@@ -144,7 +144,7 @@ export async function createTransaction(data: CreateTransactionData) {
     }
 
     if (queueTicketId) {
-      await supabase
+      const { error: ticketError } = await supabase
         .from("queue_tickets")
         .update({
           status: "paid",
@@ -153,6 +153,10 @@ export async function createTransaction(data: CreateTransactionData) {
         })
         .eq("id", queueTicketId)
         .eq("tenant_id", tenantId);
+
+      if (ticketError) {
+        console.error("[createTransaction] Failed to mark queue ticket as paid:", ticketError.message);
+      }
     }
 
     revalidatePath("/pos");

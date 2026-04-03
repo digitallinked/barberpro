@@ -379,7 +379,7 @@ export function PosPageClient() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [prefillApplied, setPrefillApplied] = useState(false);
+  const prefillApplied = useRef(false);
   const [linkedQueueTicketId, setLinkedQueueTicketId] = useState<string | null>(
     searchParams.get("queue_ticket_id")
   );
@@ -487,7 +487,7 @@ export function PosPageClient() {
 
   // URL-param prefill (when navigating from queue dashboard "Proceed to payment")
   useEffect(() => {
-    if (prefillApplied) return;
+    if (prefillApplied.current) return;
     if (prefillCustomerId && !customersData) return;
     if (prefillStaffId && !staffData) return;
     if (prefillServiceIds.length > 0 && !servicesData) return;
@@ -509,18 +509,7 @@ export function PosPageClient() {
         }
       }
       if (toAdd.length > 0) {
-        setCart((prev) => {
-          const next = [...prev];
-          for (const item of toAdd) {
-            const existing = next.findIndex((i) => i.type === "service" && i.serviceId === item.serviceId);
-            if (existing >= 0) {
-              next[existing] = { ...next[existing], qty: next[existing].qty + 1 };
-            } else {
-              next.push(item);
-            }
-          }
-          return next;
-        });
+        setCart(toAdd);
       }
     }
 
@@ -541,10 +530,10 @@ export function PosPageClient() {
     }
 
     if (urlQueueTicketId) setLinkedQueueTicketId(urlQueueTicketId);
-    setPrefillApplied(true);
+    prefillApplied.current = true;
   // cartItemsFromTicket is stable (defined in render scope with no deps that change)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillApplied, prefillCustomerId, prefillServiceIds, prefillStaffId, urlQueueTicketId, customersData, staffData, servicesData, queueData, customers, barbers, services]);
+  }, [prefillCustomerId, prefillServiceIds, prefillStaffId, urlQueueTicketId, customersData, staffData, servicesData, queueData, customers, barbers, services]);
 
   function addToCart(id: string, name: string, price: number, type: "service" | "product", serviceId?: string, inventoryItemId?: string) {
     setCart((prev) => {
