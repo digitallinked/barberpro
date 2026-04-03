@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   AlertTriangle,
   Banknote,
@@ -243,6 +244,15 @@ export default function QueuePage() {
             : activeTab === 4
               ? tickets.filter((t) => ["completed", "paid"].includes(t.status))
               : tickets.filter((t) => t.status === "cancelled");
+
+  const DONE_STATUSES = ["completed", "paid", "cancelled"];
+  // On the "All" tab: split active vs done for the collapsible section.
+  const activeTicketList = activeTab === 0
+    ? filteredTickets.filter((q) => !DONE_STATUSES.includes(q.status))
+    : filteredTickets;
+  const doneTicketList = activeTab === 0
+    ? filteredTickets.filter((q) => DONE_STATUSES.includes(q.status))
+    : [];
   const tabCounts = [
     tickets.length,
     tickets.filter((t) => t.status === "waiting").length,
@@ -822,17 +832,13 @@ export default function QueuePage() {
               <Users className="h-8 w-8 text-gray-700" />
               <p className="text-sm text-gray-500">{t.queue.noTickets}</p>
             </div>
-          ) : (() => {
-            const DONE_STATUSES = ["completed", "paid", "cancelled"];
-            // On the "All" tab split active vs done; on specific tabs show all as-is.
-            const activeTicketList = activeTab === 0
-              ? filteredTickets.filter((q) => !DONE_STATUSES.includes(q.status))
-              : filteredTickets;
-            const doneTicketList = activeTab === 0
-              ? filteredTickets.filter((q) => DONE_STATUSES.includes(q.status))
-              : [];
-
-            const renderTicket = (q: (typeof filteredTickets)[0]) => {
+          ) : (
+            // Sort: active tickets first, done (completed/paid/cancelled) last so the
+            // toggle section always appears at the bottom when on the "All" tab.
+            [...activeTicketList, ...doneTicketList].map((q, idx) => {
+              const isDone = activeTab === 0 && DONE_STATUSES.includes(q.status);
+              const prevQ = activeTicketList.length > 0 ? [...activeTicketList, ...doneTicketList][idx - 1] : null;
+              const isFirstDone = isDone && (idx === 0 || !DONE_STATUSES.includes(prevQ?.status ?? ""));
               const isNext = q.status === "waiting" && q.id === nextWaitingId;
               const timer =
                 q.status === "in_service" && q.called_at
@@ -844,8 +850,8 @@ export default function QueuePage() {
                 ? barbers.find((b) => b.staff_profile_id === q.preferred_staff_id)?.full_name ?? null
                 : null;
 
-              return (
-                <Card key={q.id} className="relative">
+              const card = (
+                <Card className="relative">
                   <div className="p-4">
                     <div className="flex items-center gap-4">
                       {/* Queue number badge */}
@@ -1151,13 +1157,10 @@ export default function QueuePage() {
                   </div>
                 </Card>
               );
-            };
 
-            return (
-              <>
-                {activeTicketList.map((q) => renderTicket(q))}
-                {doneTicketList.length > 0 && (
-                  <div className="mt-1">
+              return (
+                <React.Fragment key={q.id}>
+                  {isFirstDone && (
                     <button
                       type="button"
                       onClick={() => setShowCompletedSection((v) => !v)}
@@ -1169,16 +1172,11 @@ export default function QueuePage() {
                       </div>
                       <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showCompletedSection ? "rotate-180" : ""}`} />
                     </button>
-                    {showCompletedSection && (
-                      <div className="mt-2 space-y-3">
-                        {doneTicketList.map((q) => renderTicket(q))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            );
-          })()
+                  )}
+                  {(!isDone || showCompletedSection) && card}
+                </React.Fragment>
+              );
+            })
           )}
         </div>
 
