@@ -12,6 +12,7 @@
   "dependencies": {
     "@barberpro/auth": "workspace:*",
     "@barberpro/db": "workspace:*",
+    "@barberpro/types": "workspace:*",
     "@barberpro/env": "workspace:*",
     "@barberpro/ui": "workspace:*",
     "@hookform/resolvers": "^3.10.0",

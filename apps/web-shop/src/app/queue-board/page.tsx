@@ -4,6 +4,8 @@ import { Clock, Scissors, Star, Users } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
+import { getQueueColor, queueBoardFontClass as qFont } from "@barberpro/types";
+
 import { useQueueBoard } from "@/hooks";
 
 export default function QueueBoardPage() {
@@ -62,49 +64,7 @@ type BranchSeat = {
   label: string;
 };
 
-/* ─── Queue Colors ───────────────────────────────────────────────────────── */
-
-type QueueColor = {
-  bg: string;
-  text: string;
-  shadow: string;
-  subtle: string;
-  border: string;
-};
-
-const QUEUE_COLORS: QueueColor[] = [
-  { bg: "#D4AF37", text: "#111111", shadow: "rgba(212,175,55,0.35)",  subtle: "rgba(212,175,55,0.09)",  border: "rgba(212,175,55,0.35)"  }, // Gold
-  { bg: "#3B82F6", text: "#ffffff", shadow: "rgba(59,130,246,0.35)",  subtle: "rgba(59,130,246,0.09)",  border: "rgba(59,130,246,0.35)"  }, // Blue
-  { bg: "#EF4444", text: "#ffffff", shadow: "rgba(239,68,68,0.35)",   subtle: "rgba(239,68,68,0.09)",   border: "rgba(239,68,68,0.35)"   }, // Red
-  { bg: "#8B5CF6", text: "#ffffff", shadow: "rgba(139,92,246,0.35)",  subtle: "rgba(139,92,246,0.09)",  border: "rgba(139,92,246,0.35)"  }, // Purple
-  { bg: "#10B981", text: "#ffffff", shadow: "rgba(16,185,129,0.35)",  subtle: "rgba(16,185,129,0.09)",  border: "rgba(16,185,129,0.35)"  }, // Emerald
-  { bg: "#F97316", text: "#111111", shadow: "rgba(249,115,22,0.35)",  subtle: "rgba(249,115,22,0.09)",  border: "rgba(249,115,22,0.35)"  }, // Orange
-  { bg: "#EC4899", text: "#ffffff", shadow: "rgba(236,72,153,0.35)",  subtle: "rgba(236,72,153,0.09)",  border: "rgba(236,72,153,0.35)"  }, // Pink
-  { bg: "#06B6D4", text: "#111111", shadow: "rgba(6,182,212,0.35)",   subtle: "rgba(6,182,212,0.09)",   border: "rgba(6,182,212,0.35)"   }, // Cyan
-];
-
-/** Returns a consistent color for a given queue number (Q0001=gold, Q0002=blue, …). */
-function getQueueColor(queueNumber: string): QueueColor {
-  const num = parseInt(queueNumber.replace(/\D/g, ""), 10) || 1;
-  return QUEUE_COLORS[(num - 1) % QUEUE_COLORS.length];
-}
-
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-
-/** Font size class for a queue number string based on character count. */
-function qFont(num: string, size: "xl" | "lg" | "md" | "sm") {
-  const n = num.length;
-  if (size === "xl") {
-    return n <= 4 ? "text-6xl sm:text-7xl" : n <= 6 ? "text-5xl sm:text-6xl" : "text-4xl sm:text-5xl";
-  }
-  if (size === "lg") {
-    return n <= 4 ? "text-4xl sm:text-5xl" : n <= 6 ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl";
-  }
-  if (size === "md") {
-    return n <= 4 ? "text-2xl sm:text-3xl" : n <= 6 ? "text-xl sm:text-2xl" : "text-lg sm:text-xl";
-  }
-  return n <= 5 ? "text-base" : "text-sm";
-}
 
 /**
  * For a given seat id, find which active ticket is occupying it.

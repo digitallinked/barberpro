@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { Scissors } from "lucide-react";
+import { getQueueColor, queueCustomerHeroClass } from "@barberpro/types";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type QueueStatus = {
@@ -27,7 +29,17 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
     seat_label: null,
   });
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<ReturnType<ReturnType<typeof createBrowserSupabaseClient>["channel"]> | null>(null);
+
+  const displayNumber = useMemo(() => {
+    const n = info.queue_number?.trim();
+    return n || queueNumber.trim() || queueNumber;
+  }, [info.queue_number, queueNumber]);
+
+  const ticketColor = useMemo(() => getQueueColor(displayNumber), [displayNumber]);
+  const nowServingColor = useMemo(
+    () => (info.now_serving ? getQueueColor(info.now_serving) : null),
+    [info.now_serving]
+  );
 
   async function fetchPosition() {
     try {
@@ -66,8 +78,6 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
       )
       .subscribe();
 
-    channelRef.current = channel;
-
     return () => {
       void supabase.removeChannel(channel);
     };
@@ -90,16 +100,39 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
 
   if (isCalled) {
     return (
-      <div className="mx-auto max-w-md rounded-2xl border border-[#D4AF37]/40 bg-[#141414] p-8 text-center shadow-xl shadow-[#D4AF37]/5">
-        <div className="flex justify-center mb-6">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#D4AF37]/20 text-4xl">
-            ✂
-          </span>
+      <div
+        className="mx-auto max-w-md rounded-2xl border p-8 text-center shadow-xl"
+        style={{
+          borderColor: ticketColor.border,
+          background: `linear-gradient(180deg, ${ticketColor.subtle}, #141414)`,
+          boxShadow: `0 20px 50px ${ticketColor.shadow}`,
+        }}
+      >
+        <div className="flex justify-center mb-5">
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-2xl text-3xl"
+            style={{ background: `${ticketColor.bg}22` }}
+          >
+            <Scissors className="h-8 w-8" style={{ color: ticketColor.bg }} />
+          </div>
         </div>
-        <p className="text-sm font-bold uppercase tracking-widest text-[#D4AF37] mb-2">
+        <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: ticketColor.bg }}>
           You&apos;re being called!
         </p>
-        <p className="text-5xl font-black text-white mb-4">{info.queue_number}</p>
+        <div
+          className="mx-auto flex max-w-[17rem] items-center justify-center rounded-2xl py-6 px-4 mb-4 ring-2 ring-[#D4AF37]/40"
+          style={{
+            background: ticketColor.bg,
+            boxShadow: `0 12px 36px ${ticketColor.shadow}`,
+          }}
+        >
+          <span
+            className={`font-black tabular-nums ${queueCustomerHeroClass(displayNumber)}`}
+            style={{ color: ticketColor.text }}
+          >
+            {displayNumber}
+          </span>
+        </div>
         {info.seat_label && (
           <div className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-6 py-3 mb-4">
             <span className="text-lg font-black text-[#D4AF37]">{info.seat_label}</span>
@@ -119,7 +152,7 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
     return (
       <div className="mx-auto max-w-md rounded-2xl border border-emerald-500/30 bg-[#141414] p-8 text-center shadow-xl">
         <p className="text-sm font-bold uppercase tracking-widest text-emerald-400 mb-2">Service Complete</p>
-        <p className="text-3xl font-black text-white mb-2">{info.queue_number}</p>
+        <p className="text-3xl font-black text-gray-500 mb-2 tabular-nums">{displayNumber}</p>
         <p className="mt-2 text-sm text-gray-400">Thank you for visiting {branchName}. See you again!</p>
       </div>
     );
@@ -135,19 +168,50 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
   }
 
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-[#D4AF37]/30 bg-[#141414] p-8 text-center shadow-xl">
-      <p className="text-xs font-bold uppercase tracking-widest text-[#D4AF37] mb-1">Your number</p>
-      <p className="text-6xl font-black text-white mb-6">{info.queue_number}</p>
+    <div
+      className="mx-auto max-w-md rounded-2xl border p-6 sm:p-8 text-center shadow-xl"
+      style={{
+        borderColor: ticketColor.border,
+        background: `linear-gradient(180deg, ${ticketColor.subtle}, #141414)`,
+      }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-2">Your number</p>
 
-      <div className="flex justify-center gap-8 mb-6">
+      <div
+        className="mx-auto flex w-full max-w-[17rem] items-center justify-center rounded-2xl py-7 px-3 mb-5"
+        style={{
+          background: ticketColor.bg,
+          boxShadow: `0 14px 40px ${ticketColor.shadow}`,
+        }}
+      >
+        <span
+          className={`font-black tabular-nums ${queueCustomerHeroClass(displayNumber)}`}
+          style={{ color: ticketColor.text }}
+        >
+          {displayNumber}
+        </span>
+      </div>
+
+      <p className="text-[10px] text-gray-600 mb-5">Same colour as on the shop screen</p>
+
+      <div className="flex flex-wrap justify-center gap-6 sm:gap-10 mb-6">
         <div>
-          <p className="text-2xl font-black text-white">{info.position}</p>
+          <p className="text-2xl font-black text-white tabular-nums">{info.position}</p>
           <p className="text-xs text-gray-500 mt-0.5">in queue</p>
         </div>
-        {info.now_serving && (
-          <div className="border-l border-white/10 pl-8">
-            <p className="text-2xl font-black text-[#D4AF37]">{info.now_serving}</p>
-            <p className="text-xs text-gray-500 mt-0.5">now serving</p>
+        {info.now_serving && nowServingColor && (
+          <div className="border-l border-white/10 pl-6 sm:pl-10 text-left">
+            <div
+              className="inline-flex min-w-[4.5rem] items-center justify-center rounded-lg px-2 py-1 font-black tabular-nums text-lg"
+              style={{
+                background: nowServingColor.bg,
+                color: nowServingColor.text,
+                boxShadow: `0 4px 14px ${nowServingColor.shadow}`,
+              }}
+            >
+              {info.now_serving}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">now serving</p>
           </div>
         )}
       </div>

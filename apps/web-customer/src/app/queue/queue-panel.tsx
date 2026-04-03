@@ -21,6 +21,7 @@ import {
   Clock,
 } from "lucide-react";
 
+import { getQueueColor } from "@barberpro/types";
 import { getActiveQueue } from "@/lib/active-queue";
 import { joinQueueAsCustomerAction } from "@/app/bookings/actions";
 import type { ShopForQueue, QueueTicket } from "./page";
@@ -32,6 +33,8 @@ function QueueCard({ ticket }: { ticket: QueueTicket }) {
   const tenantName = (ticket.branches?.tenants as { name: string } | null)?.name;
   const branchName = ticket.branches?.name;
   const ticketDate = new Date(ticket.created_at);
+  const qStr = String(ticket.queue_number);
+  const ticketColor = getQueueColor(qStr);
 
   const statusCfg: Record<string, { label: string; cls: string }> = {
     waiting: { label: "Waiting", cls: "text-[#D4AF37] bg-[#D4AF37]/10" },
@@ -46,11 +49,20 @@ function QueueCard({ ticket }: { ticket: QueueTicket }) {
   return (
     <div className="flex items-center gap-4 py-3.5">
       <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-black text-sm ${
-          isActive ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "bg-white/5 text-gray-500"
+        className={`flex h-11 min-w-[2.75rem] max-w-[5.5rem] shrink-0 items-center justify-center rounded-xl px-1.5 font-black text-[11px] leading-tight sm:text-xs ${
+          isActive ? "" : "bg-white/5 text-gray-500"
         }`}
+        style={
+          isActive
+            ? {
+                background: ticketColor.bg,
+                color: ticketColor.text,
+                boxShadow: `0 4px 14px ${ticketColor.shadow}`,
+              }
+            : undefined
+        }
       >
-        {ticket.queue_number}
+        {qStr}
       </div>
 
       <div className="min-w-0 flex-1">

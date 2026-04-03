@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@barberpro/types": "workspace:*",
     "@barberpro/db": "workspace:*",
     "@barberpro/env": "workspace:*",
     "@barberpro/ui": "workspace:*",

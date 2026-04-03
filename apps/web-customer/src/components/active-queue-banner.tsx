@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Scissors } from "lucide-react";
+import { getQueueColor } from "@barberpro/types";
 
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { clearActiveQueue, getActiveQueue, type ActiveQueueTicket } from "@/lib/active-queue";
@@ -57,6 +58,7 @@ function CalledOverlay({
   onDismiss: () => void;
 }) {
   const router = useRouter();
+  const ticketColor = useMemo(() => getQueueColor(ticket.queueNumber), [ticket.queueNumber]);
 
   function handleGo() {
     onDismiss();
@@ -77,9 +79,20 @@ function CalledOverlay({
       <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[#D4AF37] mb-3">
         It&apos;s Your Turn!
       </p>
-      <p className="text-8xl font-black text-white leading-none mb-5 tracking-tight">
-        {ticket.queueNumber}
-      </p>
+      <div
+        className="mb-5 rounded-2xl px-6 py-5 ring-2 ring-[#D4AF37]/40"
+        style={{
+          background: ticketColor.bg,
+          boxShadow: `0 16px 48px ${ticketColor.shadow}`,
+        }}
+      >
+        <p
+          className="text-[clamp(3rem,18vw,5rem)] font-black leading-none tracking-tight tabular-nums"
+          style={{ color: ticketColor.text }}
+        >
+          {ticket.queueNumber}
+        </p>
+      </div>
 
       {info.seat_label ? (
         <div className="mb-5 rounded-2xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-8 py-4">
@@ -114,6 +127,7 @@ function CalledOverlay({
 export function ActiveQueueBanner() {
   const router = useRouter();
   const [ticket, setTicket] = useState<ActiveQueueTicket | null>(null);
+  const ticketColor = ticket ? getQueueColor(ticket.queueNumber) : null;
   const [info, setInfo] = useState<QueueInfo | null>(null);
   const [showCalledOverlay, setShowCalledOverlay] = useState(false);
   const prevStatusRef = useRef<string | null>(null);
@@ -239,13 +253,22 @@ export function ActiveQueueBanner() {
             onClick={() => router.push(`/queue/${ticket.ticketId}`)}
             className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
           >
-            <span
-              className={`text-sm font-black tabular-nums ${
-                isCalled ? "text-[#111]" : "text-white"
-              }`}
-            >
-              {ticket.queueNumber}
-            </span>
+            {isCalled ? (
+              <span className="text-sm font-black tabular-nums text-[#111]">{ticket.queueNumber}</span>
+            ) : ticketColor ? (
+              <span
+                className="shrink-0 rounded-lg px-2 py-0.5 text-xs font-black tabular-nums shadow-md"
+                style={{
+                  background: ticketColor.bg,
+                  color: ticketColor.text,
+                  boxShadow: `0 4px 12px ${ticketColor.shadow}`,
+                }}
+              >
+                {ticket.queueNumber}
+              </span>
+            ) : (
+              <span className="text-sm font-black tabular-nums text-white">{ticket.queueNumber}</span>
+            )}
             <span
               className={`truncate text-xs font-medium ${
                 isCalled ? "text-[#111]/70" : "text-gray-400"
