@@ -883,10 +883,12 @@ export default function QueuePage() {
                                 <span className="rounded border border-white/5 bg-[#111] px-1.5 py-0.5 text-[10px] text-gray-400">
                                   {q.service.name}
                                 </span>
-                              ) : q.party_size === 1 && q.member_services[0] ? (
-                                <span className="rounded border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-1.5 py-0.5 text-[10px] text-[#D4AF37]/80">
-                                  {q.member_services[0].service_name}
-                                </span>
+                              ) : q.party_size === 1 && q.member_services.length > 0 ? (
+                                q.member_services.map((ms) => (
+                                  <span key={ms.service_id} className="rounded border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-1.5 py-0.5 text-[10px] text-[#D4AF37]/80">
+                                    {ms.service_name}
+                                  </span>
+                                ))
                               ) : null}
                               {q.assigned_staff ? (
                                 <span className="text-[11px] text-blue-400 font-medium">→ {q.assigned_staff.full_name}</span>
@@ -973,13 +975,13 @@ export default function QueuePage() {
                           {!["completed", "cancelled"].includes(q.status) &&
                             Array.from({ length: q.party_size - q.ticket_seats.length }).map((_, i) => {
                               const slotIndex = q.ticket_seats.length + i;
-                              const requested = q.member_services.find((m) => m.member_index === slotIndex);
+                              const requestedServices = q.member_services.filter((m) => m.member_index === slotIndex);
                               return (
                                 <button
                                   key={`empty-${i}`}
                                   type="button"
                                   onClick={() => {
-                                    const preFill = q.member_services.find((m) => m.member_index === slotIndex);
+                                    const preFill = requestedServices[0];
                                     setShowMemberModal(q);
                                     setMemberServiceId(preFill?.service_id ?? q.service_id ?? "");
                                   }}
@@ -989,9 +991,9 @@ export default function QueuePage() {
                                     {slotIndex + 1}
                                   </span>
                                   <span className="flex-1 text-left">{t.queue.waitingForSeat}</span>
-                                  {requested && (
+                                  {requestedServices.length > 0 && (
                                     <span className="rounded bg-[#D4AF37]/10 border border-[#D4AF37]/20 px-1.5 py-0.5 text-[9px] font-medium text-[#D4AF37]">
-                                      {requested.service_name}
+                                      {requestedServices.map((s) => s.service_name).join(", ")}
                                     </span>
                                   )}
                                 </button>
@@ -1601,7 +1603,7 @@ export default function QueuePage() {
           <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             {(() => {
               const nextSlot = showMemberModal.ticket_seats.length;
-              const requestedService = showMemberModal.member_services.find((m) => m.member_index === nextSlot);
+              const requestedServices = showMemberModal.member_services.filter((m) => m.member_index === nextSlot);
               return (
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -1609,9 +1611,9 @@ export default function QueuePage() {
                     <p className="text-xs text-gray-500 mt-0.5">
                       {showMemberModal.queue_number} · {showMemberModal.customer?.full_name ?? t.queue.walkInGuest} · {t.queue.member} {nextSlot + 1} {t.queue.of} {showMemberModal.party_size}
                     </p>
-                    {requestedService && (
+                    {requestedServices.length > 0 && (
                       <p className="mt-1 text-[11px] text-[#D4AF37]/80">
-                        {t.queue.requested} <span className="font-semibold text-[#D4AF37]">{requestedService.service_name}</span>
+                        {t.queue.requested} <span className="font-semibold text-[#D4AF37]">{requestedServices.map((s) => s.service_name).join(", ")}</span>
                       </p>
                     )}
                   </div>
