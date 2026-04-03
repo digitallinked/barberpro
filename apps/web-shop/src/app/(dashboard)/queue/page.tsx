@@ -73,13 +73,17 @@ function formatWaitTime(createdAt: string): string {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function formatServiceTime(calledAt: string): string {
-  const called = new Date(calledAt);
-  const now = new Date();
-  const diffMs = now.getTime() - called.getTime();
-  const mins = Math.floor(diffMs / 60000);
-  const secs = Math.floor((diffMs % 60000) / 1000);
+/** Frozen wait duration: from queue join until the moment they were called. */
+function formatFrozenWait(createdAt: string, calledAt: string): string {
+  const diffMs = new Date(calledAt).getTime() - new Date(createdAt).getTime();
+  const mins = Math.floor(Math.max(0, diffMs) / 60000);
+  const secs = Math.floor((Math.max(0, diffMs) % 60000) / 1000);
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+/** Format a timestamp as a short local clock time, e.g. "3:45 PM". */
+function formatJoinTime(createdAt: string): string {
+  return new Date(createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
@@ -840,11 +844,13 @@ export default function QueuePage() {
               const prevQ = activeTicketList.length > 0 ? [...activeTicketList, ...doneTicketList][idx - 1] : null;
               const isFirstDone = isDone && (idx === 0 || !DONE_STATUSES.includes(prevQ?.status ?? ""));
               const isNext = q.status === "waiting" && q.id === nextWaitingId;
-              const timer =
-                q.status === "in_service" && q.called_at
-                  ? formatServiceTime(q.called_at)
-                  : formatWaitTime(q.created_at);
-              const timerLabel = q.status === "in_service" ? t.queue.inServiceLabel : t.queue.wait;
+              const freezeAt = q.called_at ?? q.completed_at;
+              const isWaitFrozen = q.status !== "waiting" && !!freezeAt;
+              const timer = isWaitFrozen
+                ? formatFrozenWait(q.created_at, freezeAt!)
+                : formatWaitTime(q.created_at);
+              const timerLabel = t.queue.wait;
+              const joinTime = formatJoinTime(q.created_at);
               const isPaid = q.status === "paid";
               const preferredName = q.preferred_staff_id
                 ? barbers.find((b) => b.staff_profile_id === q.preferred_staff_id)?.full_name ?? null
@@ -951,11 +957,16 @@ export default function QueuePage() {
                           {/* Timer */}
                           <div className="shrink-0 text-right">
                             <p className={`text-base font-bold font-mono tabular-nums ${
-                              q.status === "in_service" ? "text-blue-400" : isNext ? "text-orange-400" : "text-gray-500"
+                              isWaitFrozen ? "text-gray-400" : isNext ? "text-orange-400" : "text-gray-500"
                             }`}>
                               {timer}
                             </p>
-                            <p className="text-[10px] text-gray-600">{timerLabel}</p>
+                            <p className="text-[10px] text-gray-600">
+                              {isWaitFrozen ? "waited" : timerLabel}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5 tabular-nums">
+                              {joinTime}
+                            </p>
                           </div>
                         </div>
                       </div>
