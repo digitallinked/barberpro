@@ -264,7 +264,7 @@ function OrderContent({
                 key={method}
                 type="button"
                 onClick={() => onCheckout(method)}
-                disabled={submitting || cart.length === 0}
+                disabled={submitting}
                 className={`group flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#1e1e1e] py-3 text-sm font-semibold text-white transition disabled:opacity-40 ${colorMap[accent]}`}
               >
                 <Icon className={`h-4 w-4 shrink-0 ${colorMap[accent].split(" ")[0]}`} />
@@ -502,7 +502,8 @@ export function PosPageClient() {
     if (prefillServiceIds.length > 0) {
       const toAdd: CartItem[] = [];
       for (const sid of prefillServiceIds) {
-        const service = services.find((s) => s.id === sid && s.is_active);
+        // Include inactive services too — service may have been deactivated after check-in
+        const service = services.find((s) => s.id === sid);
         if (service) {
           toAdd.push({ id: service.id, name: service.name, price: service.price ?? 0, qty: 1, type: "service", serviceId: service.id });
         }
@@ -522,9 +523,28 @@ export function PosPageClient() {
         });
       }
     }
+
+    // If we came from a queue ticket URL but no service_ids were in the URL,
+    // try to fill from the ticket's member_services once queue data is loaded
+    if (urlQueueTicketId && prefillServiceIds.length === 0) {
+      if (!queueData) return; // wait for queue data
+      const ticket = (queueData.data ?? []).find((q) => q.id === urlQueueTicketId);
+      if (ticket) {
+        const serviceItems = cartItemsFromTicket(ticket);
+        if (serviceItems.length > 0) setCart(serviceItems);
+        if (ticket.customer_id) setSelectedCustomer(ticket.customer_id);
+        if (ticket.assigned_staff_id) {
+          const idx = barbers.findIndex((b) => b.staff_profile_id === ticket.assigned_staff_id);
+          if (idx >= 0) setSelectedBarber(idx);
+        }
+      }
+    }
+
     if (urlQueueTicketId) setLinkedQueueTicketId(urlQueueTicketId);
     setPrefillApplied(true);
-  }, [prefillApplied, prefillCustomerId, prefillServiceIds, prefillStaffId, urlQueueTicketId, customersData, staffData, servicesData, customers, barbers, services]);
+  // cartItemsFromTicket is stable (defined in render scope with no deps that change)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillApplied, prefillCustomerId, prefillServiceIds, prefillStaffId, urlQueueTicketId, customersData, staffData, servicesData, queueData, customers, barbers, services]);
 
   function addToCart(id: string, name: string, price: number, type: "service" | "product", serviceId?: string, inventoryItemId?: string) {
     setCart((prev) => {
@@ -547,7 +567,11 @@ export function PosPageClient() {
   }
 
   async function handleCheckout(method: string) {
-    if (!branchId || cart.length === 0) return;
+    if (!branchId) return;
+    if (cart.length === 0) {
+      setCheckoutError("Add at least one item before processing payment.");
+      return;
+    }
     setCheckoutError(null);
     setSubmitting(true);
     try {
@@ -584,6 +608,9 @@ export function PosPageClient() {
         queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
         setCart([]);
         setShowCheckout(false);
+        setLinkedQueueTicketId(null);   // clear queue banner
+        setSelectedCustomer(null);      // reset customer
+        setSelectedBarber(0);           // reset barber
       } else {
         setCheckoutError(result.error ?? "Checkout failed");
       }
