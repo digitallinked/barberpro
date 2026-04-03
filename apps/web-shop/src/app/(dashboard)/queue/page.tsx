@@ -130,7 +130,7 @@ export default function QueuePage() {
     /barber/i.test(s.role ?? "")
   );
 
-  const activeTickets = tickets.filter((t) => !["completed", "cancelled"].includes(t.status));
+  const activeTickets = tickets.filter((t) => !["completed", "paid", "cancelled"].includes(t.status));
 
   const nextWaitingId = [...tickets]
     .filter((t) => t.status === "waiting")
@@ -239,14 +239,14 @@ export default function QueuePage() {
           : activeTab === 3
             ? tickets.filter((t) => t.status === "in_service")
             : activeTab === 4
-              ? tickets.filter((t) => t.status === "completed")
+              ? tickets.filter((t) => ["completed", "paid"].includes(t.status))
               : tickets.filter((t) => t.status === "cancelled");
   const tabCounts = [
     tickets.length,
     tickets.filter((t) => t.status === "waiting").length,
     tickets.filter((t) => t.status === "waiting" && t.assigned_staff_id).length,
     tickets.filter((t) => t.status === "in_service").length,
-    tickets.filter((t) => t.status === "completed").length,
+    tickets.filter((t) => ["completed", "paid"].includes(t.status)).length,
     tickets.filter((t) => t.status === "cancelled").length
   ];
   const tabLabels = [t.queue.all, t.queue.waiting, t.queue.assigned, t.queue.inService, t.queue.completed, t.queue.cancelled];
@@ -828,6 +828,7 @@ export default function QueuePage() {
                   ? formatServiceTime(q.called_at)
                   : formatWaitTime(q.created_at);
               const timerLabel = q.status === "in_service" ? t.queue.inServiceLabel : t.queue.wait;
+              const isPaid = q.status === "paid";
               const preferredName = q.preferred_staff_id
                 ? barbers.find((b) => b.staff_profile_id === q.preferred_staff_id)?.full_name ?? null
                 : null;
@@ -843,11 +844,13 @@ export default function QueuePage() {
                             ? "border-2 border-blue-500 bg-[#2a2a2a]"
                             : isNext
                               ? "bg-[#D4AF37] shadow-lg shadow-[#D4AF37]/20"
-                              : q.status === "completed"
-                                ? "bg-emerald-500/10 border border-emerald-500/20"
-                                : q.status === "cancelled"
-                                  ? "bg-red-500/10 border border-red-500/20"
-                                  : "border border-white/10 bg-[#2a2a2a]"
+                              : isPaid
+                                ? "bg-emerald-500/15 border border-emerald-500/30"
+                                : q.status === "completed"
+                                  ? "bg-emerald-500/10 border border-emerald-500/20"
+                                  : q.status === "cancelled"
+                                    ? "bg-red-500/10 border border-red-500/20"
+                                    : "border border-white/10 bg-[#2a2a2a]"
                         }`}
                       >
                         <span className={`text-lg font-black tracking-tight leading-none ${
@@ -855,7 +858,7 @@ export default function QueuePage() {
                             ? "text-white"
                             : isNext
                               ? "text-[#111]"
-                              : q.status === "completed"
+                              : isPaid || q.status === "completed"
                                 ? "text-emerald-400"
                                 : q.status === "cancelled"
                                   ? "text-red-400"
@@ -884,7 +887,12 @@ export default function QueuePage() {
                                   <Clock className="h-2.5 w-2.5" /> {t.queue.inService}
                                 </span>
                               )}
-                              {q.status === "completed" && (
+                              {isPaid && (
+                                <span className="rounded-full bg-emerald-500/25 border border-emerald-500/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300">
+                                  ✓ Paid
+                                </span>
+                              )}
+                              {q.status === "completed" && !isPaid && (
                                 <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-400">
                                   {t.queue.completed}
                                 </span>
@@ -943,7 +951,7 @@ export default function QueuePage() {
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
                             {t.queue.partyMembers} · {q.ticket_seats.length}/{q.party_size} {t.queue.seated}
                           </p>
-                          {!["completed", "cancelled"].includes(q.status) && q.ticket_seats.length < q.party_size && (
+                          {!["completed", "paid", "cancelled"].includes(q.status) && q.ticket_seats.length < q.party_size && (
                             <button
                               type="button"
                               onClick={() => {
@@ -985,7 +993,7 @@ export default function QueuePage() {
                                   ✓ {t.common.done}
                                 </button>
                               )}
-                              {!["completed", "cancelled"].includes(q.status) && m.status !== "completed" && (
+                              {!["completed", "paid", "cancelled"].includes(q.status) && m.status !== "completed" && (
                                 <button
                                   type="button"
                                   onClick={() => void handleRemoveMember(m.id)}
@@ -998,7 +1006,7 @@ export default function QueuePage() {
                             </div>
                           ))}
                           {/* Empty slots for unassigned members */}
-                          {!["completed", "cancelled"].includes(q.status) &&
+                          {!["completed", "paid", "cancelled"].includes(q.status) &&
                             Array.from({ length: q.party_size - q.ticket_seats.length }).map((_, i) => {
                               const slotIndex = q.ticket_seats.length + i;
                               const requestedServices = q.member_services.filter((m) => m.member_index === slotIndex);
@@ -1030,7 +1038,7 @@ export default function QueuePage() {
                     )}
 
                     {/* Action buttons */}
-                    {!["completed", "cancelled"].includes(q.status) && (
+                    {!["completed", "paid", "cancelled"].includes(q.status) && (
                       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
                         {q.status === "in_service" ? (
                           <>
@@ -1114,7 +1122,7 @@ export default function QueuePage() {
                         )}
                       </div>
                     )}
-                    {q.status === "completed" && (
+                    {q.status === "completed" && !isPaid && (
                       <div className="mt-3 flex gap-1.5 border-t border-white/5 pt-3">
                         <Link
                           href={buildPosPaymentHref(q)}
@@ -1122,6 +1130,11 @@ export default function QueuePage() {
                         >
                           {t.queue.proceedToPayment}
                         </Link>
+                      </div>
+                    )}
+                    {isPaid && (
+                      <div className="mt-3 flex items-center gap-1.5 border-t border-white/5 pt-3">
+                        <span className="text-[11px] text-emerald-400/70">✓ Payment received</span>
                       </div>
                     )}
                   </div>

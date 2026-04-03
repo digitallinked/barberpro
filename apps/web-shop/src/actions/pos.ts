@@ -147,7 +147,7 @@ export async function createTransaction(data: CreateTransactionData) {
       await supabase
         .from("queue_tickets")
         .update({
-          status: "completed",
+          status: "paid",
           completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })

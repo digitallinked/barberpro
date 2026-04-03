@@ -275,7 +275,7 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     const { error: queueError } = await supabase
       .from("queue_tickets")
       .update({
-        status: "completed",
+        status: "paid",
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
