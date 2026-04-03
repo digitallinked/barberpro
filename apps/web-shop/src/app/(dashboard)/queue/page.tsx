@@ -972,9 +972,8 @@ export default function QueuePage() {
                       </div>
                     </div>
 
-                    {/* Party member rows for group tickets */}
-                    {q.party_size > 1 && (
-                      <div className="mt-3 border-t border-white/5 pt-3">
+                    {/* Party member rows — shown for all tickets including single customers */}
+                    <div className="mt-3 border-t border-white/5 pt-3">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
                             {t.queue.partyMembers} · {q.ticket_seats.length}/{q.party_size} {t.queue.seated}
@@ -1063,91 +1062,31 @@ export default function QueuePage() {
                             })}
                         </div>
                       </div>
-                    )}
 
                     {/* Action buttons */}
                     {!["completed", "paid", "cancelled"].includes(q.status) && (
                       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
-                        {q.status === "in_service" ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => { setPaymentError(null); setShowPaymentModal(q); }}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
-                            >
-                              <Banknote className="h-3.5 w-3.5" /> {t.queue.receivePayment}
-                            </button>
-                            {q.party_size === 1 && (
-                              <button
-                                type="button"
-                                onClick={() => setShowAssignModal(q)}
-                                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
-                              >
-                                {t.queue.reassign}
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
-                            >
-                              <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.cancel}
-                            </button>
-                          </>
-                        ) : q.status === "waiting" && q.assigned_staff_id && q.party_size === 1 ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAssignSelectedBarber(q.assigned_staff_id ?? "");
-                                setAssignSelectedSeat(q.seat_id ?? "");
-                                setShowAssignModal(q);
-                              }}
-                              className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
-                            >
-                              {t.queue.startService}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowAssignModal(q)}
-                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition hover:text-white"
-                            >
-                              {t.queue.reassign}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
-                            >
-                              <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.remove}
-                            </button>
-                          </>
-                        ) : q.party_size > 1 ? (
+                        {q.status === "in_service" && (
                           <button
                             type="button"
-                            onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
+                            onClick={() => { setPaymentError(null); setShowPaymentModal(q); }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
                           >
-                            <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.cancelGroup}
+                            <Banknote className="h-3.5 w-3.5" /> {t.queue.receivePayment}
                           </button>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setShowAssignModal(q)}
-                              className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
-                            >
-                              {t.queue.assignBarber}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(q.id, "cancelled")}
-                              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
-                            >
-                              <XCircle className="mr-1 inline h-3 w-3" /> {t.queue.remove}
-                            </button>
-                          </>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(q.id, "cancelled")}
+                          className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-red-400 transition hover:text-red-300"
+                        >
+                          <XCircle className="mr-1 inline h-3 w-3" />
+                          {q.status === "in_service"
+                            ? t.queue.cancel
+                            : q.party_size > 1
+                              ? t.queue.cancelGroup
+                              : t.queue.remove}
+                        </button>
                       </div>
                     )}
                     {q.status === "completed" && !isPaid && (
