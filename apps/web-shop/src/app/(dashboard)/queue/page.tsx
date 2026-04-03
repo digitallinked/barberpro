@@ -1595,65 +1595,90 @@ export default function QueuePage() {
               </button>
             </div>
 
-            {/* Barber selection */}
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.selectBarber}</p>
-            <div className="space-y-1.5 mb-4">
-              {barbers.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => setAssignSelectedBarber(b.staff_profile_id)}
-                  className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${
-                    assignSelectedBarber === b.staff_profile_id
-                      ? "border-[#D4AF37]/50 bg-[#D4AF37]/10"
-                      : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
-                  }`}
-                >
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                    assignSelectedBarber === b.staff_profile_id ? "bg-[#D4AF37] text-[#111]" : "bg-[#D4AF37]/10 text-[#D4AF37]"
-                  }`}>
-                    {b.full_name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">{b.full_name}</p>
-                    <p className="text-[10px] text-gray-500">{b.role}</p>
-                  </div>
-                  {busyStaffIds.has(b.staff_profile_id) && (
-                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] text-red-400">{t.queue.busy}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Seat selection (only shown when starting service and seats exist) */}
-            {(seatsData?.data ?? []).length > 0 && (
+            {/* Seat-first selection (mirrors party member modal); falls back to barber list if no seats configured */}
+            {(seatsData?.data ?? []).filter((s) => s.is_active).length > 0 ? (
               <>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.assignSeat} <span className="normal-case font-normal text-gray-600">({t.queue.optional})</span></p>
-                <div className="grid grid-cols-3 gap-1.5 mb-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.seat}</p>
+                <div className="grid grid-cols-2 gap-1.5 mb-4">
                   {(seatsData?.data ?? []).filter((s) => s.is_active).map((seat) => {
                     const occupied =
                       (tickets.some((t) => t.seat_id === seat.id && t.status === "in_service" && t.id !== showAssignModal.id)) ||
                       occupiedSeatsByMembers.has(seat.id);
+                    const isSelected = assignSelectedSeat === seat.id;
                     return (
                       <button
                         key={seat.id}
                         type="button"
                         disabled={occupied}
-                        onClick={() => setAssignSelectedSeat(assignSelectedSeat === seat.id ? "" : seat.id)}
-                        className={`rounded-lg border p-2 text-center transition ${
+                        onClick={() => {
+                          if (isSelected) {
+                            setAssignSelectedSeat("");
+                            setAssignSelectedBarber("");
+                          } else {
+                            setAssignSelectedSeat(seat.id);
+                            setAssignSelectedBarber(seat.staff_profile_id ?? "");
+                          }
+                        }}
+                        className={`rounded-lg border p-2.5 text-left transition ${
                           occupied
                             ? "border-red-500/20 bg-red-500/5 opacity-50 cursor-not-allowed"
-                            : assignSelectedSeat === seat.id
+                            : isSelected
                               ? "border-[#D4AF37]/50 bg-[#D4AF37]/15"
-                              : "border-white/10 bg-[#111] hover:border-white/20"
+                              : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
                         }`}
                       >
-                        <p className={`text-base font-black ${assignSelectedSeat === seat.id ? "text-[#D4AF37]" : "text-white"}`}>{seat.seat_number}</p>
-                        <p className="text-[9px] text-gray-500 truncate">{seat.label || `Seat ${seat.seat_number}`}</p>
-                        {occupied && <p className="text-[8px] text-red-400">{t.queue.busy}</p>}
+                        <div className="flex items-center gap-2">
+                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm font-black ${isSelected ? "bg-[#D4AF37] text-[#111]" : "bg-white/5 text-gray-300"}`}>
+                            {seat.seat_number}
+                          </span>
+                          <div className="min-w-0">
+                            <p className={`text-xs font-semibold truncate ${isSelected ? "text-[#D4AF37]" : "text-white"}`}>
+                              {seat.label || `Seat ${seat.seat_number}`}
+                            </p>
+                            <p className="text-[10px] truncate">
+                              {occupied
+                                ? <span className="text-red-400">{t.queue.busy}</span>
+                                : seat.barber_name
+                                  ? <span className="text-gray-400">{seat.barber_name}</span>
+                                  : <span className="text-gray-600">{t.queue.noBarberShort}</span>
+                              }
+                            </p>
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.selectBarber}</p>
+                <div className="space-y-1.5 mb-4">
+                  {barbers.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setAssignSelectedBarber(b.staff_profile_id)}
+                      className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${
+                        assignSelectedBarber === b.staff_profile_id
+                          ? "border-[#D4AF37]/50 bg-[#D4AF37]/10"
+                          : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
+                      }`}
+                    >
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        assignSelectedBarber === b.staff_profile_id ? "bg-[#D4AF37] text-[#111]" : "bg-[#D4AF37]/10 text-[#D4AF37]"
+                      }`}>
+                        {b.full_name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white">{b.full_name}</p>
+                        <p className="text-[10px] text-gray-500">{b.role}</p>
+                      </div>
+                      {busyStaffIds.has(b.staff_profile_id) && (
+                        <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[9px] text-red-400">{t.queue.busy}</span>
+                      )}
+                    </button>
+                  ))}
                 </div>
               </>
             )}
@@ -1668,11 +1693,14 @@ export default function QueuePage() {
               </button>
               <button
                 type="button"
-                disabled={!assignSelectedBarber}
+                disabled={
+                  (seatsData?.data ?? []).filter((s) => s.is_active).length > 0
+                    ? !assignSelectedSeat
+                    : !assignSelectedBarber
+                }
                 onClick={() => {
-                  if (!assignSelectedBarber) return;
                   const status = showAssignModal.status === "in_service" ? "in_service" : "waiting";
-                  void handleUpdateStatus(showAssignModal.id, status, assignSelectedBarber, assignSelectedSeat || null);
+                  void handleUpdateStatus(showAssignModal.id, status, assignSelectedBarber || undefined, assignSelectedSeat || null);
                 }}
                 className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-40"
               >
