@@ -284,11 +284,18 @@ export default function QueuePage() {
     if (!memberSeatId) { setMemberError(t.queue.selectSeatRequired); return; }
     setMemberError(null);
     setMemberSubmitting(true);
+    const nextSlot = showMemberModal.ticket_seats.length;
+    const requestedForSlot = showMemberModal.member_services.filter((m) => m.member_index === nextSlot);
+    const serviceId =
+      memberServiceId ||
+      requestedForSlot[0]?.service_id ||
+      showMemberModal.service_id ||
+      null;
     const result = await addTicketSeatMember(
       showMemberModal.id,
       memberStaffId || null,
       memberSeatId,
-      memberServiceId || null
+      serviceId
     );
     setMemberSubmitting(false);
     if (result.success) {
@@ -922,7 +929,7 @@ export default function QueuePage() {
                               type="button"
                               onClick={() => {
                                 const nextIndex = q.ticket_seats.length;
-                                const preFill = q.member_services.find((m) => m.member_index === nextIndex);
+                                const preFill = q.member_services.filter((m) => m.member_index === nextIndex)[0];
                                 setShowMemberModal(q);
                                 setMemberServiceId(preFill?.service_id ?? q.service_id ?? "");
                               }}
@@ -1628,26 +1635,6 @@ export default function QueuePage() {
               <div className="mb-3 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">{memberError}</div>
             )}
 
-            {/* Service selection */}
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">{t.queue.service}</p>
-            <div className="mb-4 grid grid-cols-2 gap-1.5">
-              {activeServices.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setMemberServiceId(s.id)}
-                  className={`rounded-lg border p-2.5 text-left transition ${
-                    memberServiceId === s.id
-                      ? "border-[#D4AF37]/50 bg-[#D4AF37]/10"
-                      : "border-white/10 bg-[#111] hover:border-[#D4AF37]/30"
-                  }`}
-                >
-                  <p className={`text-xs font-semibold ${memberServiceId === s.id ? "text-[#D4AF37]" : "text-white"}`}>{s.name}</p>
-                  <p className="text-[10px] text-gray-500">RM {s.price}</p>
-                </button>
-              ))}
-            </div>
-
             {/* Seat selection — required */}
             {(seatsData?.data ?? []).length > 0 && (
               <>
@@ -1713,7 +1700,7 @@ export default function QueuePage() {
               </button>
               <button
                 type="button"
-                disabled={memberSubmitting || !memberSeatId || !memberServiceId}
+                disabled={memberSubmitting || !memberSeatId}
                 onClick={() => void handleAddMember()}
                 className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:opacity-50 transition"
               >
@@ -1790,13 +1777,46 @@ export default function QueuePage() {
       {showPaymentModal && (() => {
         const members = showPaymentModal.ticket_seats.filter((m) => m.status !== "cancelled");
         const isGroup = members.length > 0;
-        const groupTotal = members.reduce((sum, m) => sum + (m.service?.price ?? 0), 0);
+        // Extra check-in services per seated member beyond the one stored in the seat row
+        const groupExtraServices = members.map((m, idx) =>
+          showPaymentModal.member_services.filter(
+            (ms) => ms.member_index === idx && ms.service_id !== m.service_id
+          )
+        );
+        const groupExtraTotal = groupExtraServices.flat().reduce((sum, ms) => sum + ms.service_price, 0);
+        const groupTotal = members.reduce((sum, m) => sum + (m.service?.price ?? 0), 0) + groupExtraTotal;
+        // Flat list of line items for group payment (includes extra services per member)
+        const groupLineItems = isGroup
+          ? members.flatMap((m, idx) => [
+              {
+                key: m.id,
+                name: m.service?.name ?? t.queue.walkInService,
+                detail: `${m.staff?.full_name ?? "—"}${m.seat ? ` · ${m.seat.label || `Seat ${m.seat.seat_number}`}` : ""}`,
+                price: m.service?.price ?? 0,
+                isExtra: false,
+                slotNum: idx + 1,
+              },
+              ...(groupExtraServices[idx] ?? []).map((ms) => ({
+                key: `${m.id}-${ms.service_id}`,
+                name: ms.service_name,
+                detail: m.staff?.full_name ?? "—",
+                price: ms.service_price,
+                isExtra: true,
+                slotNum: idx + 1,
+              })),
+            ])
+          : [];
         // For single tickets: try service from ticket_service, then member_services[0]
         const singleService = showPaymentModal.service
           ?? (showPaymentModal.member_services[0]
             ? { name: showPaymentModal.member_services[0].service_name, price: showPaymentModal.member_services[0].service_price }
             : null);
-        // For member-services-only breakdown (no seat members assigned yet, but customer pre-selected services)
+        // All member_services for a single-person ticket (may have multiple)
+        const singleAllServices = !isGroup && showPaymentModal.party_size === 1
+          ? showPaymentModal.member_services
+          : [];
+        const singleServicesTotal = singleAllServices.reduce((sum, m) => sum + m.service_price, 0);
+        // For member-services-only breakdown (group size > 1, no seat members assigned yet)
         const hasMemberServicesOnly = !isGroup && showPaymentModal.member_services.length > 0 && showPaymentModal.party_size > 1;
         const memberServicesTotal = showPaymentModal.member_services.reduce((sum, m) => sum + m.service_price, 0);
 
@@ -1804,7 +1824,9 @@ export default function QueuePage() {
           ? groupTotal.toFixed(2)
           : hasMemberServicesOnly
             ? memberServicesTotal.toFixed(2)
-            : (singleService?.price ?? 0).toFixed(2);
+            : singleAllServices.length > 0
+              ? singleServicesTotal.toFixed(2)
+              : (singleService?.price ?? 0).toFixed(2);
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -1829,33 +1851,60 @@ export default function QueuePage() {
                 )}
               </p>
 
-              {/* Single ticket with a service */}
-              {!isGroup && !hasMemberServicesOnly && singleService && (
-                <div className="mb-4 rounded-xl border border-white/5 bg-[#111] px-3 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[9px] font-black text-[#D4AF37]">1</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-white">{singleService.name}</p>
-                      {showPaymentModal.assigned_staff && (
-                        <p className="text-[10px] text-gray-500">{showPaymentModal.assigned_staff.full_name}</p>
+              {/* Single ticket services breakdown */}
+              {!isGroup && !hasMemberServicesOnly && (singleAllServices.length > 0 || singleService) && (
+                <div className="mb-4 rounded-xl border border-white/5 bg-[#111] divide-y divide-white/5">
+                  {singleAllServices.length > 0 ? (
+                    <>
+                      {singleAllServices.map((ms, idx) => (
+                        <div key={ms.service_id} className="flex items-center gap-3 px-3 py-2.5">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[9px] font-black text-[#D4AF37]">{idx + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-white">{ms.service_name}</p>
+                            {showPaymentModal.assigned_staff && idx === 0 && (
+                              <p className="text-[10px] text-gray-500">{showPaymentModal.assigned_staff.full_name}</p>
+                            )}
+                          </div>
+                          <p className="text-xs font-bold text-[#D4AF37]">RM {ms.service_price.toFixed(2)}</p>
+                        </div>
+                      ))}
+                      {singleAllServices.length > 1 && (
+                        <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
+                          <p className="text-xs font-bold text-white">{t.queue.total}</p>
+                          <p className="text-sm font-black text-[#D4AF37]">RM {singleServicesTotal.toFixed(2)}</p>
+                        </div>
                       )}
+                    </>
+                  ) : singleService ? (
+                    <div className="flex items-center gap-3 px-3 py-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[9px] font-black text-[#D4AF37]">1</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white">{singleService.name}</p>
+                        {showPaymentModal.assigned_staff && (
+                          <p className="text-[10px] text-gray-500">{showPaymentModal.assigned_staff.full_name}</p>
+                        )}
+                      </div>
+                      <p className="text-xs font-bold text-[#D4AF37]">RM {singleService.price.toFixed(2)}</p>
                     </div>
-                    <p className="text-xs font-bold text-[#D4AF37]">RM {singleService.price.toFixed(2)}</p>
-                  </div>
+                  ) : null}
                 </div>
               )}
 
               {/* Group ticket with seated members: per-member breakdown */}
               {isGroup && (
                 <div className="mb-4 rounded-xl border border-white/5 bg-[#111] divide-y divide-white/5">
-                  {members.map((m, idx) => (
-                    <div key={m.id} className="flex items-center gap-3 px-3 py-2.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[9px] font-black text-blue-400">{idx + 1}</span>
+                  {groupLineItems.map((line) => (
+                    <div key={line.key} className="flex items-center gap-3 px-3 py-2.5">
+                      {line.isExtra ? (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/10 text-[10px] font-black text-[#D4AF37]/60">+</span>
+                      ) : (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[9px] font-black text-blue-400">{line.slotNum}</span>
+                      )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-white">{m.service?.name ?? t.queue.walkInService}</p>
-                        <p className="text-[10px] text-gray-500">{m.staff?.full_name ?? "—"}{m.seat ? ` · ${m.seat.label || `Seat ${m.seat.seat_number}`}` : ""}</p>
+                        <p className={`text-xs font-medium ${line.isExtra ? "text-gray-300" : "text-white"}`}>{line.name}</p>
+                        <p className="text-[10px] text-gray-500">{line.detail}</p>
                       </div>
-                      <p className="text-xs font-bold text-[#D4AF37]">RM {(m.service?.price ?? 0).toFixed(2)}</p>
+                      <p className="text-xs font-bold text-[#D4AF37]">RM {line.price.toFixed(2)}</p>
                     </div>
                   ))}
                   <div className="flex items-center justify-between px-3 py-2.5 bg-white/3">
