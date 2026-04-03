@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Banknote,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Download,
   Armchair,
@@ -175,6 +176,7 @@ export default function QueuePage() {
   ]);
 
   const [activeTab, setActiveTab] = useState(0);
+  const [showCompletedSection, setShowCompletedSection] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState<QueueTicketWithRelations | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState<QueueTicketWithRelations | null>(null);
@@ -820,8 +822,17 @@ export default function QueuePage() {
               <Users className="h-8 w-8 text-gray-700" />
               <p className="text-sm text-gray-500">{t.queue.noTickets}</p>
             </div>
-          ) : (
-            filteredTickets.map((q) => {
+          ) : (() => {
+            const DONE_STATUSES = ["completed", "paid", "cancelled"];
+            // On the "All" tab split active vs done; on specific tabs show all as-is.
+            const activeTicketList = activeTab === 0
+              ? filteredTickets.filter((q) => !DONE_STATUSES.includes(q.status))
+              : filteredTickets;
+            const doneTicketList = activeTab === 0
+              ? filteredTickets.filter((q) => DONE_STATUSES.includes(q.status))
+              : [];
+
+            const renderTicket = (q: (typeof filteredTickets)[0]) => {
               const isNext = q.status === "waiting" && q.id === nextWaitingId;
               const timer =
                 q.status === "in_service" && q.called_at
@@ -1140,7 +1151,34 @@ export default function QueuePage() {
                   </div>
                 </Card>
               );
-            })
+            };
+
+            return (
+              <>
+                {activeTicketList.map((q) => renderTicket(q))}
+                {doneTicketList.length > 0 && (
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompletedSection((v) => !v)}
+                      className="flex w-full items-center justify-between rounded-xl border border-white/5 bg-[#1a1a1a] px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-400 hover:border-white/10 hover:text-gray-300 transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/60" />
+                        <span>Completed · {doneTicketList.length}</span>
+                      </div>
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showCompletedSection ? "rotate-180" : ""}`} />
+                    </button>
+                    {showCompletedSection && (
+                      <div className="mt-2 space-y-3">
+                        {doneTicketList.map((q) => renderTicket(q))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()
           )}
         </div>
 

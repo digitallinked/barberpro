@@ -144,18 +144,32 @@ export async function createTransaction(data: CreateTransactionData) {
     }
 
     if (queueTicketId) {
+      const now = new Date().toISOString();
+
       const { error: ticketError } = await supabase
         .from("queue_tickets")
         .update({
           status: "paid",
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          completed_at: now,
+          updated_at: now,
         })
         .eq("id", queueTicketId)
         .eq("tenant_id", tenantId);
 
       if (ticketError) {
         console.error("[createTransaction] Failed to mark queue ticket as paid:", ticketError.message);
+      }
+
+      // Mark all seat members as completed so the seat panel reflects reality.
+      const { error: seatsError } = await supabase
+        .from("queue_ticket_seats")
+        .update({ status: "completed", completed_at: now, updated_at: now })
+        .eq("ticket_id", queueTicketId)
+        .eq("tenant_id", tenantId)
+        .neq("status", "completed");
+
+      if (seatsError) {
+        console.error("[createTransaction] Failed to mark ticket seats as completed:", seatsError.message);
       }
     }
 
