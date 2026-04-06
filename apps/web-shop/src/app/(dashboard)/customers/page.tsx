@@ -127,14 +127,14 @@ export default function CustomersPage() {
           <h2 className="text-xl font-bold text-white">{t.customers.title}</h2>
           <p className="mt-1 text-sm text-gray-400">{t.customers.subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button type="button" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40 sm:w-auto">
             <Download className="h-4 w-4" /> Export
           </button>
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110 sm:w-auto"
           >
             <Plus className="h-4 w-4" /> {t.customers.addCustomer}
           </button>
@@ -142,7 +142,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (
@@ -190,7 +190,66 @@ export default function CustomersPage() {
           <h3 className="font-bold text-white">Customer Database</h3>
           <p className="text-sm text-gray-500">{filteredCustomers.length} customers</p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="sm:hidden divide-y divide-white/5 border-t border-white/5">
+          {customersLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : customersError ? (
+            <div className="p-8 text-center text-red-400">Failed to load customers</div>
+          ) : filteredCustomers.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No customers found</div>
+          ) : (
+            filteredCustomers.map((c) => {
+              const status = getStatus(c.loyalty_points ?? 0);
+              return (
+                <div key={c.id} className="flex flex-col gap-3 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a2a2a] text-xs font-bold text-white">
+                      {getInitials(c.full_name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-white">{c.full_name}</p>
+                      {c.email ? <p className="truncate text-xs text-gray-500">{c.email}</p> : null}
+                      <p className="mt-1 text-sm text-gray-300">{c.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded border border-[#D4AF37]/20 bg-[#D4AF37]/10 px-2 py-0.5 text-xs font-medium text-[#D4AF37]">
+                      <Star className="h-3 w-3" /> {c.loyalty_points ?? 0}
+                    </span>
+                    <span className={`rounded border px-2 py-0.5 text-xs font-bold ${status.statusColor}`}>{status.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1 border-t border-white/5 pt-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditCustomer({
+                          id: c.id,
+                          full_name: c.full_name,
+                          phone: c.phone,
+                          email: c.email ?? null,
+                          date_of_birth: c.date_of_birth ?? null,
+                          notes: c.notes ?? null
+                        })
+                      }
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-sm text-gray-300 transition hover:bg-white/5 hover:text-[#D4AF37]"
+                    >
+                      <Pencil className="h-4 w-4" /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomer(c.id)}
+                      disabled={deletingId === c.id}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-sm text-gray-300 transition hover:bg-white/5 hover:text-red-400 disabled:opacity-50"
+                    >
+                      <MoreHorizontal className="h-4 w-4" /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -296,8 +355,8 @@ export default function CustomersPage() {
 
       {/* Add Customer Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Add Customer</h3>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
@@ -342,8 +401,8 @@ export default function CustomersPage() {
       )}
 
       {editCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Edit Customer</h3>
             <form onSubmit={handleEditCustomer} className="mt-4 space-y-4">
               <div>

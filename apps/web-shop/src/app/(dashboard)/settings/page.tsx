@@ -147,7 +147,7 @@ export default function SettingsPage() {
           <h2 className="text-xl font-bold text-white">{t.settings.title}</h2>
           <p className="mt-1 text-sm text-gray-400">{t.settings.subtitle}</p>
         </div>
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input
             type="text"
@@ -201,10 +201,10 @@ export default function SettingsPage() {
           </Card>
         </div>
 
-        <div className="space-y-6 lg:col-span-3">
+        <div className="min-w-0 space-y-6 lg:col-span-3">
           {activeSection === "profile" && (
             <Card className="p-6">
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="mb-1 text-xl font-bold text-white">{t.settings.businessProfileTitle}</h3>
                   <p className="text-sm text-gray-400">{t.settings.businessProfileSubtitle}</p>
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                   type="submit"
                   form="profile-form"
                   disabled={pending}
-                  className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50 sm:w-auto"
                 >
                   <Save className="h-4 w-4" /> {t.common.saveChanges}
                 </button>
@@ -345,7 +345,7 @@ export default function SettingsPage() {
 
           {activeSection === "tax" && (
             <Card className="p-6">
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="mb-1 text-xl font-bold text-white">Tax &amp; Compliance (Malaysia)</h3>
                   <p className="text-sm text-gray-400">SST registration details and compliance reference. Stored locally on this device.</p>
@@ -357,7 +357,7 @@ export default function SettingsPage() {
                     setSstSaved(true);
                     setTimeout(() => setSstSaved(false), 3000);
                   }}
-                  className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 sm:w-auto"
                 >
                   <Save className="h-4 w-4" /> Save
                 </button>
@@ -458,7 +458,7 @@ export default function SettingsPage() {
 
           {activeSection === "preferences" && (
             <Card className="p-6">
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="mb-1 text-xl font-bold text-white">{t.settings.preferencesTitle}</h3>
                   <p className="text-sm text-gray-400">{t.settings.preferencesSubtitle}</p>
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => void handlePreferencesSave()}
                   disabled={prefPending}
-                  className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50 sm:w-auto"
                 >
                   <Save className="h-4 w-4" /> {t.settings.savePreferences}
                 </button>

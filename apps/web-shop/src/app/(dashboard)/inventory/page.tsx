@@ -163,29 +163,32 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-white">{t.inventory.title}</h2>
           <p className="mt-1 text-sm text-gray-400">{t.inventory.subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40 sm:w-auto"
+          >
             <Download className="h-4 w-4" /> Export
           </button>
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110 sm:w-auto"
           >
             <Plus className="h-4 w-4" /> Add Item
           </button>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {STATS.map((s) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {STATS.map((s, idx) => {
           const Icon = s.icon;
           return (
-            <Card key={s.label} className="p-5">
+            <Card key={s.label} className={`p-5 ${idx === 2 ? "col-span-2 sm:col-span-1" : ""}`}>
               <div className="flex items-start justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{s.label}</p>
                 <span className={`rounded-lg p-2 ${s.iconBg}`}><Icon className={`h-4 w-4 ${s.iconColor}`} /></span>
@@ -228,7 +231,87 @@ export default function InventoryPage() {
       </Card>
 
       <Card>
-        <div className="overflow-x-auto">
+        <div className="sm:hidden divide-y divide-white/[0.04]">
+          {inventoryLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : inventoryError ? (
+            <div className="p-8 text-center text-red-400">Failed to load inventory</div>
+          ) : filtered.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No items found</div>
+          ) : (
+            filtered.map((item) => {
+              const status = getStockStatus(item.stock_qty ?? 0, item.reorder_level ?? 0);
+              const stock = item.stock_qty ?? 0;
+              const reorder = item.reorder_level ?? 0;
+              return (
+                <div key={item.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 font-medium text-white">{item.name}</p>
+                    <span
+                      className={`shrink-0 rounded border px-2 py-0.5 text-xs font-bold ${
+                        status === "critical"
+                          ? "border-red-500/20 bg-red-500/10 text-red-400"
+                          : status === "low"
+                            ? "border-yellow-500/20 bg-yellow-500/10 text-yellow-400"
+                            : "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                      }`}
+                    >
+                      {status === "critical" ? "Critical" : status === "low" ? "Low" : "In Stock"}
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 items-center gap-2 text-xs">
+                    <span className="shrink-0 rounded border border-white/10 px-2 py-0.5 capitalize text-gray-300">
+                      {item.item_type}
+                    </span>
+                    <span className="text-gray-500">·</span>
+                    <span className="min-w-0 truncate font-mono text-gray-500">{item.sku ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <StockBar stock={stock} reorder={reorder} status={status} />
+                    <span className="text-xs text-gray-400">
+                      Stock: {stock} / Reorder: {reorder}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    <span>{formatAmount(item.unit_cost ?? 0)}</span>
+                    <span className="mx-1.5 text-gray-600">·</span>
+                    <span className="text-white">
+                      {item.sell_price != null ? formatAmount(item.sell_price) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setAdjustItem({ id: item.id, name: item.name })}
+                      className="rounded px-2 py-0.5 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10"
+                    >
+                      Adjust Stock
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditItem({
+                          id: item.id,
+                          name: item.name,
+                          sku: item.sku ?? null,
+                          item_type: item.item_type,
+                          unit_cost: item.unit_cost ?? 0,
+                          sell_price: item.sell_price ?? null,
+                          stock_qty: item.stock_qty ?? 0,
+                          reorder_level: item.reorder_level ?? 0,
+                        })
+                      }
+                      className="rounded p-1 text-gray-500 hover:bg-white/5 hover:text-white"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -260,10 +343,6 @@ export default function InventoryPage() {
               ) : (
                 filtered.map((item) => {
                   const status = getStockStatus(item.stock_qty ?? 0, item.reorder_level ?? 0);
-                  const margin =
-                    item.sell_price != null && item.sell_price > 0 && item.unit_cost
-                      ? `${(((item.sell_price - item.unit_cost) / item.sell_price) * 100).toFixed(0)}%`
-                      : "—";
                   return (
                     <tr key={item.id} className="border-t border-white/[0.04] transition hover:bg-white/[0.02]">
                       <td className="p-4 font-medium text-white">{item.name}</td>
@@ -324,8 +403,8 @@ export default function InventoryPage() {
       </Card>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Add Item</h3>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
@@ -424,8 +503,8 @@ export default function InventoryPage() {
       )}
 
       {adjustItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-sm rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Adjust Stock — {adjustItem.name}</h3>
             <form onSubmit={handleAdjustSubmit} className="mt-4 space-y-4">
               <div>
@@ -480,8 +559,8 @@ export default function InventoryPage() {
       )}
 
       {editItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Edit Item — {editItem.name}</h3>
             <form onSubmit={handleEditSubmit} className="mt-4 space-y-4">
               <div>

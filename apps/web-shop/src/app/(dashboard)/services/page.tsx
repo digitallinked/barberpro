@@ -295,7 +295,7 @@ export default function ServicesPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setEditService({ id: service.id, name: service.name, duration_min: service.duration_min, price: service.price, category_id: service.category_id ?? null })}
@@ -324,8 +324,8 @@ export default function ServicesPage() {
       </div>
 
       {editService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Edit Service</h3>
             <form onSubmit={handleEditService} className="mt-4 space-y-4">
               <div>
@@ -369,8 +369,8 @@ export default function ServicesPage() {
       )}
 
       {editCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-sm rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Edit Category</h3>
             <form onSubmit={handleEditCategory} className="mt-4 space-y-4">
               <div>

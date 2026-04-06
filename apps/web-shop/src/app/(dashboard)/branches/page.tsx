@@ -57,14 +57,16 @@ export default function BranchesPage() {
           <h2 className="text-2xl font-bold text-white">{t.branches.title}</h2>
           <p className="mt-1 text-sm text-gray-400">{t.branches.subtitle}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleAddBranchClick}
-          className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
-        >
-          {atBranchLimit ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {t.branches.addBranch}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={handleAddBranchClick}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 sm:w-auto"
+          >
+            {atBranchLimit ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {t.branches.addBranch}
+          </button>
+        </div>
       </div>
 
       {/* Starter plan banner */}
@@ -102,7 +104,7 @@ export default function BranchesPage() {
           <p className="text-gray-400">No branches found.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           {branches.map((b) => (
             <Link
               key={b.id}
@@ -128,11 +130,13 @@ export default function BranchesPage() {
                   </span>
                 </div>
               </div>
-              <h3 className="text-sm font-bold text-white">{b.name}</h3>
-              <p className="mt-1 text-xs text-gray-500 font-mono">{b.code}</p>
-              <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                <MapPin className="h-3 w-3 shrink-0" /> {b.address || "No address"}
-              </p>
+              <div className="min-w-0 break-words">
+                <h3 className="text-sm font-bold text-white">{b.name}</h3>
+                <p className="mt-1 font-mono text-xs text-gray-500">{b.code}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                  <MapPin className="h-3 w-3 shrink-0" /> {b.address || "No address"}
+                </p>
+              </div>
             </Link>
           ))}
         </div>
@@ -140,8 +144,8 @@ export default function BranchesPage() {
 
       {/* Upgrade paywall modal */}
       {showUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl text-center">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="relative my-auto w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl text-center">
             <button
               type="button"
               onClick={() => setShowUpgrade(false)}
@@ -193,8 +197,8 @@ export default function BranchesPage() {
 
       {/* Add Branch Modal (Professional only) */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-white">Add Branch</h3>
               <button

@@ -77,21 +77,21 @@ export default function PromotionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-white">{t.promotions.title}</h2>
           <p className="mt-1 text-sm text-gray-400">{t.promotions.subtitle}</p>
         </div>
         <button
           type="button"
           disabled
-          className="flex items-center gap-2 rounded-lg bg-[#D4AF37]/50 px-4 py-2 text-sm font-bold text-[#111] cursor-not-allowed opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37]/50 px-4 py-2 text-sm font-bold text-[#111] cursor-not-allowed opacity-70 sm:w-auto"
         >
           <Plus className="h-4 w-4" /> {t.promotions.addPromotion}
         </button>
       </div>
 
       {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (

@@ -165,21 +165,21 @@ export default function StaffPage() {
           <h2 className="text-2xl font-bold tracking-tight text-white">{t.staff.title}</h2>
           <p className="mt-0.5 text-sm text-gray-500">{t.staff.subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
               placeholder={t.staff.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-52 rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]/40"
+              className="w-full rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]/40 sm:w-52"
             />
           </div>
           <button
             type="button"
             onClick={() => atStaffLimit ? setShowUpgrade(true) : setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 sm:w-auto"
           >
             {atStaffLimit ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {t.staff.addStaff}
@@ -354,7 +354,7 @@ export default function StaffPage() {
       </Card>
 
       {/* Staff grid */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         {staffLoading ? (
           <div className="col-span-full rounded-xl border border-white/5 bg-[#1a1a1a] p-8 text-center text-gray-500">
             Loading...
@@ -427,8 +427,8 @@ export default function StaffPage() {
 
       {/* Staff limit upgrade modal */}
       {showUpgrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl text-center">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4AF37]/10">
               <Lock className="h-7 w-7 text-[#D4AF37]" />
             </div>
@@ -472,8 +472,8 @@ export default function StaffPage() {
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-white">{t.staff.addStaff}</h3>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>

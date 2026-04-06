@@ -101,18 +101,18 @@ export default function CommissionsPage() {
           <h1 className="text-lg font-bold text-white">{t.commissions.title}</h1>
           <p className="mt-1 text-sm text-gray-400">{t.commissions.subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={() => setShowNewSchemeModal(true)}
-            className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-4 py-2 text-sm font-medium text-white hover:border-[#D4AF37]/40"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-4 py-2 text-sm font-medium text-white hover:border-[#D4AF37]/40 sm:w-auto"
           >
             <Plus className="h-4 w-4" /> New Scheme
           </button>
           <button
             type="button"
             onClick={() => setShowAssignModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 sm:w-auto"
           >
             <Save className="h-4 w-4" /> Assign to Staff
           </button>
@@ -120,7 +120,7 @@ export default function CommissionsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           {/* Commission schemes */}
           <Card className="p-5">
             <h2 className="mb-4 flex items-center gap-2 font-bold text-white">
@@ -140,20 +140,20 @@ export default function CommissionsPage() {
                       key={s.id}
                       className="rounded-lg border border-white/5 bg-[#111] p-4"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="rounded-lg bg-[#D4AF37]/10 p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="shrink-0 rounded-lg bg-[#D4AF37]/10 p-2">
                             <Icon className="h-4 w-4 text-[#D4AF37]" />
                           </span>
-                          <div>
-                            <h3 className="font-semibold text-white">{s.name}</h3>
-                            <p className="text-xs text-gray-500">
+                          <div className="min-w-0">
+                            <h3 className="truncate font-semibold text-white">{s.name}</h3>
+                            <p className="break-words text-xs text-gray-500">
                               {model?.name ?? s.payout_model} • {s.is_active ? "Active" : "Inactive"}
                             </p>
                           </div>
                         </div>
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                             s.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-gray-500/10 text-gray-400"
                           }`}
                         >
@@ -225,7 +225,9 @@ export default function CommissionsPage() {
                     {assignments.map((a) => (
                       <tr key={a.id} className="border-t border-white/[0.04]">
                         <td className="py-3 font-medium text-white">{a.staff?.full_name ?? "Unknown"}</td>
-                        <td className="py-3 text-gray-300">{a.scheme?.name ?? "Unknown"}</td>
+                        <td className="min-w-0 max-w-[10rem] py-3 text-gray-300 sm:max-w-none">
+                          <span className="block truncate sm:whitespace-normal sm:break-words">{a.scheme?.name ?? "Unknown"}</span>
+                        </td>
                         <td className="py-3 text-gray-300">{formatDate(a.effective_from)}</td>
                         <td className="py-3 text-gray-500">{a.effective_to ? formatDate(a.effective_to) : "—"}</td>
                       </tr>
@@ -238,7 +240,7 @@ export default function CommissionsPage() {
         </div>
 
         {/* Right panel - Payout models reference */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="sticky top-24 p-5">
             <h3 className="mb-4 font-bold text-white">Payout Models</h3>
             <div className="space-y-2 text-xs text-gray-400">
@@ -272,8 +274,8 @@ export default function CommissionsPage() {
 
       {/* New Scheme Modal */}
       {showNewSchemeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             <div className="mb-6 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">New Commission Scheme</h3>
               <button
@@ -396,8 +398,8 @@ export default function CommissionsPage() {
 
       {/* Assign to Staff Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl">
             <div className="mb-6 flex items-center justify-between">
               <h3 className="text-lg font-bold text-white">Assign Scheme to Staff</h3>
               <button

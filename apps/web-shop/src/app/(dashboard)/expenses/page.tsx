@@ -144,25 +144,25 @@ export default function ExpensesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-white">{t.expenses.title}</h2>
           <p className="mt-1 text-sm text-gray-400">{t.expenses.subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white hover:border-[#D4AF37]/40">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button type="button" className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white hover:border-[#D4AF37]/40 sm:w-auto">
             <Download className="h-4 w-4" /> Export
           </button>
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 sm:w-auto"
           >
             <Plus className="h-4 w-4" /> {t.expenses.addExpense}
           </button>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (
@@ -178,17 +178,17 @@ export default function ExpensesPage() {
       </div>
 
       <Card>
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+        <div className="flex flex-col gap-3 border-b border-white/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="font-bold text-white">All Expenses</h3>
-          <div className="flex gap-2">
-            <div className="relative">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-36 rounded-lg border border-white/10 bg-[#111] py-1.5 pl-8 pr-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]"
+                className="w-full rounded-lg border border-white/10 bg-[#111] py-1.5 pl-8 pr-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#D4AF37] sm:w-36"
               />
             </div>
             <button type="button" className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#111] px-2 py-1.5 text-xs text-gray-400">
@@ -196,7 +196,52 @@ export default function ExpensesPage() {
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="sm:hidden divide-y divide-white/[0.04]">
+          {expensesLoading ? (
+            <div className="px-5 py-8 text-center text-gray-500">Loading...</div>
+          ) : expensesError ? (
+            <div className="px-5 py-8 text-center text-red-400">Failed to load expenses</div>
+          ) : filtered.length === 0 ? (
+            <div className="px-5 py-8 text-center text-gray-500">No expenses found</div>
+          ) : (
+            filtered.map((e) => (
+              <div key={e.id} className="space-y-2 px-5 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded px-2 py-0.5 text-xs font-bold bg-blue-500/10 text-blue-400">{e.category}</span>
+                  <span className="shrink-0 font-bold text-red-400">- {formatAmount(e.amount)}</span>
+                </div>
+                <p className="text-xs text-gray-300">
+                  {e.vendor ?? "—"} · {formatDate(e.expense_date)} · {formatPaymentMethod(e.payment_method)}
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(e.status ?? "pending")}`}>
+                    {e.status ?? "pending"}
+                  </span>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditExpense({ id: e.id, category: e.category, vendor: e.vendor ?? null, amount: e.amount, payment_method: e.payment_method, expense_date: e.expense_date, notes: e.notes ?? null })}
+                      className="rounded p-1 text-gray-500 hover:text-[#D4AF37]"
+                      title="Edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(e.id)}
+                      disabled={!!deletingId}
+                      className="rounded p-1 text-gray-500 hover:text-red-400 disabled:opacity-50"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -278,8 +323,8 @@ export default function ExpensesPage() {
       </Card>
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Add Expense</h3>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
@@ -364,8 +409,8 @@ export default function ExpensesPage() {
       )}
 
       {editExpense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Edit Expense</h3>
             <form onSubmit={handleEditSubmit} className="mt-4 space-y-4">
               <div>
