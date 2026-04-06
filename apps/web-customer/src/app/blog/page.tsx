@@ -11,8 +11,10 @@ import {
   type BlogPostRow,
   type BlogListPost,
 } from "@/lib/blog-resolve";
-import { translations } from "@/lib/i18n/translations";
+import { translations, type Translations } from "@/lib/i18n/translations";
 import { BlogSearch } from "./blog-search";
+
+type BlogT = Translations["blog"];
 
 export const revalidate = 60;
 
@@ -184,7 +186,7 @@ function FeaturedPostCard({
   dateLocale,
 }: {
   post: BlogListPost;
-  b: (typeof translations)["ms"]["blog"];
+  b: BlogT;
   dateLocale: string;
 }) {
   return (
@@ -247,7 +249,7 @@ function PostCard({
   dateLocale,
 }: {
   post: BlogListPost;
-  b: (typeof translations)["ms"]["blog"];
+  b: BlogT;
   dateLocale: string;
 }) {
   return (
@@ -305,7 +307,7 @@ function PostMeta({
   className,
 }: {
   post: BlogListPost;
-  b: (typeof translations)["ms"]["blog"];
+  b: BlogT;
   dateLocale: string;
   className?: string;
 }) {
@@ -344,7 +346,7 @@ function EmptyBlog({
   b,
 }: {
   hasFilter: boolean;
-  b: (typeof translations)["ms"]["blog"];
+  b: BlogT;
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
