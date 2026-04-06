@@ -177,7 +177,7 @@ export default function TermsPage() {
               href="/privacy"
               className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-[#d4af37]/30 hover:text-[#d4af37]"
             >
-              Privacy Policy ->
+              Privacy Policy →
             </Link>
             <a
               href={`mailto:${CONTACT_EMAIL}`}
