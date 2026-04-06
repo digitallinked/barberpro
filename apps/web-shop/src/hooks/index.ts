@@ -1,5 +1,5 @@
 export { useSupabase } from "./use-supabase";
-export { useCustomers, useCustomerStats } from "./use-customers";
+export { useCustomers, useCustomerStats, useCustomerVisitStats } from "./use-customers";
 export { useStaffMembers, useStaffMember, useStaffStats } from "./use-staff";
 export { useBranches, useBranch } from "./use-branches";
 export { useServices, useServiceCategories } from "./use-catalog";

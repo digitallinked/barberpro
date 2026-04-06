@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRight,
   Banknote,
+  Lock,
   Percent,
   Plus,
   Save,
@@ -15,21 +17,23 @@ import {
   Users,
   X
 } from "lucide-react";
+import Link from "next/link";
 import { useCommissionSchemes, useStaffAssignments, useStaffMembers } from "@/hooks";
 import { createCommissionScheme, assignCommissionScheme } from "@/actions/commissions";
 import { useT } from "@/lib/i18n/language-context";
+import { useTenant } from "@/components/tenant-provider";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
 }
 
 const PAYOUT_MODELS = [
-  { id: "fixed_salary", name: "Fixed Salary", desc: "Monthly fixed amount", icon: Banknote },
-  { id: "per_customer", name: "Per Customer", desc: "Pay per customer served", icon: User },
-  { id: "per_service", name: "Per Service", desc: "Fixed rate per service", icon: Scissors },
-  { id: "percentage", name: "Percentage", desc: "Percentage of service revenue", icon: Percent },
-  { id: "product_commission", name: "Product Commission", desc: "Percentage of product sales", icon: ShoppingBag },
-  { id: "hybrid", name: "Hybrid Model", desc: "Base + commissions + bonus", icon: TrendingUp }
+  { id: "fixed_salary",       name: "Fixed Salary",       desc: "Monthly fixed amount",             icon: Banknote,  proOnly: false },
+  { id: "per_customer",       name: "Per Customer",       desc: "Pay per customer served",          icon: User,      proOnly: false },
+  { id: "per_service",        name: "Per Service",        desc: "Fixed rate per service",           icon: Scissors,  proOnly: false },
+  { id: "percentage",         name: "Percentage",         desc: "Percentage of service revenue",    icon: Percent,   proOnly: true  },
+  { id: "product_commission", name: "Product Commission", desc: "Percentage of product sales",      icon: ShoppingBag, proOnly: true },
+  { id: "hybrid",             name: "Hybrid Model",       desc: "Base + commissions + bonus",       icon: TrendingUp, proOnly: true },
 ];
 
 function formatDate(s: string): string {
@@ -43,6 +47,8 @@ function formatRM(n: number): string {
 export default function CommissionsPage() {
   const t = useT();
   const queryClient = useQueryClient();
+  const { tenantPlan } = useTenant();
+  const isStarter = tenantPlan === "starter";
   const { data: schemesResult } = useCommissionSchemes();
   const { data: assignmentsResult } = useStaffAssignments();
   const { data: staffResult } = useStaffMembers();
@@ -238,15 +244,28 @@ export default function CommissionsPage() {
             <div className="space-y-2 text-xs text-gray-400">
               {PAYOUT_MODELS.map((m) => {
                 const Icon = m.icon;
+                const locked = isStarter && m.proOnly;
                 return (
-                  <div key={m.id} className="flex items-center gap-2">
-                    <Icon className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-                    <span className="font-medium text-gray-300">{m.name}</span>
-                    <span className="text-gray-500">— {m.desc}</span>
+                  <div key={m.id} className={`flex items-center gap-2 ${locked ? "opacity-40" : ""}`}>
+                    {locked ? <Lock className="h-3.5 w-3.5 shrink-0 text-gray-600" /> : <Icon className="h-3.5 w-3.5 shrink-0 text-gray-500" />}
+                    <span className={`font-medium ${locked ? "text-gray-500" : "text-gray-300"}`}>{m.name}</span>
+                    {locked ? (
+                      <span className="rounded-full bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#D4AF37]">Pro</span>
+                    ) : (
+                      <span className="text-gray-500">— {m.desc}</span>
+                    )}
                   </div>
                 );
               })}
             </div>
+            {isStarter && (
+              <Link
+                href="/settings?tab=billing"
+                className="mt-4 flex items-center justify-center gap-1.5 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#D4AF37] hover:brightness-110"
+              >
+                Unlock all models — RM 249/mo <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
           </Card>
         </div>
       </div>
@@ -285,12 +304,22 @@ export default function CommissionsPage() {
                   required
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
                 >
-                  {PAYOUT_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  {PAYOUT_MODELS.map((m) => {
+                    const locked = isStarter && m.proOnly;
+                    return (
+                      <option key={m.id} value={m.id} disabled={locked}>
+                        {locked ? `🔒 ${m.name} (Professional)` : m.name}
+                      </option>
+                    );
+                  })}
                 </select>
+                {isStarter && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-500">
+                    <Lock className="h-3 w-3" />
+                    Percentage, Product Commission &amp; Hybrid require Professional plan.{" "}
+                    <Link href="/settings?tab=billing" className="text-[#D4AF37] hover:underline">Upgrade</Link>
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

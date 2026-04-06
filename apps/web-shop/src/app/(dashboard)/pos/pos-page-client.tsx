@@ -3,10 +3,12 @@
 import {
   Banknote,
   Camera,
+  CheckCircle,
   ChevronDown,
   CreditCard,
   Minus,
   Plus,
+  Printer,
   QrCode,
   Scissors,
   Search,
@@ -49,6 +51,17 @@ type CartItem = {
 };
 
 type Tab = "services" | "products";
+
+type ReceiptData = {
+  items: CartItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  paymentMethod: string;
+  customerName: string;
+  barberName: string;
+  paidAt: string;
+};
 
 // ─── Selector Dropdown ────────────────────────────────────────────────────────
 
@@ -403,6 +416,8 @@ export function PosPageClient() {
   const [queueDropdownOpen, setQueueDropdownOpen] = useState(false);
   const queueDropdownRef = useRef<HTMLDivElement>(null);
 
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
   // QR proof photo state
   const [showQrStep, setShowQrStep] = useState(false);
   const [qrFile, setQrFile] = useState<File | null>(null);
@@ -620,6 +635,16 @@ export function PosPageClient() {
         queryClient.invalidateQueries({ queryKey: ["inventory"] });
         queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
         queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+        setReceipt({
+          items: [...cart],
+          subtotal,
+          tax,
+          total,
+          paymentMethod: method,
+          customerName: selectedCustomerObj?.full_name ?? "Walk-in",
+          barberName: selectedBarber !== null && barbers[selectedBarber] ? barbers[selectedBarber].full_name : "Next Available",
+          paidAt: new Date().toISOString(),
+        });
         setCart([]);
         setShowCheckout(false);
         setShowQrStep(false);
@@ -1159,6 +1184,91 @@ export function PosPageClient() {
                 className="flex-1 rounded-xl bg-[#D4AF37] py-3 text-sm font-bold text-[#111111] transition hover:brightness-110 disabled:opacity-40"
               >
                 {submitting ? "Saving…" : "Confirm payment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Receipt Modal ──────────────────────────────────────────────────── */}
+      {receipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl">
+            {/* Header */}
+            <div className="flex flex-col items-center gap-2 rounded-t-2xl bg-[#111] px-6 py-6 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
+                <CheckCircle className="h-6 w-6 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Payment Received</h3>
+              <p className="text-xs text-gray-500">
+                {new Date(receipt.paidAt).toLocaleString("en-MY", {
+                  day: "numeric", month: "short", year: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })}
+              </p>
+            </div>
+
+            {/* Details */}
+            <div className="space-y-1 px-6 py-4 text-sm" id="pos-receipt-print">
+              <div className="flex justify-between text-gray-400">
+                <span>Customer</span>
+                <span className="font-medium text-white">{receipt.customerName}</span>
+              </div>
+              <div className="flex justify-between text-gray-400">
+                <span>Barber</span>
+                <span className="font-medium text-white">{receipt.barberName}</span>
+              </div>
+              <div className="flex justify-between text-gray-400">
+                <span>Payment</span>
+                <span className="font-medium capitalize text-white">{receipt.paymentMethod === "qr" ? "DuitNow QR" : receipt.paymentMethod}</span>
+              </div>
+              <div className="my-3 border-t border-white/10" />
+              {receipt.items.map((item) => (
+                <div key={`${item.id}-${item.type}`} className="flex justify-between text-gray-300">
+                  <span className="flex-1 truncate pr-2">{item.name} {item.qty > 1 && <span className="text-gray-500">×{item.qty}</span>}</span>
+                  <span>RM {(item.price * item.qty).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="my-3 border-t border-white/10" />
+              <div className="flex justify-between text-gray-400">
+                <span>Subtotal</span>
+                <span>RM {receipt.subtotal.toFixed(2)}</span>
+              </div>
+              {receipt.tax > 0 && (
+                <div className="flex justify-between text-gray-400">
+                  <span>SST ({Math.round(SST_RATE * 100)}%)</span>
+                  <span>RM {receipt.tax.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-bold text-white">
+                <span>Total</span>
+                <span className="text-[#D4AF37]">RM {receipt.total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 border-t border-white/5 px-6 pb-5 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById("pos-receipt-print");
+                  if (!el) return;
+                  const win = window.open("", "_blank", "width=400,height=600");
+                  if (!win) return;
+                  win.document.write(`<html><head><title>Receipt</title><style>body{font-family:monospace;padding:16px;background:#fff;color:#000;}div{display:flex;justify-content:space-between;margin:4px 0;font-size:13px;}hr{border:none;border-top:1px dashed #ccc;margin:8px 0;}.total{font-weight:bold;font-size:15px;}</style></head><body>${el.innerHTML}</body></html>`);
+                  win.document.close();
+                  win.print();
+                }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-sm font-semibold text-white transition hover:bg-white/5"
+              >
+                <Printer className="h-4 w-4" /> Print
+              </button>
+              <button
+                type="button"
+                onClick={() => setReceipt(null)}
+                className="flex-1 rounded-xl bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110"
+              >
+                Done
               </button>
             </div>
           </div>

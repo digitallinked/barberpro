@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Scissors, Trash2 } from "lucide-react";
+import { Pencil, Plus, Scissors, Trash2 } from "lucide-react";
 
-import { createService, createServiceCategory, deleteService } from "@/actions/catalog";
+import { createService, updateService, createServiceCategory, updateServiceCategory, deleteService } from "@/actions/catalog";
 import { useServiceCategories, useServices } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
 
@@ -22,12 +22,19 @@ export default function ServicesPage() {
   const categories = categoriesResult?.data?.filter((c) => c.is_active) ?? [];
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
+  type EditService = { id: string; name: string; duration_min: number; price: number; category_id: string | null };
+  type EditCategory = { id: string; name: string };
+
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [categoryPending, setCategoryPending] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categorySuccess, setCategorySuccess] = useState<string | null>(null);
+  const [editService, setEditService] = useState<EditService | null>(null);
+  const [editServicePending, setEditServicePending] = useState(false);
+  const [editCategory, setEditCategory] = useState<EditCategory | null>(null);
+  const [editCategoryPending, setEditCategoryPending] = useState(false);
 
   async function handleCreateService(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -85,6 +92,34 @@ export default function ServicesPage() {
     }
 
     setCategoryError(result.error ?? t.common.error);
+  }
+
+  async function handleEditService(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editService) return;
+    setEditServicePending(true);
+    const result = await updateService(editService.id, new FormData(e.currentTarget));
+    setEditServicePending(false);
+    if (result.success) {
+      setEditService(null);
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+    } else {
+      alert(result.error);
+    }
+  }
+
+  async function handleEditCategory(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editCategory) return;
+    setEditCategoryPending(true);
+    const result = await updateServiceCategory(editCategory.id, new FormData(e.currentTarget));
+    setEditCategoryPending(false);
+    if (result.success) {
+      setEditCategory(null);
+      queryClient.invalidateQueries({ queryKey: ["service-categories"] });
+    } else {
+      alert(result.error);
+    }
   }
 
   return (
@@ -202,6 +237,23 @@ export default function ServicesPage() {
                 {categoryPending ? `${t.common.save}...` : `+ ${t.services.category}`}
               </button>
             </form>
+
+            {categories.length > 0 && (
+              <div className="mt-4 space-y-2 border-t border-white/5 pt-4">
+                {categories.map((cat) => (
+                  <div key={cat.id} className="flex items-center justify-between rounded-lg bg-[#111] px-3 py-2">
+                    <span className="text-sm text-white">{cat.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditCategory({ id: cat.id, name: cat.name })}
+                      className="rounded p-1 text-gray-500 transition hover:text-[#D4AF37]"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
 
@@ -243,23 +295,103 @@ export default function ServicesPage() {
                       </span>
                     </p>
                   </div>
-                  {service.is_active ? (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      disabled={pending}
-                      onClick={() => handleDeactivateService(service.id)}
-                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                      onClick={() => setEditService({ id: service.id, name: service.name, duration_min: service.duration_min, price: service.price, category_id: service.category_id ?? null })}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-white/10"
                     >
-                      <Trash2 className="mr-1 inline h-3.5 w-3.5" />
-                      {t.common.delete}
+                      <Pencil className="mr-1 inline h-3.5 w-3.5" />
+                      Edit
                     </button>
-                  ) : null}
+                    {service.is_active ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => handleDeactivateService(service.id)}
+                        className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        <Trash2 className="mr-1 inline h-3.5 w-3.5" />
+                        {t.common.delete}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </Card>
       </div>
+
+      {editService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+            <h3 className="text-lg font-bold text-white">Edit Service</h3>
+            <form onSubmit={handleEditService} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.serviceName}</label>
+                <input name="name" required defaultValue={editService.name}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.duration} (min)</label>
+                  <input type="number" min={0} step={5} name="duration_min" defaultValue={editService.duration_min}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.price} (RM)</label>
+                  <input type="number" min={0} step="0.01" name="price" defaultValue={editService.price}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">{t.services.category}</label>
+                <select name="category_id" defaultValue={editService.category_id ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  <option value="">—</option>
+                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditService(null)}
+                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editServicePending}
+                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50">
+                  {editServicePending ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+            <h3 className="text-lg font-bold text-white">Edit Category</h3>
+            <form onSubmit={handleEditCategory} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Category Name</label>
+                <input name="name" required defaultValue={editCategory.name}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditCategory(null)}
+                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editCategoryPending}
+                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50">
+                  {editCategoryPending ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

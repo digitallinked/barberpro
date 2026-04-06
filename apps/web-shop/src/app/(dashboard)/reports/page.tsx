@@ -1,17 +1,20 @@
 "use client";
 
 import {
+  ArrowRight,
   CalendarDays,
   ChevronDown,
   Download,
   DollarSign,
   FileText,
+  Lock,
   Package,
   Receipt,
   Scale,
   TrendingUp,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useT } from "@/lib/i18n/language-context";
 
@@ -95,6 +98,8 @@ const TABS = [
   { id: "pnl",        label: "P&L",             icon: TrendingUp },
   { id: "annual_tax", label: "Annual tax (MY)",  icon: Scale },
 ] as const;
+
+const PRO_ONLY_TABS = new Set<string>(["pnl", "annual_tax", "attendance"]);
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -206,7 +211,8 @@ const MONTH_OPTIONS = [
 
 export default function ReportsPage() {
   const t = useT();
-  const { tenantName } = useTenant();
+  const { tenantName, tenantPlan } = useTenant();
+  const isStarter = tenantPlan === "starter";
   const [activeTab, setActiveTab] = useState<TabId>("revenue");
   const [taxYear, setTaxYear] = useState(() => new Date().getFullYear() - 1);
   const [periodScope, setPeriodScope] = useState<PeriodScope>("month");
@@ -1127,23 +1133,48 @@ ${body}
       <div className="flex flex-wrap gap-1 rounded-lg border border-white/5 bg-[#1a1a1a] p-1">
         {TABS.map((tab) => {
           const Icon = tab.icon;
+          const locked = isStarter && PRO_ONLY_TABS.has(tab.id);
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => !locked && setActiveTab(tab.id)}
+              title={locked ? "Professional plan required" : undefined}
               className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition ${
-                activeTab === tab.id
+                locked
+                  ? "cursor-not-allowed text-gray-600"
+                  : activeTab === tab.id
                   ? "bg-[#2a2a2a] text-white shadow-sm"
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              {locked ? <Lock className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
               {tab.label}
             </button>
           );
         })}
       </div>
+
+      {/* Pro-only tab upgrade prompt */}
+      {isStarter && PRO_ONLY_TABS.has(activeTab) && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-12 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4AF37]/10">
+            <Lock className="h-7 w-7 text-[#D4AF37]" />
+          </div>
+          <h3 className="text-lg font-bold text-white">Professional Plan Required</h3>
+          <p className="mt-2 max-w-sm text-sm text-gray-400">
+            This report tab is available on the{" "}
+            <span className="font-semibold text-white">Professional plan</span>. Upgrade to unlock P&amp;L,
+            Attendance, and Annual Tax reports.
+          </p>
+          <Link
+            href="/settings?tab=billing"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+          >
+            Upgrade to Professional — RM 249/mo <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
 
       {activeTab !== "annual_tax" && (
         <div className="space-y-3">

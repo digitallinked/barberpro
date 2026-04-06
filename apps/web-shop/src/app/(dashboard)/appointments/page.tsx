@@ -6,7 +6,7 @@ import {
   CalendarCheck2,
   ChevronDown,
   Clock,
-  MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   X
@@ -20,7 +20,7 @@ import {
 } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
 import { useTenant } from "@/components/tenant-provider";
-import { createAppointment, updateAppointmentStatus } from "@/actions/appointments";
+import { createAppointment, updateAppointment, updateAppointmentStatus } from "@/actions/appointments";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -64,7 +64,15 @@ export default function AppointmentsPage() {
   const { data: staffResult } = useStaffMembers();
   const { data: branchesResult } = useBranches();
 
+  type EditAppt = {
+    id: string; customer_id: string; service_id: string;
+    barber_staff_id: string | null; branch_id: string;
+    start_date: string; start_time: string; notes: string | null;
+  };
+
   const [showNewModal, setShowNewModal] = useState(false);
+  const [editAppt, setEditAppt] = useState<EditAppt | null>(null);
+  const [editPending, setEditPending] = useState(false);
   const [pending, setPending] = useState(false);
   const [dateFilter, setDateFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -150,6 +158,34 @@ export default function AppointmentsPage() {
     const result = await updateAppointmentStatus(id, status);
     setUpdatingId(null);
     if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    } else {
+      alert(result.error);
+    }
+  }
+
+  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editAppt) return;
+    setEditPending(true);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const startDate = fd.get("start_date") as string;
+    const startTime = fd.get("start_time") as string;
+    const serviceId = fd.get("service_id") as string;
+    const service = services.find((s) => s.id === serviceId);
+    const durationMin = service?.duration_min ?? 30;
+    const startAt = `${startDate}T${startTime}:00`;
+    const endAt = new Date(new Date(startAt).getTime() + durationMin * 60 * 1000).toISOString().slice(0, 19);
+    fd.set("start_at", startAt);
+    fd.set("end_at", endAt);
+    fd.delete("start_date");
+    fd.delete("start_time");
+
+    const result = await updateAppointment(editAppt.id, fd);
+    setEditPending(false);
+    if (result.success) {
+      setEditAppt(null);
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
     } else {
       alert(result.error);
@@ -320,9 +356,28 @@ export default function AppointmentsPage() {
                             </button>
                           </>
                         )}
-                        <button type="button" className="rounded p-1 text-gray-500 hover:text-white">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                        {!["completed", "cancelled", "no_show"].includes(a.status) && (
+                          <button
+                            type="button"
+                            title="Reschedule"
+                            onClick={() => {
+                              const d = new Date(a.start_at);
+                              setEditAppt({
+                                id: a.id,
+                                customer_id: a.customer_id ?? "",
+                                service_id: a.service_id ?? "",
+                                barber_staff_id: a.barber_staff_id ?? null,
+                                branch_id: a.branch_id,
+                                start_date: d.toISOString().slice(0, 10),
+                                start_time: d.toTimeString().slice(0, 5),
+                                notes: a.notes ?? null,
+                              });
+                            }}
+                            className="rounded p-1 text-gray-500 hover:text-[#D4AF37]"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -335,6 +390,72 @@ export default function AppointmentsPage() {
           <p className="text-xs text-gray-500">Showing 1-{filtered.length} of {filtered.length}</p>
         </div>
       </Card>
+
+      {editAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+            <h3 className="text-lg font-bold text-white">Reschedule Appointment</h3>
+            <form onSubmit={handleEditSubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Customer *</label>
+                <select name="customer_id" required defaultValue={editAppt.customer_id}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  {customers.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Service *</label>
+                <select name="service_id" required defaultValue={editAppt.service_id}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  {services.map((s) => <option key={s.id} value={s.id}>{s.name} (RM {s.price})</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Barber</label>
+                <select name="barber_staff_id" defaultValue={editAppt.barber_staff_id ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  <option value="">Select barber</option>
+                  {staffMembers.map((s) => <option key={s.staff_profile_id} value={s.staff_profile_id}>{s.full_name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Branch *</label>
+                <select name="branch_id" required defaultValue={editAppt.branch_id}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  {branchesData.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Date *</label>
+                  <input name="start_date" type="date" required defaultValue={editAppt.start_date}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Start Time *</label>
+                  <input name="start_time" type="time" required defaultValue={editAppt.start_time}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Notes</label>
+                <textarea name="notes" rows={2} defaultValue={editAppt.notes ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditAppt(null)}
+                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editPending}
+                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50">
+                  {editPending ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

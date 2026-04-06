@@ -135,21 +135,21 @@ const pricing = [
     name: "Starter",
     price: "RM 99",
     note: "Perfect for single outlet",
-    features: ["Queue management", "Smart POS + receipts", "Basic payroll calculation", "Inventory tracking", "Customer CRM", "Daily sales reports"],
+    features: ["Queue management", "Smart POS + receipts", "Appointments & CRM", "Inventory tracking", "Expense management", "Basic payroll", "Basic reports", "1 branch, up to 5 staff"],
     featured: false
   },
   {
     name: "Professional",
     price: "RM 249",
     note: "For growing businesses",
-    features: ["Everything in Starter", "Advanced commission models", "Multi-branch dashboard", "Supplier + expense management", "Detailed analytics reports", "Priority support"],
+    features: ["Everything in Starter", "Unlimited branches & staff", "Advanced commission models", "Advanced analytics & P&L", "Expense management", "Priority support"],
     featured: true
   },
   {
     name: "Enterprise",
     price: "Custom",
-    note: "For multi-branch chains",
-    features: ["Everything in Professional", "Unlimited branches", "Dedicated onboarding", "Custom integrations", "SLA + account manager", "Enterprise-grade controls"],
+    note: "For franchise chains",
+    features: ["Everything in Professional", "White-label & custom domain", "Dedicated account manager", "Custom integrations & API", "SLA guarantee", "Enterprise-grade controls"],
     featured: false
   }
 ];

@@ -7,14 +7,14 @@ import {
   CircleDollarSign,
   ChevronDown,
   Download,
-  MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Trash2
 } from "lucide-react";
 import { useExpenses, useExpenseStats } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
-import { createExpense, deleteExpense } from "@/actions/expenses";
+import { createExpense, updateExpense, deleteExpense } from "@/actions/expenses";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +67,14 @@ export default function ExpensesPage() {
   const { data: expensesResult, isLoading: expensesLoading } = useExpenses();
   const { data: statsResult, isLoading: statsLoading } = useExpenseStats();
 
+  type EditExpense = {
+    id: string; category: string; vendor: string | null; amount: number;
+    payment_method: string; expense_date: string; notes: string | null;
+  };
+
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editExpense, setEditExpense] = useState<EditExpense | null>(null);
+  const [editPending, setEditPending] = useState(false);
   const [pending, setPending] = useState(false);
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -107,6 +114,21 @@ export default function ExpensesPage() {
     const result = await deleteExpense(id);
     setDeletingId(null);
     if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-stats"] });
+    } else {
+      alert(result.error);
+    }
+  }
+
+  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editExpense) return;
+    setEditPending(true);
+    const result = await updateExpense(editExpense.id, new FormData(e.currentTarget));
+    setEditPending(false);
+    if (result.success) {
+      setEditExpense(null);
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["expense-stats"] });
     } else {
@@ -223,15 +245,20 @@ export default function ExpensesPage() {
                       <div className="flex gap-1">
                         <button
                           type="button"
+                          onClick={() => setEditExpense({ id: e.id, category: e.category, vendor: e.vendor ?? null, amount: e.amount, payment_method: e.payment_method, expense_date: e.expense_date, notes: e.notes ?? null })}
+                          className="rounded p-1 text-gray-500 hover:text-[#D4AF37]"
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDelete(e.id)}
                           disabled={!!deletingId}
                           className="rounded p-1 text-gray-500 hover:text-red-400 disabled:opacity-50"
                           title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
-                        <button type="button" className="rounded p-1 text-gray-500 hover:text-white">
-                          <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -329,6 +356,58 @@ export default function ExpensesPage() {
                   className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50"
                 >
                   {pending ? "Adding…" : "Add Expense"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+            <h3 className="text-lg font-bold text-white">Edit Expense</h3>
+            <form onSubmit={handleEditSubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Category *</label>
+                <input name="category" required defaultValue={editExpense.category}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Vendor</label>
+                <input name="vendor" defaultValue={editExpense.vendor ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Amount *</label>
+                <input name="amount" type="number" step="0.01" min="0.01" required defaultValue={editExpense.amount}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Payment Method *</label>
+                <select name="payment_method" required defaultValue={editExpense.payment_method}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  {PAYMENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Date *</label>
+                <input name="expense_date" type="date" required defaultValue={editExpense.expense_date}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Notes</label>
+                <textarea name="notes" rows={2} defaultValue={editExpense.notes ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditExpense(null)}
+                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editPending}
+                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50">
+                  {editPending ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>

@@ -70,7 +70,7 @@ const faqs = [
       },
       {
         q: "Can I set different queues per barber?",
-        a: "Yes. You can enable 'Per-Barber Queue' mode where each barber has their own queue. Customers choose their preferred barber, and each barber manages their own flow."
+        a: "Currently all staff share a single queue for the branch. You can assign a preferred barber when adding a walk-in ticket, and the system tracks who served each customer. Per-barber queue mode is planned for a future update."
       }
     ]
   },
@@ -79,23 +79,23 @@ const faqs = [
     questions: [
       {
         q: "What payment methods does the POS support?",
-        a: "BarberPro.my POS supports Cash, DuitNow QR (all Malaysian bank apps), FPX bank transfer, Touch 'n Go eWallet, GrabPay, Boost, and credit/debit cards (via card terminal). You can enable or disable individual payment methods in Settings."
+        a: "BarberPro.my POS supports Cash and DuitNow QR payments. Additional payment methods (card terminal, e-wallets) can be recorded under Cash or QR as needed. More dedicated payment integrations are planned."
       },
       {
         q: "How does DuitNow QR work?",
-        a: "At checkout, select 'DuitNow QR' and a QR code appears on screen (or on a receipt printer). The customer scans with any Malaysian bank app or e-wallet. Payment confirmation is received in real-time."
+        a: "At checkout, select 'DuitNow QR'. The customer pays using any Malaysian bank app or e-wallet by scanning your shop's DuitNow QR code. You then upload a photo of the payment confirmation as a proof of payment before completing the transaction."
       },
       {
         q: "Can I apply member discounts at checkout?",
-        a: "Yes. Customer loyalty discounts, promo codes, and manual discounts can all be applied at the checkout screen. You can also set up automatic member pricing tiers in Settings > Promotions."
+        a: "Yes. Manual discounts can be applied at the checkout screen, and customers earn loyalty points with each visit that can be tracked in the Customers section."
       },
       {
         q: "Are receipts sent automatically?",
-        a: "Receipts can be printed (if you have a connected receipt printer), sent via WhatsApp (requires the customer's phone number), or emailed. You can configure the default in Settings > POS."
+        a: "After every checkout, the transaction is recorded in the system and visible in the Reports section. You can review the full itemised breakdown there. WhatsApp and email receipt delivery are planned for a future update."
       },
       {
         q: "Is the POS system offline-capable?",
-        a: "The POS has basic offline functionality — you can process cash payments and queue entries without internet. Data syncs automatically once the connection is restored. Payment QR codes require an active internet connection."
+        a: "The POS requires an active internet connection to process payments and sync data. Offline mode is on our roadmap for a future update."
       }
     ]
   },
@@ -112,7 +112,7 @@ const faqs = [
       },
       {
         q: "Can barbers see their own earnings?",
-        a: "Yes. Barbers with a staff login can see their own daily, weekly, and monthly earnings in real-time. They cannot see other barbers' data."
+        a: "Shop owners can view per-barber earnings breakdowns in the Payroll and Commission sections of the dashboard. Individual barber logins for self-service earnings tracking are planned for a future mobile staff app."
       },
       {
         q: "Does BarberPro.my handle EPF and SOCSO deductions?",
@@ -137,7 +137,7 @@ const faqs = [
       },
       {
         q: "Is there a discount for annual subscriptions?",
-        a: "Yes — annual plans are discounted at 2 months free (equivalent to about 17% off). You can switch to annual billing from your subscription settings at any time."
+        a: "All plans are currently billed monthly. Annual billing with a discount (2 months free) is planned and will be available in a future update."
       }
     ]
   },
@@ -154,7 +154,7 @@ const faqs = [
       },
       {
         q: "Can I export all my data?",
-        a: "Yes. Go to Settings > Data Export to download your customers, services, transactions, and reports as CSV or PDF files at any time."
+        a: "Yes. In the Reports section you can download transaction summaries, payroll reports, and P&L statements as CSV or PDF. A dedicated full-data export tool (Settings > Data Export) is on our roadmap."
       }
     ]
   }

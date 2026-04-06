@@ -162,7 +162,8 @@ export default function BranchesPage() {
                 "Unlimited branches",
                 "Multi-branch dashboard",
                 "Advanced commissions",
-                "Supplier & expense management",
+                "Expense management",
+                "Advanced analytics & P&L",
                 "Priority support",
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm text-gray-300">

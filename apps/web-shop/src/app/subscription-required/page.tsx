@@ -79,8 +79,8 @@ export default function SubscriptionRequiredPage() {
               <div className="grid grid-cols-2 gap-3">
                 {(
                   [
-                    { id: "starter" as const, name: "Starter", price: "RM 99", desc: "Up to 5 staff" },
-                    { id: "professional" as const, name: "Professional", price: "RM 249", desc: "Unlimited staff", popular: true }
+                    { id: "starter" as const, name: "Starter", price: "RM 99", desc: "1 branch, up to 5 staff" },
+                    { id: "professional" as const, name: "Professional", price: "RM 249", desc: "Unlimited branches & staff", popular: true }
                   ]
                 ).map((p) => (
                   <button

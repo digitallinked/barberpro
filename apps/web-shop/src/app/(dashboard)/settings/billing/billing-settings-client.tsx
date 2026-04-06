@@ -14,14 +14,15 @@ type Props = {
 };
 
 const PLAN_FEATURES: Record<StripePlan, string[]> = {
-  starter: ["1 branch", "Up to 5 staff", "Queue & POS", "Appointment booking", "Basic reports"],
+  starter: ["1 branch", "Up to 5 staff", "Queue & POS", "Appointments & CRM", "Inventory tracking", "Expense management", "Basic payroll", "Basic reports"],
   professional: [
-    "Up to 5 branches",
+    "Unlimited branches",
     "Unlimited staff",
     "Queue & POS",
-    "Appointment booking",
-    "Advanced reports",
-    "Inventory & expenses",
+    "Appointments & CRM",
+    "Advanced analytics & P&L",
+    "Advanced commissions",
+    "Inventory & expense management",
     "Priority support",
   ],
 };

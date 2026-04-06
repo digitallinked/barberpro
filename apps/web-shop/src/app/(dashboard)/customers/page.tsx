@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   Download,
-  Eye,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -15,8 +14,8 @@ import {
   UserPlus,
   Users
 } from "lucide-react";
-import { useCustomers, useCustomerStats } from "@/hooks";
-import { createCustomer } from "@/actions/customers";
+import { useCustomers, useCustomerStats, useCustomerVisitStats } from "@/hooks";
+import { createCustomer, updateCustomer, deleteCustomer } from "@/actions/customers";
 import { useT } from "@/lib/i18n/language-context";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,10 +47,17 @@ export default function CustomersPage() {
   const queryClient = useQueryClient();
   const { data: customersResult, isLoading: customersLoading } = useCustomers();
   const { data: statsResult, isLoading: statsLoading } = useCustomerStats();
+  const { data: visitStatsResult } = useCustomerVisitStats();
+  const visitStats = visitStatsResult?.data;
+
+  type EditCustomer = { id: string; full_name: string; phone: string; email: string | null; date_of_birth: string | null; notes: string | null };
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editCustomer, setEditCustomer] = useState<EditCustomer | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [editPending, setEditPending] = useState(false);
 
   const customersData = customersResult?.data ?? [];
   const customersError = customersResult?.error;
@@ -76,6 +82,33 @@ export default function CustomersPage() {
       setShowAddModal(false);
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       queryClient.invalidateQueries({ queryKey: ["customer-stats"] });
+    }
+  }
+
+  async function handleEditCustomer(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editCustomer) return;
+    setEditPending(true);
+    const result = await updateCustomer(editCustomer.id, new FormData(e.currentTarget));
+    setEditPending(false);
+    if (result.success) {
+      setEditCustomer(null);
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    } else {
+      alert(result.error);
+    }
+  }
+
+  async function handleDeleteCustomer(id: string) {
+    if (!confirm("Delete this customer? This cannot be undone.")) return;
+    setDeletingId(id);
+    const result = await deleteCustomer(id);
+    setDeletingId(null);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-stats"] });
+    } else {
+      alert(result.error);
     }
   }
 
@@ -200,15 +233,26 @@ export default function CustomersPage() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2a2a2a] text-xs font-bold text-white">{getInitials(c.full_name)}</div>
-                          <span className="font-medium text-white">{c.full_name}</span>
+                          <div>
+                            <span className="font-medium text-white">{c.full_name}</span>
+                            {c.email && <p className="text-xs text-gray-500">{c.email}</p>}
+                          </div>
                         </div>
                       </td>
                       <td className="p-4 text-gray-300">{c.phone}</td>
                       <td className="p-4">
                         <span className="text-gray-400">—</span>
                       </td>
-                      <td className="p-4 font-bold text-white">—</td>
-                      <td className="p-4 text-gray-300">—</td>
+                      <td className="p-4 font-bold text-white">
+                        {visitStats ? (visitStats.get(c.id)?.count ?? 0) : "—"}
+                      </td>
+                      <td className="p-4 text-gray-300">
+                        {visitStats
+                          ? visitStats.get(c.id)?.lastVisit
+                            ? new Date(visitStats.get(c.id)!.lastVisit).toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" })
+                            : "Never"
+                          : "—"}
+                      </td>
                       <td className="p-4">
                         <span className="flex items-center gap-1 text-[#D4AF37] font-medium">
                           <Star className="h-3 w-3" /> {c.loyalty_points ?? 0}
@@ -219,9 +263,19 @@ export default function CustomersPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">
-                          <button type="button" className="rounded p-1 text-gray-500 transition hover:bg-white/5 hover:text-white"><Eye className="h-4 w-4" /></button>
-                          <button type="button" className="rounded p-1 text-gray-500 transition hover:bg-white/5 hover:text-white"><Pencil className="h-4 w-4" /></button>
-                          <button type="button" className="rounded p-1 text-gray-500 transition hover:bg-white/5 hover:text-white"><MoreHorizontal className="h-4 w-4" /></button>
+                          <button
+                            type="button"
+                            onClick={() => setEditCustomer({ id: c.id, full_name: c.full_name, phone: c.phone, email: c.email ?? null, date_of_birth: c.date_of_birth ?? null, notes: c.notes ?? null })}
+                            className="rounded p-1 text-gray-500 transition hover:bg-white/5 hover:text-[#D4AF37]"
+                            title="Edit"
+                          ><Pencil className="h-4 w-4" /></button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCustomer(c.id)}
+                            disabled={deletingId === c.id}
+                            className="rounded p-1 text-gray-500 transition hover:bg-white/5 hover:text-red-400 disabled:opacity-50"
+                            title="Delete"
+                          ><MoreHorizontal className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>
@@ -280,6 +334,51 @@ export default function CustomersPage() {
                   className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50"
                 >
                   {pending ? "Adding…" : "Add Customer"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+            <h3 className="text-lg font-bold text-white">Edit Customer</h3>
+            <form onSubmit={handleEditCustomer} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Full Name *</label>
+                <input name="full_name" required defaultValue={editCustomer.full_name}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Phone *</label>
+                <input name="phone" required defaultValue={editCustomer.phone}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Email</label>
+                <input name="email" type="email" defaultValue={editCustomer.email ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Date of Birth</label>
+                <input name="date_of_birth" type="date" defaultValue={editCustomer.date_of_birth ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Notes</label>
+                <textarea name="notes" rows={2} defaultValue={editCustomer.notes ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditCustomer(null)}
+                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editPending}
+                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50">
+                  {editPending ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useInventoryItems, useInventoryStats } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
-import { createInventoryItem, adjustStock } from "@/actions/inventory";
+import { createInventoryItem, updateInventoryItem, adjustStock } from "@/actions/inventory";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -60,10 +60,17 @@ export default function InventoryPage() {
   const { data: inventoryResult, isLoading: inventoryLoading } = useInventoryItems();
   const { data: statsResult, isLoading: statsLoading } = useInventoryStats();
 
+  type EditableItem = {
+    id: string; name: string; sku: string | null; item_type: string;
+    unit_cost: number; sell_price: number | null; stock_qty: number; reorder_level: number;
+  };
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [adjustItem, setAdjustItem] = useState<{ id: string; name: string } | null>(null);
+  const [editItem, setEditItem] = useState<EditableItem | null>(null);
   const [pending, setPending] = useState(false);
   const [adjustPending, setAdjustPending] = useState(false);
+  const [editPending, setEditPending] = useState(false);
   const [search, setSearch] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
 
@@ -124,6 +131,22 @@ export default function InventoryPage() {
     if (result.success) {
       setAdjustItem(null);
       form.reset();
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-stats"] });
+    } else {
+      alert(result.error);
+    }
+  }
+
+  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editItem) return;
+    setEditPending(true);
+    const fd = new FormData(e.currentTarget);
+    const result = await updateInventoryItem(editItem.id, fd);
+    setEditPending(false);
+    if (result.success) {
+      setEditItem(null);
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-stats"] });
     } else {
@@ -277,7 +300,16 @@ export default function InventoryPage() {
                           >
                             Adjust Stock
                           </button>
-                          <button type="button" className="rounded p-1 text-gray-500 hover:bg-white/5 hover:text-white">
+                          <button
+                            type="button"
+                            onClick={() => setEditItem({
+                              id: item.id, name: item.name, sku: item.sku ?? null,
+                              item_type: item.item_type, unit_cost: item.unit_cost ?? 0,
+                              sell_price: item.sell_price ?? null, stock_qty: item.stock_qty ?? 0,
+                              reorder_level: item.reorder_level ?? 0,
+                            })}
+                            className="rounded p-1 text-gray-500 hover:bg-white/5 hover:text-white"
+                          >
                             <Pencil className="h-4 w-4" />
                           </button>
                         </div>
@@ -440,6 +472,68 @@ export default function InventoryPage() {
                   className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50"
                 >
                   {adjustPending ? "Saving…" : "Adjust"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+            <h3 className="text-lg font-bold text-white">Edit Item — {editItem.name}</h3>
+            <form onSubmit={handleEditSubmit} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Name *</label>
+                <input name="name" required defaultValue={editItem.name}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">SKU</label>
+                <input name="sku" defaultValue={editItem.sku ?? ""}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Type *</label>
+                <select name="item_type" required defaultValue={editItem.item_type}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]">
+                  <option value="retail">Retail</option>
+                  <option value="consumable">Consumable</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Unit Cost</label>
+                  <input name="unit_cost" type="number" step="0.01" min="0" defaultValue={editItem.unit_cost}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Sell Price</label>
+                  <input name="sell_price" type="number" step="0.01" min="0" defaultValue={editItem.sell_price ?? ""}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="Optional" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Stock Qty</label>
+                  <input name="stock_qty" type="number" min="0" defaultValue={editItem.stock_qty}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Reorder Level</label>
+                  <input name="reorder_level" type="number" min="0" defaultValue={editItem.reorder_level}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setEditItem(null)}
+                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white">
+                  Cancel
+                </button>
+                <button type="submit" disabled={editPending}
+                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50">
+                  {editPending ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>

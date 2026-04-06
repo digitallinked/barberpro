@@ -81,6 +81,7 @@ export default function SettingsPage() {
   ];
 
   const [activeSection, setActiveSection] = useState("profile");
+  const [settingsSearch, setSettingsSearch] = useState("");
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -151,7 +152,9 @@ export default function SettingsPage() {
           <input
             type="text"
             placeholder={t.settings.searchPlaceholder}
-            className="w-full rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none"
+            value={settingsSearch}
+            onChange={(e) => setSettingsSearch(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]"
           />
         </div>
       </div>
@@ -160,7 +163,7 @@ export default function SettingsPage() {
         <div className="lg:col-span-1">
           <Card className="p-3">
             <nav className="space-y-0.5">
-              {NAV_ITEMS.map((item) => {
+              {NAV_ITEMS.filter((item) => !settingsSearch || item.label.toLowerCase().includes(settingsSearch.toLowerCase())).map((item) => {
                 const Icon = item.icon;
                 if ("href" in item && item.href) {
                   return (

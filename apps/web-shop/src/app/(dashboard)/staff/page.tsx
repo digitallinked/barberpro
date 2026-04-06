@@ -3,8 +3,10 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRight,
   CalendarClock,
   Eye,
+  Lock,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -17,6 +19,7 @@ import { useStaffMembers, useBranches, useStaffAttendance } from "@/hooks";
 import { createStaffMember } from "@/actions/staff";
 import { recordAttendance } from "@/actions/attendance";
 import { useT } from "@/lib/i18n/language-context";
+import { useTenant } from "@/components/tenant-provider";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -74,9 +77,12 @@ function attendanceStatusLabel(t: ReturnType<typeof useT>, s: string): string {
   return m[s] ?? s;
 }
 
+const STARTER_STAFF_LIMIT = 5;
+
 export default function StaffPage() {
   const t = useT();
   const queryClient = useQueryClient();
+  const { tenantPlan } = useTenant();
   const { data: staffResult, isLoading: staffLoading } = useStaffMembers();
   const { data: branchesResult } = useBranches();
 
@@ -91,12 +97,15 @@ export default function StaffPage() {
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [pending, setPending] = useState(false);
 
   const { data: attendanceWrap, isFetching: attLoading } = useStaffAttendance(attFrom, attTo);
   const attendanceRows = attendanceWrap?.data ?? [];
 
   const staffList = staffResult?.data ?? [];
+  const isStarter = tenantPlan === "starter";
+  const atStaffLimit = isStarter && staffList.length >= STARTER_STAFF_LIMIT;
   const branches = branchesResult?.data ?? [];
   const branchMap = Object.fromEntries(branches.map((b) => [b.id, b.name]));
 
@@ -169,13 +178,33 @@ export default function StaffPage() {
           </div>
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => atStaffLimit ? setShowUpgrade(true) : setShowAddModal(true)}
             className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
           >
-            <Plus className="h-4 w-4" /> {t.staff.addStaff}
+            {atStaffLimit ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {t.staff.addStaff}
           </button>
         </div>
       </div>
+
+      {/* Starter plan staff-limit banner */}
+      {isStarter && (
+        <div className="flex items-center gap-3 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-4 py-3">
+          <Lock className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+          <p className="text-sm text-gray-300">
+            <span className="font-semibold text-white">Starter plan</span> — includes up to {STARTER_STAFF_LIMIT} staff members ({staffList.length}/{STARTER_STAFF_LIMIT} used).{" "}
+            {atStaffLimit && (
+              <button
+                type="button"
+                onClick={() => setShowUpgrade(true)}
+                className="font-semibold text-[#D4AF37] hover:underline"
+              >
+                Upgrade to Professional
+              </button>
+            )}{atStaffLimit ? " for unlimited staff." : ""}
+          </p>
+        </div>
+      )}
 
       {/* Attendance — primary ops for payroll days-worked */}
       <Card className="overflow-hidden">
@@ -395,6 +424,52 @@ export default function StaffPage() {
           })
         )}
       </div>
+
+      {/* Staff limit upgrade modal */}
+      {showUpgrade && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] p-6 shadow-xl text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4AF37]/10">
+              <Lock className="h-7 w-7 text-[#D4AF37]" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Upgrade to Professional</h3>
+            <p className="mt-2 text-sm text-gray-400">
+              Your <span className="font-semibold text-white">Starter plan</span> supports up to{" "}
+              <span className="font-semibold text-white">{STARTER_STAFF_LIMIT} staff members</span>.
+              Upgrade to <span className="font-semibold text-white">Professional</span> for unlimited staff.
+            </p>
+            <ul className="mt-4 space-y-2 text-left">
+              {[
+                "Unlimited staff members",
+                "Unlimited branches",
+                "Advanced commission models",
+                "Advanced analytics & P&L",
+                "Priority support",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-gray-300">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-[10px] font-bold">✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex flex-col gap-2">
+              <Link
+                href="/settings?tab=billing"
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+              >
+                Upgrade Now — RM 249/mo <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowUpgrade(false)}
+                className="rounded-lg py-2 text-sm text-gray-500 hover:text-gray-300"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">

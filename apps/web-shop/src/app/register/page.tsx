@@ -802,16 +802,16 @@ function RegisterContent() {
                       id: "starter" as const,
                       name: "Starter",
                       price: "RM 99",
-                      desc: "Up to 5 staff",
-                      features: ["Queue management", "POS & transactions", "Basic payroll"],
+                      desc: "1 branch, up to 5 staff",
+                      features: ["Queue & POS", "Appointments & CRM", "Basic payroll & reports"],
                       popular: false
                     },
                     {
                       id: "professional" as const,
                       name: "Professional",
                       price: "RM 249",
-                      desc: "Unlimited staff",
-                      features: ["Everything in Starter", "Multi-branch", "Advanced commissions & inventory"],
+                      desc: "Unlimited branches & staff",
+                      features: ["Everything in Starter", "Advanced commissions & analytics", "Priority support"],
                       popular: true
                     }
                   ]
