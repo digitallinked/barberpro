@@ -16,18 +16,8 @@ import {
   AlignLeft,
 } from "lucide-react";
 
-type BlogPost = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  content: string;
-  cover_image_url: string | null;
-  author_name: string | null;
-  tags: string[];
-  reading_time_minutes: number | null;
-  published_at: string | null;
-};
+import { useT } from "@/lib/i18n/language-context";
+import type { ResolvedBlogPost, BlogListPost } from "@/lib/blog-resolve";
 
 type TocItem = {
   id: string;
@@ -36,9 +26,9 @@ type TocItem = {
 };
 
 type Props = {
-  post: BlogPost;
+  post: ResolvedBlogPost;
   postUrl: string;
-  related: BlogPost[];
+  related: BlogListPost[];
 };
 
 function extractToc(html: string): TocItem[] {
@@ -62,7 +52,6 @@ function extractToc(html: string): TocItem[] {
   return headings;
 }
 
-/** Inject IDs into heading tags for scroll targets. */
 function injectHeadingIds(html: string): string {
   const idCounts: Record<string, number> = {};
   return html.replace(/<h([23])([^>]*)>(.*?)<\/h[23]>/gi, (_, level, attrs, inner) => {
@@ -79,6 +68,10 @@ function injectHeadingIds(html: string): string {
 }
 
 export function ArticleContent({ post, postUrl, related }: Props) {
+  const t = useT();
+  const b = t.blog;
+  const dateLocale = post.resolvedLocale === "ms" ? "ms-MY" : "en-MY";
+
   const [scrollProgress, setScrollProgress] = useState(0);
   const [activeId, setActiveId] = useState<string>("");
   const [copied, setCopied] = useState(false);
@@ -89,7 +82,6 @@ export function ArticleContent({ post, postUrl, related }: Props) {
   const processedContent = injectHeadingIds(post.content);
   const hasToc = toc.length >= 2;
 
-  // Reading progress
   useEffect(() => {
     function handleScroll() {
       const el = articleRef.current;
@@ -103,7 +95,6 @@ export function ArticleContent({ post, postUrl, related }: Props) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Active TOC tracking
   useEffect(() => {
     if (!hasToc) return;
     const observer = new IntersectionObserver(
@@ -133,14 +124,12 @@ export function ArticleContent({ post, postUrl, related }: Props) {
 
   return (
     <>
-      {/* Reading progress bar */}
       <div
         className="fixed top-0 left-0 right-0 z-50 h-0.5 bg-[#d4af37] origin-left transition-transform"
         style={{ transform: `scaleX(${scrollProgress / 100})`, transformOrigin: "left" }}
       />
 
       <main className="flex-1 pb-20">
-        {/* Cover image */}
         {post.cover_image_url && (
           <div className="relative h-64 overflow-hidden sm:h-80 lg:h-[420px]">
             <img
@@ -153,18 +142,15 @@ export function ArticleContent({ post, postUrl, related }: Props) {
         )}
 
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          {/* Back link */}
           <Link
             href="/blog"
             className="mt-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-[#d4af37]"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to Blog
+            <ArrowLeft className="h-4 w-4" /> {b.backToBlog}
           </Link>
 
           <div className="mt-6 flex gap-10">
-            {/* Article */}
             <article ref={articleRef} className="min-w-0 flex-1">
-              {/* Header */}
               <header className="mb-8">
                 {post.tags.length > 0 && (
                   <div className="mb-3 flex flex-wrap gap-2">
@@ -186,9 +172,7 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                 </h1>
 
                 {post.excerpt && (
-                  <p className="mt-4 text-lg leading-relaxed text-gray-400">
-                    {post.excerpt}
-                  </p>
+                  <p className="mt-4 text-lg leading-relaxed text-gray-400">{post.excerpt}</p>
                 )}
 
                 <div className="mt-5 flex flex-wrap items-center gap-4 border-b border-white/5 pb-5 text-sm text-gray-500">
@@ -204,7 +188,7 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                     <span className="inline-flex items-center gap-1.5">
                       <Calendar className="h-3.5 w-3.5" />
                       <time dateTime={post.published_at}>
-                        {new Date(post.published_at).toLocaleDateString("en-MY", {
+                        {new Date(post.published_at).toLocaleDateString(dateLocale, {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
@@ -212,15 +196,14 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                       </time>
                     </span>
                   )}
-                  {post.reading_time_minutes && (
+                  {post.reading_time_minutes != null && post.reading_time_minutes > 0 && (
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
-                      {post.reading_time_minutes} min read
+                      {post.reading_time_minutes} {b.minRead}
                     </span>
                   )}
                 </div>
 
-                {/* Mobile TOC toggle */}
                 {hasToc && (
                   <button
                     type="button"
@@ -229,7 +212,7 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                   >
                     <span className="flex items-center gap-2">
                       <AlignLeft className="h-4 w-4 text-[#d4af37]" />
-                      Table of Contents
+                      {b.tableOfContents}
                     </span>
                     <ChevronRight
                       className={`h-4 w-4 text-gray-500 transition-transform ${tocOpen ? "rotate-90" : ""}`}
@@ -237,7 +220,6 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                   </button>
                 )}
 
-                {/* Mobile TOC dropdown */}
                 {hasToc && tocOpen && (
                   <div className="mt-2 rounded-lg border border-white/10 bg-[#111518] p-4 lg:hidden">
                     <TocList items={toc} activeId={activeId} onSelect={() => setTocOpen(false)} />
@@ -245,7 +227,6 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                 )}
               </header>
 
-              {/* Article body */}
               <div
                 className="prose prose-invert max-w-none
                   prose-headings:text-white prose-headings:font-bold prose-headings:scroll-mt-24
@@ -263,10 +244,11 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                 dangerouslySetInnerHTML={{ __html: processedContent }}
               />
 
-              {/* Tags footer */}
               {post.tags.length > 0 && (
                 <div className="mt-12 border-t border-white/5 pt-8">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-600">Tags</p>
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-600">
+                    {b.tagsLabel}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {post.tags.map((tag) => (
                       <Link
@@ -281,9 +263,8 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                 </div>
               )}
 
-              {/* Share buttons */}
               <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-white/5 pt-8">
-                <p className="text-sm font-semibold text-gray-400">Share this article:</p>
+                <p className="text-sm font-semibold text-gray-400">{b.share}</p>
                 <a
                   href={twitterUrl}
                   target="_blank"
@@ -291,7 +272,7 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                   className="flex items-center gap-2 rounded-lg bg-[#1DA1F2]/10 px-4 py-2 text-sm font-semibold text-[#1DA1F2] transition hover:bg-[#1DA1F2]/20"
                 >
                   <Twitter className="h-4 w-4" />
-                  Twitter
+                  {b.twitterLabel}
                 </a>
                 <a
                   href={facebookUrl}
@@ -300,7 +281,7 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                   className="flex items-center gap-2 rounded-lg bg-[#4267B2]/10 px-4 py-2 text-sm font-semibold text-[#4267B2] transition hover:bg-[#4267B2]/20"
                 >
                   <Facebook className="h-4 w-4" />
-                  Facebook
+                  {b.facebookLabel}
                 </a>
                 <button
                   type="button"
@@ -308,14 +289,13 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                   className="flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-gray-300 transition hover:border-white/20 hover:text-white"
                 >
                   {copied ? <Check className="h-4 w-4 text-green-400" /> : <Link2 className="h-4 w-4" />}
-                  {copied ? "Copied!" : "Copy link"}
+                  {copied ? b.copied : b.copyLink}
                 </button>
               </div>
 
-              {/* Related posts */}
               {related.length > 0 && (
                 <div className="mt-16">
-                  <h2 className="mb-6 text-xl font-bold text-white">Related Articles</h2>
+                  <h2 className="mb-6 text-xl font-bold text-white">{b.relatedArticles}</h2>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {related.map((r) => (
                       <Link key={r.id} href={`/blog/${r.slug}`} className="group block">
@@ -337,10 +317,10 @@ export function ArticleContent({ post, postUrl, related }: Props) {
                             <h3 className="text-sm font-semibold text-white line-clamp-2 group-hover:text-[#d4af37] transition-colors">
                               {r.title}
                             </h3>
-                            {r.reading_time_minutes && (
+                            {r.reading_time_minutes != null && r.reading_time_minutes > 0 && (
                               <p className="mt-1.5 flex items-center gap-1 text-xs text-gray-600">
                                 <Clock className="h-3 w-3" />
-                                {r.reading_time_minutes} min read
+                                {r.reading_time_minutes} {b.minRead}
                               </p>
                             )}
                           </div>
@@ -352,14 +332,13 @@ export function ArticleContent({ post, postUrl, related }: Props) {
               )}
             </article>
 
-            {/* Sticky sidebar TOC — desktop */}
             {hasToc && (
               <aside className="hidden w-64 shrink-0 lg:block">
                 <div className="sticky top-20">
                   <div className="rounded-xl border border-white/10 bg-[#111518] p-5">
                     <p className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
                       <AlignLeft className="h-3.5 w-3.5 text-[#d4af37]" />
-                      Contents
+                      {b.contentsSidebar}
                     </p>
                     <TocList items={toc} activeId={activeId} />
                   </div>

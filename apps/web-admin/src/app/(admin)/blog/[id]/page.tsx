@@ -35,6 +35,9 @@ export default async function EditBlogPostPage({ params }: PageProps) {
     slug: string;
     excerpt: string | null;
     content: string;
+    title_ms: string | null;
+    excerpt_ms: string | null;
+    content_ms: string | null;
     cover_image_url: string | null;
     status: string;
     author_name: string | null;
@@ -97,6 +100,9 @@ export default async function EditBlogPostPage({ params }: PageProps) {
           slug: post.slug,
           excerpt: post.excerpt ?? "",
           content: post.content,
+          title_ms: post.title_ms ?? "",
+          excerpt_ms: post.excerpt_ms ?? "",
+          content_ms: post.content_ms ?? "",
           cover_image_url: post.cover_image_url ?? "",
           status: post.status,
           tags: post.tags ?? [],

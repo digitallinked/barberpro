@@ -10,6 +10,14 @@ import {
 import { translations, type Language, type Translations } from "./translations";
 
 const STORAGE_KEY = "barberpro-lang";
+/** Synced with `blog-locale.ts` for SSR blog pages + metadata. */
+const COOKIE_NAME = "barberpro-lang";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function persistLanguage(lang: Language) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${COOKIE_NAME}=${lang}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
 
 type LanguageContextValue = {
   language: Language;
@@ -30,6 +38,9 @@ export function LanguageProvider({
     const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
     if (stored === "ms" || stored === "en") {
       setLanguageState(stored);
+      persistLanguage(stored);
+    } else {
+      persistLanguage("ms");
     }
     // Update the html lang attribute to match the language
     document.documentElement.lang = stored === "en" ? "en" : "ms";
@@ -39,6 +50,7 @@ export function LanguageProvider({
     setLanguageState(lang);
     localStorage.setItem(STORAGE_KEY, lang);
     document.documentElement.lang = lang;
+    persistLanguage(lang);
   }
 
   return (

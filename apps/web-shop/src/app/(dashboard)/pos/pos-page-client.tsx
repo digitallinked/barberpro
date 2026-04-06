@@ -425,6 +425,10 @@ export function PosPageClient() {
   const [qrError, setQrError] = useState<string | null>(null);
   const qrFileRef = useRef<HTMLInputElement>(null);
 
+  // Simple payment confirm modal (cash / card / e-wallet)
+  const [showConfirmStep, setShowConfirmStep] = useState(false);
+  const [pendingMethod, setPendingMethod] = useState<string | null>(null);
+
   const urlQueueTicketId = searchParams.get("queue_ticket_id");
   const prefillCustomerId = searchParams.get("customer_id");
   const prefillServiceIds = searchParams.getAll("service_id");
@@ -648,6 +652,8 @@ export function PosPageClient() {
         setCart([]);
         setShowCheckout(false);
         setShowQrStep(false);
+        setShowConfirmStep(false);
+        setPendingMethod(null);
         setQrFile(null);
         setQrPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
         setLinkedQueueTicketId(null);
@@ -661,6 +667,16 @@ export function PosPageClient() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleSimplePay(method: string) {
+    if (cart.length === 0) {
+      setCheckoutError("Add at least one item before processing payment.");
+      return;
+    }
+    setCheckoutError(null);
+    setPendingMethod(method);
+    setShowConfirmStep(true);
   }
 
   function handleQrPay() {
@@ -768,7 +784,7 @@ export function PosPageClient() {
     checkoutError,
     submitting,
     onUpdateQty: updateQty,
-    onCheckout: handleCheckout,
+    onCheckout: handleSimplePay,
     onQrPay: handleQrPay,
   };
 
@@ -1085,6 +1101,101 @@ export function PosPageClient() {
           </div>
         </div>
       </div>
+
+      {/* ── Cash / Card / E-Wallet confirm overlay ────────────────────── */}
+      {showConfirmStep && pendingMethod && (() => {
+        const methodMeta: Record<string, { label: string; Icon: React.ElementType; color: string }> = {
+          cash:    { label: "Cash",     Icon: Banknote,    color: "text-emerald-400" },
+          card:    { label: "Card",     Icon: CreditCard,  color: "text-blue-400"    },
+          ewallet: { label: "E-Wallet", Icon: Smartphone,  color: "text-purple-400"  },
+        };
+        const meta = methodMeta[pendingMethod] ?? { label: pendingMethod, Icon: Wallet, color: "text-[#D4AF37]" };
+        return (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              aria-label="Close"
+              onClick={() => { setShowConfirmStep(false); setPendingMethod(null); }}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="relative z-10 flex w-full max-w-md flex-col rounded-t-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl sm:rounded-2xl"
+              style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <meta.Icon className={`h-4 w-4 ${meta.color}`} />
+                  <h2 className="text-base font-bold text-white">{meta.label}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowConfirmStep(false); setPendingMethod(null); }}
+                  className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col px-4 py-4 gap-4">
+                <p className="text-sm text-gray-400">
+                  Confirm that the customer has paid before processing.
+                </p>
+
+                {/* Order total reminder */}
+                <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-3">
+                  <span className="text-sm text-gray-400">Total to collect</span>
+                  <span className="text-lg font-black text-[#D4AF37]">RM {total.toFixed(2)}</span>
+                </div>
+
+                {/* Customer + barber summary */}
+                <div className="rounded-xl border border-white/5 bg-[#111] px-4 py-3 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Customer</span>
+                    <span className="font-medium text-white">{selectedCustomerName}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Barber</span>
+                    <span className="font-medium text-white">{selectedBarberName}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Items</span>
+                    <span className="font-medium text-white">{cartCount}</span>
+                  </div>
+                </div>
+
+                {checkoutError && (
+                  <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                    {checkoutError}
+                  </p>
+                )}
+              </div>
+
+              {/* Footer actions */}
+              <div className="flex gap-2 border-t border-white/5 px-4 pt-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowConfirmStep(false); setPendingMethod(null); }}
+                  className="flex-1 rounded-xl border border-white/15 bg-transparent py-3 text-sm font-semibold text-white transition hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCheckout(pendingMethod)}
+                  disabled={submitting}
+                  className="flex-1 rounded-xl bg-[#D4AF37] py-3 text-sm font-bold text-[#111111] transition hover:brightness-110 disabled:opacity-40"
+                >
+                  {submitting ? "Saving…" : "Confirm payment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── QR Pay proof capture overlay ──────────────────────────────── */}
       {showQrStep && (

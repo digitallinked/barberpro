@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -19,14 +19,12 @@ function slugify(text: string): string {
     .slice(0, 100);
 }
 
-/** Strip HTML tags and estimate reading time (200 wpm average). */
 function estimateReadingTime(html: string): number {
   const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const words = text.split(" ").filter(Boolean).length;
   return Math.max(1, Math.round(words / 200));
 }
 
-/** Parse comma-separated tags from form input into a string array. */
 function parseTags(raw: string | null): string[] {
   if (!raw) return [];
   return raw
@@ -50,7 +48,6 @@ async function getActorInfo() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.email) return { email: "unknown", name: "Unknown" };
-
     const admin = createAdminClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (admin as any).from("admin_staff").select("name").eq("email", user.email.toLowerCase()).maybeSingle() as { data: { name: string } | null };
@@ -59,91 +56,81 @@ async function getActorInfo() {
     return { email: "unknown", name: "Unknown" };
   }
 }
-
 export async function createPost(formData: FormData) {
   await requireAccess("/blog");
-
   const rawTitle = formData.get("title") as string ?? "";
   const rawSlug = formData.get("slug") as string;
   const slug = rawSlug?.trim() || slugify(rawTitle);
   const content = formData.get("content") as string ?? "";
-
   const parsed = PostSchema.safeParse({
-    title: rawTitle,
-    slug,
+    title: rawTitle, slug,
     excerpt: formData.get("excerpt") ?? undefined,
     content,
     cover_image_url: formData.get("cover_image_url") ?? "",
     status: formData.get("status") ?? "draft",
   });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
   const actor = await getActorInfo();
   const supabase = createAdminClient();
   const tags = parseTags(formData.get("tags") as string);
-  const readingTime = estimateReadingTime(content);
+  const contentMs = (formData.get("content_ms") as string | null)?.trim() || null;
+  const readingTime = Math.max(
+    estimateReadingTime(content),
+    contentMs ? estimateReadingTime(contentMs) : 0
+  );
   const publishedAt = parsed.data.status === "published" ? new Date().toISOString() : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("blog_posts")
     .insert({
-      title: parsed.data.title,
-      slug: parsed.data.slug,
+      title: parsed.data.title, slug: parsed.data.slug,
       excerpt: parsed.data.excerpt ?? null,
       content: parsed.data.content,
+      title_ms: (formData.get("title_ms") as string | null)?.trim() || null,
+      excerpt_ms: (formData.get("excerpt_ms") as string | null)?.trim() || null,
+      content_ms: contentMs,
       cover_image_url: parsed.data.cover_image_url || null,
       status: parsed.data.status,
-      author_email: actor.email,
-      author_name: actor.name,
-      tags,
-      reading_time_minutes: readingTime,
-      published_at: publishedAt,
+      author_email: actor.email, author_name: actor.name,
+      tags, reading_time_minutes: readingTime, published_at: publishedAt,
     })
-    .select("id")
-    .single() as { data: { id: string } | null; error: { message: string; code: string } | null };
+    .select("id").single() as { data: { id: string } | null; error: { message: string; code: string } | null };
 
   if (error) {
     if (error.code === "23505") return { error: "A post with that slug already exists." };
     return { error: error.message };
   }
-
   if (!data) return { error: "Failed to create post" };
   await logAdminAction({ action: "blog.create", targetType: "blog_post", targetId: data.id });
   revalidatePath("/blog");
   redirect(`/blog/${data.id}`);
 }
-
 export async function updatePost(formData: FormData) {
   await requireAccess("/blog");
-
   const id = formData.get("id") as string;
   if (!id) return { error: "Invalid post ID." };
-
   const rawTitle = formData.get("title") as string ?? "";
   const rawSlug = formData.get("slug") as string;
   const slug = rawSlug?.trim() || slugify(rawTitle);
   const content = formData.get("content") as string ?? "";
-
   const parsed = PostSchema.safeParse({
-    title: rawTitle,
-    slug,
+    title: rawTitle, slug,
     excerpt: formData.get("excerpt") ?? undefined,
     content,
     cover_image_url: formData.get("cover_image_url") ?? "",
     status: formData.get("status") ?? "draft",
   });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
   const supabase = createAdminClient();
   const tags = parseTags(formData.get("tags") as string);
-  const readingTime = estimateReadingTime(content);
+  const contentMs = (formData.get("content_ms") as string | null)?.trim() || null;
+  const readingTime = Math.max(
+    estimateReadingTime(content),
+    contentMs ? estimateReadingTime(contentMs) : 0
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existing = await (supabase as any).from("blog_posts").select("published_at, status").eq("id", id).maybeSingle() as { data: { published_at: string | null; status: string } | null };
@@ -155,15 +142,15 @@ export async function updatePost(formData: FormData) {
   const { error } = await (supabase as any)
     .from("blog_posts")
     .update({
-      title: parsed.data.title,
-      slug: parsed.data.slug,
+      title: parsed.data.title, slug: parsed.data.slug,
       excerpt: parsed.data.excerpt ?? null,
       content: parsed.data.content,
+      title_ms: (formData.get("title_ms") as string | null)?.trim() || null,
+      excerpt_ms: (formData.get("excerpt_ms") as string | null)?.trim() || null,
+      content_ms: contentMs,
       cover_image_url: parsed.data.cover_image_url || null,
-      status: parsed.data.status,
-      tags,
-      reading_time_minutes: readingTime,
-      published_at: publishedAt,
+      status: parsed.data.status, tags,
+      reading_time_minutes: readingTime, published_at: publishedAt,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id) as { error: { message: string; code: string } | null };
@@ -172,11 +159,9 @@ export async function updatePost(formData: FormData) {
     if (error.code === "23505") return { error: "A post with that slug already exists." };
     return { error: error.message };
   }
-
   if (nowPublished && !wasPublished) {
     await logAdminAction({ action: "blog.publish", targetType: "blog_post", targetId: id });
   }
-
   revalidatePath("/blog");
   revalidatePath(`/blog/${id}`);
   return { success: true };
@@ -184,16 +169,12 @@ export async function updatePost(formData: FormData) {
 
 export async function deletePost(formData: FormData) {
   await requireAccess("/blog");
-
   const id = formData.get("id") as string;
   if (!id) return { error: "Invalid post ID." };
-
   const supabase = createAdminClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any).from("blog_posts").delete().eq("id", id) as { error: { message: string } | null };
-
   if (error) return { error: error.message };
-
   await logAdminAction({ action: "blog.delete", targetType: "blog_post", targetId: id });
   revalidatePath("/blog");
   redirect("/blog");

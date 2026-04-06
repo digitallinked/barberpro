@@ -4,16 +4,20 @@ import { useState } from "react";
 import { X, ImageIcon } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { MediaLibrary, type MediaFile } from "@/components/media-library";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type BlogPostFormProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  action: (formData: FormData) => any;
+    action: (formData: FormData) => any;
   defaultValues?: {
     id?: string;
     title?: string;
     slug?: string;
     excerpt?: string;
     content?: string;
+    title_ms?: string;
+    excerpt_ms?: string;
+    content_ms?: string;
     cover_image_url?: string;
     status?: string;
     tags?: string[];
@@ -115,13 +119,57 @@ export function BlogPostForm({ action, defaultValues }: BlogPostFormProps) {
             />
           </div>
 
-          {/* Rich text editor */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">
-              Content <span className="text-red-400">*</span>
-            </label>
-            <RichTextEditor name="content" defaultValue={defaultValues?.content} />
-          </div>
+          {/* Content tabs — EN / BM */}
+          <Tabs defaultValue="en" className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">
+                Content <span className="text-red-400">*</span>
+              </label>
+              <TabsList className="h-8">
+                <TabsTrigger value="en" className="px-3 text-xs">English (EN)</TabsTrigger>
+                <TabsTrigger value="ms" className="px-3 text-xs">Bahasa Malaysia (BM)</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="en" className="mt-0">
+              <RichTextEditor name="content" defaultValue={defaultValues?.content} />
+            </TabsContent>
+            <TabsContent value="ms" className="mt-0">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="title_ms" className="text-xs font-medium text-muted-foreground">
+                    Title (BM) <span className="text-muted-foreground/60">(optional — falls back to EN)</span>
+                  </label>
+                  <input
+                    id="title_ms"
+                    name="title_ms"
+                    type="text"
+                    defaultValue={defaultValues?.title_ms}
+                    placeholder="Tajuk dalam Bahasa Malaysia…"
+                    className="h-10 w-full rounded-md border border-border bg-input px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="excerpt_ms" className="text-xs font-medium text-muted-foreground">
+                    Excerpt (BM) <span className="text-muted-foreground/60">(optional)</span>
+                  </label>
+                  <textarea
+                    id="excerpt_ms"
+                    name="excerpt_ms"
+                    rows={2}
+                    defaultValue={defaultValues?.excerpt_ms}
+                    placeholder="Ringkasan pendek dalam Bahasa Malaysia…"
+                    className="w-full resize-none rounded-md border border-border bg-input px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Content (BM) <span className="text-muted-foreground/60">(optional — falls back to EN)</span>
+                  </label>
+                  <RichTextEditor name="content_ms" defaultValue={defaultValues?.content_ms} />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* ── Sidebar column ── */}

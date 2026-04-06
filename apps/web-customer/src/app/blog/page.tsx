@@ -5,35 +5,43 @@ import { Newspaper, Clock, Tag, ArrowRight, Rss } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getBlogLocale } from "@/lib/blog-locale";
+import {
+  resolveBlogListItem,
+  type BlogPostRow,
+  type BlogListPost,
+} from "@/lib/blog-resolve";
+import { translations } from "@/lib/i18n/translations";
 import { BlogSearch } from "./blog-search";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Blog — BarberPro | Grooming Tips, Haircut Trends & Barber News",
-  description:
-    "Expert grooming advice, haircut trends, and barber industry news from the BarberPro team. Find your next style inspiration.",
-  openGraph: {
-    title: "BarberPro Blog — Grooming Tips & Haircut Trends",
-    description:
-      "Expert grooming advice, haircut trends, and barber industry news from the BarberPro team.",
-    type: "website",
-    url: "https://barberpro.my/blog",
-  },
-  alternates: { canonical: "https://barberpro.my/blog" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getBlogLocale();
+  const b = translations[locale].blog;
+  return {
+    title: b.metaTitle,
+    description: b.metaDesc,
+    openGraph: {
+      title: b.metaTitle,
+      description: b.metaDesc,
+      type: "website",
+      url: "https://barberpro.my/blog",
+      locale: locale === "ms" ? "ms_MY" : "en_MY",
+    },
+    alternates: { canonical: "https://barberpro.my/blog" },
+  };
+}
 
-type BlogPost = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  cover_image_url: string | null;
-  author_name: string | null;
-  tags: string[];
-  reading_time_minutes: number | null;
-  published_at: string | null;
-};
+/** Escape `%` / `_` for PostgREST `ilike`; strip chars that break `or=(...)` parsing. */
+function sanitizeSearchPattern(q: string): string {
+  return q
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_")
+    .replace(/[(),]/g, "");
+}
 
 type PageProps = {
   searchParams: Promise<{ tag?: string; q?: string }>;
@@ -41,13 +49,18 @@ type PageProps = {
 
 export default async function BlogPage({ searchParams }: PageProps) {
   const { tag: tagFilter, q } = await searchParams;
+  const locale = await getBlogLocale();
+  const b = translations[locale].blog;
+  const dateLocale = locale === "ms" ? "ms-MY" : "en-MY";
 
   const supabase = createAdminClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase as any)
     .from("blog_posts")
-    .select("id, title, slug, excerpt, cover_image_url, author_name, tags, reading_time_minutes, published_at")
+    .select(
+      "id, title, slug, excerpt, title_ms, excerpt_ms, cover_image_url, author_name, tags, reading_time_minutes, published_at, content, content_ms"
+    )
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
@@ -55,13 +68,18 @@ export default async function BlogPage({ searchParams }: PageProps) {
     query = query.contains("tags", [tagFilter]);
   }
   if (q) {
-    query = query.ilike("title", `%${q}%`);
+    const pattern = sanitizeSearchPattern(q);
+    if (pattern.length > 0) {
+      query = query.or(
+        `title.ilike.%${pattern}%,title_ms.ilike.%${pattern}%`
+      );
+    }
   }
 
   const { data } = await query;
-  const posts = (data ?? []) as BlogPost[];
+  const rows = (data ?? []) as BlogPostRow[];
+  const posts = rows.map((row) => resolveBlogListItem(row, locale));
 
-  // Collect all unique tags from ALL published posts for the filter bar
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: allPostsForTags } = await (supabase as any)
     .from("blog_posts")
@@ -83,19 +101,19 @@ export default async function BlogPage({ searchParams }: PageProps) {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero */}
         <section className="border-b border-white/5 bg-gradient-to-b from-[#111518] to-[#0d1013] px-4 pb-12 pt-16 sm:px-6">
           <div className="mx-auto max-w-5xl text-center">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-4 py-1.5">
               <Rss className="h-3.5 w-3.5 text-[#d4af37]" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-[#d4af37]">BarberPro Blog</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-[#d4af37]">
+                {b.badge}
+              </span>
             </div>
             <h1 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-              Grooming Tips &amp; <span className="text-[#d4af37]">Haircut Trends</span>
+              {b.heroTitle}{" "}
+              <span className="text-[#d4af37]">{b.heroHighlight}</span>
             </h1>
-            <p className="mt-4 text-lg text-gray-400">
-              Expert advice, style inspiration, and barber industry news — straight from the pros.
-            </p>
+            <p className="mt-4 text-lg text-gray-400">{b.heroDesc}</p>
 
             <div className="mx-auto mt-8 max-w-lg">
               <BlogSearch initialQuery={q} />
@@ -104,7 +122,6 @@ export default async function BlogPage({ searchParams }: PageProps) {
         </section>
 
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          {/* Tag filter pills */}
           {allTags.length > 0 && (
             <div className="mb-8 flex flex-wrap items-center gap-2">
               <Link
@@ -116,7 +133,7 @@ export default async function BlogPage({ searchParams }: PageProps) {
                 }`}
               >
                 <Tag className="h-3 w-3" />
-                All
+                {b.allPosts}
               </Link>
               {allTags.map((tag) => (
                 <Link
@@ -135,19 +152,19 @@ export default async function BlogPage({ searchParams }: PageProps) {
           )}
 
           {posts.length === 0 ? (
-            <EmptyBlog hasFilter={isFiltered} />
+            <EmptyBlog hasFilter={isFiltered} b={b} />
           ) : (
             <>
-              {/* Featured post — only on unfiltered main view */}
               {featuredPost && (
-                <FeaturedPostCard post={featuredPost} />
+                <FeaturedPostCard post={featuredPost} b={b} dateLocale={dateLocale} />
               )}
 
-              {/* Grid */}
               {gridPosts.length > 0 && (
-                <div className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 ${featuredPost ? "mt-10" : ""}`}>
+                <div
+                  className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 ${featuredPost ? "mt-10" : ""}`}
+                >
                   {gridPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard key={post.id} post={post} b={b} dateLocale={dateLocale} />
                   ))}
                 </div>
               )}
@@ -161,11 +178,18 @@ export default async function BlogPage({ searchParams }: PageProps) {
   );
 }
 
-function FeaturedPostCard({ post }: { post: BlogPost }) {
+function FeaturedPostCard({
+  post,
+  b,
+  dateLocale,
+}: {
+  post: BlogListPost;
+  b: (typeof translations)["ms"]["blog"];
+  dateLocale: string;
+}) {
   return (
     <Link href={`/blog/${post.slug}`} className="group block">
       <article className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111518] transition-all duration-300 hover:border-[#d4af37]/30 hover:shadow-2xl hover:shadow-[#d4af37]/5 lg:grid lg:grid-cols-2">
-        {/* Cover image */}
         <div className="aspect-[16/9] overflow-hidden bg-[#1a1f25] lg:aspect-auto">
           {post.cover_image_url ? (
             <img
@@ -180,16 +204,17 @@ function FeaturedPostCard({ post }: { post: BlogPost }) {
           )}
         </div>
 
-        {/* Content */}
         <div className="flex flex-col justify-center p-8">
           <div className="mb-3 inline-flex w-fit items-center rounded-full bg-[#d4af37]/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#d4af37]">
-            Featured
+            {b.featured}
           </div>
 
           {post.tags.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
               {post.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="text-xs capitalize text-gray-500">#{tag}</span>
+                <span key={tag} className="text-xs capitalize text-gray-500">
+                  #{tag}
+                </span>
               ))}
             </div>
           )}
@@ -204,10 +229,11 @@ function FeaturedPostCard({ post }: { post: BlogPost }) {
             </p>
           )}
 
-          <PostMeta post={post} className="mt-6" />
+          <PostMeta post={post} b={b} dateLocale={dateLocale} className="mt-6" />
 
           <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#d4af37]">
-            Read article <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            {b.readMore}{" "}
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </span>
         </div>
       </article>
@@ -215,11 +241,18 @@ function FeaturedPostCard({ post }: { post: BlogPost }) {
   );
 }
 
-function PostCard({ post }: { post: BlogPost }) {
+function PostCard({
+  post,
+  b,
+  dateLocale,
+}: {
+  post: BlogListPost;
+  b: (typeof translations)["ms"]["blog"];
+  dateLocale: string;
+}) {
   return (
     <Link href={`/blog/${post.slug}`} className="group block">
       <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#111518] transition-all duration-300 hover:border-[#d4af37]/30 hover:shadow-xl hover:shadow-[#d4af37]/5">
-        {/* Cover */}
         <div className="aspect-[16/9] overflow-hidden bg-[#1a1f25]">
           {post.cover_image_url ? (
             <img
@@ -234,7 +267,6 @@ function PostCard({ post }: { post: BlogPost }) {
           )}
         </div>
 
-        {/* Body */}
         <div className="flex flex-1 flex-col p-5">
           {post.tags.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
@@ -259,14 +291,24 @@ function PostCard({ post }: { post: BlogPost }) {
             </p>
           )}
 
-          <PostMeta post={post} className="mt-4" />
+          <PostMeta post={post} b={b} dateLocale={dateLocale} className="mt-4" />
         </div>
       </article>
     </Link>
   );
 }
 
-function PostMeta({ post, className }: { post: BlogPost; className?: string }) {
+function PostMeta({
+  post,
+  b,
+  dateLocale,
+  className,
+}: {
+  post: BlogListPost;
+  b: (typeof translations)["ms"]["blog"];
+  dateLocale: string;
+  className?: string;
+}) {
   return (
     <div className={`flex flex-wrap items-center gap-3 text-xs text-gray-600 ${className ?? ""}`}>
       {post.author_name && (
@@ -276,7 +318,7 @@ function PostMeta({ post, className }: { post: BlogPost; className?: string }) {
         <>
           {post.author_name && <span>·</span>}
           <time dateTime={post.published_at}>
-            {new Date(post.published_at).toLocaleDateString("en-MY", {
+            {new Date(post.published_at).toLocaleDateString(dateLocale, {
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -284,12 +326,12 @@ function PostMeta({ post, className }: { post: BlogPost; className?: string }) {
           </time>
         </>
       )}
-      {post.reading_time_minutes && (
+      {post.reading_time_minutes != null && post.reading_time_minutes > 0 && (
         <>
           <span>·</span>
           <span className="inline-flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {post.reading_time_minutes} min read
+            {post.reading_time_minutes} {b.minRead}
           </span>
         </>
       )}
@@ -297,26 +339,30 @@ function PostMeta({ post, className }: { post: BlogPost; className?: string }) {
   );
 }
 
-function EmptyBlog({ hasFilter }: { hasFilter: boolean }) {
+function EmptyBlog({
+  hasFilter,
+  b,
+}: {
+  hasFilter: boolean;
+  b: (typeof translations)["ms"]["blog"];
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
         <Newspaper className="h-9 w-9 text-white/20" />
       </div>
       <h2 className="mt-6 text-xl font-bold text-white">
-        {hasFilter ? "No posts match your search" : "No posts yet"}
+        {hasFilter ? b.noResults : b.noPosts}
       </h2>
       <p className="mt-2 max-w-sm text-sm text-gray-500">
-        {hasFilter
-          ? "Try a different search term or browse all posts."
-          : "Check back soon for grooming tips, haircut trends, and barber news."}
+        {hasFilter ? b.noResultsDesc : b.noPostsDesc}
       </p>
       {hasFilter && (
         <Link
           href="/blog"
           className="mt-6 rounded-full bg-[#d4af37]/10 px-5 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37]/20"
         >
-          Browse all posts
+          {b.browseAll}
         </Link>
       )}
     </div>

@@ -4,6 +4,8 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, Loader2, Clock, FileText } from "lucide-react";
 
+import { useLanguage } from "@/lib/i18n/language-context";
+
 type SearchResult = {
   id: string;
   title: string;
@@ -20,6 +22,8 @@ type Props = {
 
 export function BlogSearch({ initialQuery }: Props) {
   const router = useRouter();
+  const { language, t } = useLanguage();
+  const b = t.blog;
   const [query, setQuery] = useState(initialQuery ?? "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -51,9 +55,12 @@ export function BlogSearch({ initialQuery }: Props) {
     debounceRef.current = setTimeout(() => {
       startTransition(async () => {
         try {
-          const res = await fetch(`/api/blog/search?q=${encodeURIComponent(value.trim())}`);
+          const res = await fetch(
+            `/api/blog/search?q=${encodeURIComponent(value.trim())}&lang=${language}`,
+            { credentials: "same-origin" }
+          );
           if (!res.ok) return;
-          const json = await res.json() as { results: SearchResult[] };
+          const json = (await res.json()) as { results: SearchResult[] };
           setResults(json.results ?? []);
           setOpen(true);
         } catch {
@@ -63,14 +70,18 @@ export function BlogSearch({ initialQuery }: Props) {
     }, 300);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function goToFullSearch() {
     setOpen(false);
     if (query.trim()) {
       router.push(`/blog?q=${encodeURIComponent(query.trim())}`);
     } else {
       router.push("/blog");
     }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    goToFullSearch();
   }
 
   function handleSelect(slug: string) {
@@ -95,7 +106,7 @@ export function BlogSearch({ initialQuery }: Props) {
             value={query}
             onChange={(e) => handleChange(e.target.value)}
             onFocus={() => results.length > 0 && setOpen(true)}
-            placeholder="Search grooming tips, haircuts, styles…"
+            placeholder={b.searchPlaceholder}
             className="h-12 flex-1 bg-transparent px-3 text-sm text-white placeholder:text-gray-600 focus:outline-none"
           />
           {isPending && <Loader2 className="mr-3 h-4 w-4 shrink-0 animate-spin text-gray-500" />}
@@ -104,7 +115,7 @@ export function BlogSearch({ initialQuery }: Props) {
               type="button"
               onClick={handleClear}
               className="mr-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-gray-400 transition hover:bg-white/20 hover:text-white"
-              aria-label="Clear"
+              aria-label={b.clearSearch}
             >
               <X className="h-3 w-3" />
             </button>
@@ -113,12 +124,11 @@ export function BlogSearch({ initialQuery }: Props) {
             type="submit"
             className="mr-2 shrink-0 rounded-lg bg-[#d4af37] px-4 py-2 text-xs font-bold text-black transition hover:brightness-110"
           >
-            Search
+            {b.searchButton}
           </button>
         </div>
       </form>
 
-      {/* Dropdown results */}
       {open && results.length > 0 && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#111518] shadow-2xl">
           <div className="max-h-80 overflow-y-auto divide-y divide-white/5">
@@ -136,14 +146,16 @@ export function BlogSearch({ initialQuery }: Props) {
                     <p className="mt-0.5 truncate text-xs text-gray-500">{result.excerpt}</p>
                   )}
                   <div className="mt-1 flex items-center gap-2">
-                    {result.reading_time_minutes && (
+                    {result.reading_time_minutes != null && result.reading_time_minutes > 0 && (
                       <span className="inline-flex items-center gap-1 text-[10px] text-gray-600">
                         <Clock className="h-2.5 w-2.5" />
-                        {result.reading_time_minutes} min
+                        {result.reading_time_minutes} {b.minRead}
                       </span>
                     )}
-                    {result.tags.slice(0, 2).map((t) => (
-                      <span key={t} className="text-[10px] capitalize text-[#d4af37]/60">#{t}</span>
+                    {result.tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className="text-[10px] capitalize text-[#d4af37]/60">
+                        #{tag}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -153,10 +165,10 @@ export function BlogSearch({ initialQuery }: Props) {
           <div className="border-t border-white/5 px-4 py-2">
             <button
               type="button"
-              onClick={handleSubmit as unknown as React.MouseEventHandler}
+              onClick={goToFullSearch}
               className="text-xs text-gray-500 transition hover:text-white"
             >
-              See all results for &ldquo;{query}&rdquo; →
+              {b.seeAllResults} &ldquo;{query}&rdquo; →
             </button>
           </div>
         </div>
@@ -165,7 +177,7 @@ export function BlogSearch({ initialQuery }: Props) {
       {open && results.length === 0 && query.trim().length >= 2 && !isPending && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#111518] shadow-2xl">
           <div className="px-4 py-6 text-center text-sm text-gray-500">
-            No results found for &ldquo;{query}&rdquo;
+            {b.noResultsFor} &ldquo;{query}&rdquo;
           </div>
         </div>
       )}
