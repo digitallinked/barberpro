@@ -2,6 +2,7 @@
 
 import {
   Banknote,
+  Camera,
   ChevronDown,
   CreditCard,
   Minus,
@@ -29,6 +30,7 @@ import {
   useStaffMembers,
   useCustomers,
   useQueueTickets,
+  useSupabase,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { createTransaction } from "@/actions/pos";
@@ -156,6 +158,7 @@ type OrderContentProps = {
   submitting: boolean;
   onUpdateQty: (id: string, type: "service" | "product", delta: number) => void;
   onCheckout: (method: string) => void;
+  onQrPay: () => void;
 };
 
 function OrderContent({
@@ -168,6 +171,7 @@ function OrderContent({
   submitting,
   onUpdateQty,
   onCheckout,
+  onQrPay,
 }: OrderContentProps) {
   return (
     <>
@@ -251,13 +255,11 @@ function OrderContent({
             { method: "cash", label: "Cash", Icon: Banknote, accent: "emerald" },
             { method: "card", label: "Card", Icon: CreditCard, accent: "blue" },
             { method: "ewallet", label: "E-Wallet", Icon: Smartphone, accent: "purple" },
-            { method: "qr", label: "QR Pay", Icon: QrCode, accent: "yellow" },
           ].map(({ method, label, Icon, accent }) => {
             const colorMap: Record<string, string> = {
               emerald: "text-emerald-400 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/30",
               blue: "text-blue-400 group-hover:bg-blue-500/10 group-hover:border-blue-500/30",
               purple: "text-purple-400 group-hover:bg-purple-500/10 group-hover:border-purple-500/30",
-              yellow: "text-[#D4AF37] group-hover:bg-[#D4AF37]/10 group-hover:border-[#D4AF37]/30",
             };
             return (
               <button
@@ -272,6 +274,16 @@ function OrderContent({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={onQrPay}
+            disabled={submitting}
+            className="group col-span-2 flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#1e1e1e] py-3 text-sm font-semibold text-white transition disabled:opacity-40 text-[#D4AF37] group-hover:bg-[#D4AF37]/10 group-hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/30"
+          >
+            <QrCode className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+            QR Pay / DuitNow
+            <Camera className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]/60" />
+          </button>
         </div>
       </div>
     </>
@@ -338,11 +350,16 @@ function ProductBtn({
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
+function safeProofFileName(file: File): string {
+  return file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_").slice(0, 96) || "receipt.jpg";
+}
+
 export function PosPageClient() {
   const t = useT();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { branchId } = useTenant();
+  const { branchId, tenantId } = useTenant();
+  const supabase = useSupabase();
   const { data: servicesData, isLoading: servicesLoading } = useServices();
   const { data: categoriesData } = useServiceCategories();
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
@@ -385,6 +402,13 @@ export function PosPageClient() {
   );
   const [queueDropdownOpen, setQueueDropdownOpen] = useState(false);
   const queueDropdownRef = useRef<HTMLDivElement>(null);
+
+  // QR proof photo state
+  const [showQrStep, setShowQrStep] = useState(false);
+  const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrPreview, setQrPreview] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const qrFileRef = useRef<HTMLInputElement>(null);
 
   const urlQueueTicketId = searchParams.get("queue_ticket_id");
   const prefillCustomerId = searchParams.get("customer_id");
@@ -555,7 +579,7 @@ export function PosPageClient() {
     );
   }
 
-  async function handleCheckout(method: string) {
+  async function handleCheckout(method: string, proofStoragePath?: string | null) {
     if (!branchId) return;
     if (cart.length === 0) {
       setCheckoutError("Add at least one item before processing payment.");
@@ -588,6 +612,7 @@ export function PosPageClient() {
         discountAmount: 0,
         taxAmount: tax,
         totalAmount: total,
+        proofStoragePath: proofStoragePath ?? null,
       });
 
       if (result.success) {
@@ -597,14 +622,78 @@ export function PosPageClient() {
         queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
         setCart([]);
         setShowCheckout(false);
-        setLinkedQueueTicketId(null);   // clear queue banner
-        setSelectedCustomer(null);      // reset customer
-        setSelectedBarber(0);           // reset barber
+        setShowQrStep(false);
+        setQrFile(null);
+        setQrPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+        setLinkedQueueTicketId(null);
+        setSelectedCustomer(null);
+        setSelectedBarber(0);
       } else {
         setCheckoutError(result.error ?? "Checkout failed");
       }
     } catch {
       setCheckoutError("Checkout failed due to an unexpected server response.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleQrPay() {
+    if (cart.length === 0) {
+      setCheckoutError("Add at least one item before processing payment.");
+      return;
+    }
+    setCheckoutError(null);
+    setQrError(null);
+    setQrFile(null);
+    setQrPreview(null);
+    setShowQrStep(true);
+  }
+
+  function handleQrFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setQrFile(f);
+    setQrPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return f ? URL.createObjectURL(f) : null;
+    });
+  }
+
+  function clearQrFile() {
+    setQrFile(null);
+    setQrPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    if (qrFileRef.current) qrFileRef.current.value = "";
+  }
+
+  async function confirmQrPayment() {
+    if (!qrFile) {
+      setQrError("Please take or attach a photo of the QR / transfer receipt.");
+      return;
+    }
+    if (!tenantId) {
+      setQrError("Session not ready. Refresh and try again.");
+      return;
+    }
+    setQrError(null);
+    setSubmitting(true);
+    try {
+      const objectPath = `${tenantId}/pos-qr/${globalThis.crypto.randomUUID()}-${safeProofFileName(qrFile)}`;
+      const { error: uploadError } = await supabase.storage.from("payment-proofs").upload(objectPath, qrFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: qrFile.type || "image/jpeg",
+      });
+      if (uploadError) {
+        setQrError(
+          uploadError.message.includes("Bucket not found")
+            ? "Receipt storage is not set up. Ask an admin to enable the payment-proofs bucket."
+            : `Could not upload photo: ${uploadError.message}`
+        );
+        return;
+      }
+      await handleCheckout("qr", objectPath);
+    } catch (err) {
+      setQrError(err instanceof Error ? err.message : "Upload failed. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -655,6 +744,7 @@ export function PosPageClient() {
     submitting,
     onUpdateQty: updateQty,
     onCheckout: handleCheckout,
+    onQrPay: handleQrPay,
   };
 
   const linkedTicket = activeQueueTickets.find((q) => q.id === linkedQueueTicketId)
@@ -970,6 +1060,110 @@ export function PosPageClient() {
           </div>
         </div>
       </div>
+
+      {/* ── QR Pay proof capture overlay ──────────────────────────────── */}
+      {showQrStep && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            aria-label="Close"
+            onClick={() => { setShowQrStep(false); setQrError(null); clearQrFile(); }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-proof-title"
+            className="relative z-10 flex max-h-[min(92dvh,640px)] w-full max-w-md flex-col rounded-t-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl sm:rounded-2xl"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-4 w-4 text-[#D4AF37]" />
+                <h2 id="qr-proof-title" className="text-base font-bold text-white">QR Pay / DuitNow</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowQrStep(false); setQrError(null); clearQrFile(); }}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-1 flex-col overflow-y-auto px-4 py-4 gap-4">
+              <p className="text-sm text-gray-400">
+                Snap or attach the customer&apos;s QR / DuitNow receipt before confirming payment.
+              </p>
+
+              {/* Order total reminder */}
+              <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-3">
+                <span className="text-sm text-gray-400">Total to collect</span>
+                <span className="text-lg font-black text-[#D4AF37]">RM {total.toFixed(2)}</span>
+              </div>
+
+              {/* Photo capture */}
+              <input
+                ref={qrFileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleQrFileChange}
+              />
+              {qrPreview ? (
+                <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                  <img src={qrPreview} alt="Receipt preview" className="max-h-48 w-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={clearQrFile}
+                    className="absolute right-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-xs font-medium text-white"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => qrFileRef.current?.click()}
+                  className="flex min-h-[7rem] w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/15 bg-[#111111] text-gray-400 transition hover:border-[#D4AF37]/40 hover:text-[#D4AF37]"
+                >
+                  <Camera className="h-8 w-8" />
+                  <span className="text-sm font-medium">Tap to take or choose photo</span>
+                  <span className="text-xs text-gray-600">Required for QR / DuitNow payments</span>
+                </button>
+              )}
+
+              {qrError && (
+                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  {qrError}
+                </p>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex gap-2 border-t border-white/5 px-4 pt-3">
+              <button
+                type="button"
+                onClick={() => { setShowQrStep(false); setQrError(null); clearQrFile(); }}
+                className="flex-1 rounded-xl border border-white/15 bg-transparent py-3 text-sm font-semibold text-white transition hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmQrPayment}
+                disabled={submitting || !qrFile}
+                className="flex-1 rounded-xl bg-[#D4AF37] py-3 text-sm font-bold text-[#111111] transition hover:brightness-110 disabled:opacity-40"
+              >
+                {submitting ? "Saving…" : "Confirm payment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

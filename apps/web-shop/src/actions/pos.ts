@@ -52,6 +52,7 @@ type CreateTransactionData = {
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
+  proofStoragePath?: string | null;
 };
 
 export async function createTransaction(data: CreateTransactionData) {
@@ -68,6 +69,7 @@ export async function createTransaction(data: CreateTransactionData) {
       discountAmount,
       taxAmount,
       totalAmount,
+      proofStoragePath,
     } = data;
 
     if (!branchId || !paymentMethod || !items?.length) {
@@ -77,6 +79,11 @@ export async function createTransaction(data: CreateTransactionData) {
     const methodForDb = paymentMethodForDb(paymentMethod);
     if (!TRANSACTION_PAYMENT_METHODS.has(methodForDb)) {
       return { success: false, error: "Invalid payment method" };
+    }
+
+    const cleanProofPath = proofStoragePath?.trim() || null;
+    if (cleanProofPath && !proofPathBelongsToTenant(cleanProofPath, tenantId)) {
+      return { success: false, error: "Invalid receipt path" };
     }
 
     const { data: transaction, error: txError } = await supabase
@@ -94,6 +101,7 @@ export async function createTransaction(data: CreateTransactionData) {
         total_amount: totalAmount,
         payment_status: "paid",
         paid_at: new Date().toISOString(),
+        proof_storage_path: cleanProofPath,
       })
       .select("id")
       .single();

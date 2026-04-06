@@ -21,6 +21,7 @@ import {
   Scissors,
   Settings,
   Store,
+  TrendingUp,
   Users,
   Wallet,
   X,
@@ -41,53 +42,65 @@ type NavItem = { labelKey: string; href: string; icon: React.ElementType };
 function useNavItems() {
   const t = useT();
 
-  const NAV_MAIN: NavItem[] = [
+  const NAV_OPERATIONS: NavItem[] = [
     { labelKey: t.nav.dashboard, href: "/dashboard", icon: Home },
     { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList },
-    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard },
     { labelKey: t.nav.appointments, href: "/appointments", icon: CalendarCheck2 },
-    { labelKey: t.nav.services, href: "/services", icon: Scissors },
-    { labelKey: t.nav.customers, href: "/customers", icon: Contact2 },
-    { labelKey: t.nav.staff, href: "/staff", icon: Users },
+    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard },
   ];
 
-  const NAV_MANAGEMENT: NavItem[] = [
+  const NAV_CUSTOMERS: NavItem[] = [
+    { labelKey: t.nav.customers, href: "/customers", icon: Contact2 },
+    { labelKey: t.nav.services, href: "/services", icon: Scissors },
+  ];
+
+  const NAV_TEAM: NavItem[] = [
+    { labelKey: t.nav.staff, href: "/staff", icon: Users },
     { labelKey: t.nav.payroll, href: "/payroll", icon: CircleDollarSign },
+    { labelKey: t.nav.commissions, href: "/commissions", icon: TrendingUp },
+  ];
+
+  const NAV_BUSINESS: NavItem[] = [
     { labelKey: t.nav.inventory, href: "/inventory", icon: Package },
     { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet },
     { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone },
     { labelKey: t.nav.reports, href: "/reports", icon: BarChart3 },
-    { labelKey: t.nav.branches, href: "/branches", icon: Store },
-    { labelKey: t.nav.billing, href: "/settings/billing", icon: Banknote },
   ];
 
-  const NAV_BUSINESS: NavItem[] = [
-    { labelKey: t.nav.commissions, href: "/commissions", icon: Scissors },
+  const NAV_WORKSPACE: NavItem[] = [
+    { labelKey: t.nav.branches, href: "/branches", icon: Store },
+    { labelKey: t.nav.billing, href: "/settings/billing", icon: Banknote },
     { labelKey: t.nav.settings, href: "/settings", icon: Settings },
   ];
 
-  const NAV_MOBILE_LEFT: NavItem[] = [
+  const NAV_MOBILE: NavItem[] = [
     { labelKey: t.nav.home, href: "/dashboard", icon: Home },
     { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList },
-  ];
-
-  const NAV_MOBILE_RIGHT: NavItem[] = [
+    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard },
     { labelKey: t.nav.appts, href: "/appointments", icon: CalendarCheck2 },
   ];
 
-  return { NAV_MAIN, NAV_MANAGEMENT, NAV_BUSINESS, NAV_MOBILE_LEFT, NAV_MOBILE_RIGHT };
+  return { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE, NAV_MOBILE };
+}
+
+function isNavActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  // Match child routes (e.g. /staff/123 → Staff is active), but guard
+  // against /settings/billing incorrectly activating /settings.
+  return href !== "/" && pathname.startsWith(href + "/");
 }
 
 function NavLink({
   item,
-  active,
+  pathname,
   onClick,
 }: {
   item: NavItem;
-  active: boolean;
+  pathname: string;
   onClick?: () => void;
 }) {
   const Icon = item.icon;
+  const active = isNavActive(pathname, item.href);
   return (
     <Link
       href={item.href}
@@ -116,7 +129,7 @@ function NavGroup({
   onNav?: () => void;
 }) {
   return (
-    <div className="mt-6">
+    <div className="mt-5 first:mt-0">
       <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
         {label}
       </p>
@@ -125,7 +138,7 @@ function NavGroup({
           <NavLink
             key={item.href}
             item={item}
-            active={pathname === item.href}
+            pathname={pathname}
             onClick={onNav}
           />
         ))}
@@ -148,7 +161,7 @@ function SidebarContent({
   branchName: string;
 }) {
   const t = useT();
-  const { NAV_MAIN, NAV_MANAGEMENT, NAV_BUSINESS } = useNavItems();
+  const { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE } = useNavItems();
 
   const initials = userName
     .split(" ")
@@ -176,28 +189,33 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="space-y-0.5">
-          <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            {t.nav.main}
-          </p>
-          {NAV_MAIN.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              active={pathname === item.href}
-              onClick={onNav}
-            />
-          ))}
-        </div>
         <NavGroup
-          label={t.nav.management}
-          items={NAV_MANAGEMENT}
+          label={t.nav.operations}
+          items={NAV_OPERATIONS}
+          pathname={pathname}
+          onNav={onNav}
+        />
+        <NavGroup
+          label={t.nav.customers}
+          items={NAV_CUSTOMERS}
+          pathname={pathname}
+          onNav={onNav}
+        />
+        <NavGroup
+          label={t.nav.team}
+          items={NAV_TEAM}
           pathname={pathname}
           onNav={onNav}
         />
         <NavGroup
           label={t.nav.business}
           items={NAV_BUSINESS}
+          pathname={pathname}
+          onNav={onNav}
+        />
+        <NavGroup
+          label={t.nav.workspace}
+          items={NAV_WORKSPACE}
           pathname={pathname}
           onNav={onNav}
         />
@@ -263,63 +281,46 @@ function MobileBottomNav({
   pathname,
   onOpenMenu,
   menuOpen,
-  onReceivePayment,
 }: {
   pathname: string;
   onOpenMenu: () => void;
   menuOpen: boolean;
-  onReceivePayment: () => void;
 }) {
   const t = useT();
-  const { NAV_MOBILE_LEFT, NAV_MOBILE_RIGHT } = useNavItems();
+  const { NAV_MOBILE } = useNavItems();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden" aria-label="Primary">
-      <div className="relative w-full border-t border-white/10 bg-[#1a1a1a]/92 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150">
-        <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-[45%]">
+      <div className="w-full border-t border-white/10 bg-[#1a1a1a]/92 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150">
+        <div className="flex h-[60px] items-end justify-around gap-0 px-1.5 pt-2">
+          {NAV_MOBILE.map((item) => (
+            <MobileTabLink
+              key={item.href}
+              item={item}
+              active={isNavActive(pathname, item.href)}
+            />
+          ))}
           <button
             type="button"
-            onClick={onReceivePayment}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#D4AF37] text-[#111111] shadow-[0_6px_28px_rgba(212,175,55,0.42)] ring-[5px] ring-[#1a1a1a] transition active:scale-95"
-            aria-label={t.common.receivePayment}
+            onClick={onOpenMenu}
+            aria-expanded={menuOpen}
+            aria-label={t.nav.more}
+            className={`flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-0 transition-colors active:scale-[0.97] active:opacity-90 ${
+              menuOpen ? "text-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
+            }`}
+            style={{ touchAction: "manipulation" }}
           >
-            <Plus className="h-7 w-7" strokeWidth={2.5} />
-          </button>
-        </div>
-
-        <div className="flex h-[60px] items-end justify-between gap-0 px-1.5 pt-2 box-border">
-          <div className="flex min-w-0 flex-1 justify-around gap-0.5">
-            {NAV_MOBILE_LEFT.map((item) => (
-              <MobileTabLink key={item.href} item={item} active={pathname === item.href} />
-            ))}
-          </div>
-          <div className="w-16 shrink-0 sm:w-[4.5rem]" aria-hidden />
-          <div className="flex min-w-0 flex-1 justify-around gap-0.5">
-            {NAV_MOBILE_RIGHT.map((item) => (
-              <MobileTabLink key={item.href} item={item} active={pathname === item.href} />
-            ))}
-            <button
-              type="button"
-              onClick={onOpenMenu}
-              aria-expanded={menuOpen}
-              aria-label={t.nav.more}
-              className={`flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-0 transition-colors active:scale-[0.97] active:opacity-90 ${
-                menuOpen ? "text-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
+            <span
+              className={`flex h-8 w-11 items-center justify-center rounded-lg transition-colors ${
+                menuOpen ? "bg-[#D4AF37]/15" : ""
               }`}
-              style={{ touchAction: "manipulation" }}
             >
-              <span
-                className={`flex h-8 w-11 items-center justify-center rounded-lg transition-colors ${
-                  menuOpen ? "bg-[#D4AF37]/15" : ""
-                }`}
-              >
-                <Menu className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={menuOpen ? 2.25 : 1.75} />
-              </span>
-              <span className="max-w-full truncate px-0.5 text-[10px] font-semibold leading-none tracking-wide">
-                {t.nav.more}
-              </span>
-            </button>
-          </div>
+              <Menu className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={menuOpen ? 2.25 : 1.75} />
+            </span>
+            <span className="max-w-full truncate px-0.5 text-[10px] font-semibold leading-none tracking-wide">
+              {t.nav.more}
+            </span>
+          </button>
         </div>
       </div>
     </nav>
@@ -453,7 +454,6 @@ function AppShellInner({ children }: AppShellProps) {
           pathname={pathname}
           menuOpen={open}
           onOpenMenu={() => setOpen(true)}
-          onReceivePayment={() => setQuickPayOpen(true)}
         />
 
         <QuickPaymentSheet open={quickPayOpen} onOpenChange={setQuickPayOpen} />
