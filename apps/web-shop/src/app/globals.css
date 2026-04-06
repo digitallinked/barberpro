@@ -29,7 +29,9 @@
   --sidebar-accent-foreground: 210 20% 92%;
 }
 
+html,
 body {
+  overflow-x: hidden;
   @apply bg-background text-foreground antialiased;
 }
 

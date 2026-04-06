@@ -446,7 +446,7 @@ function AppShellInner({ children }: AppShellProps) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-[#111111] px-4 py-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#111111] px-4 py-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
           {children}
         </main>
 
