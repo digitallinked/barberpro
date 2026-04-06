@@ -161,8 +161,8 @@ export default function StaffPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">{t.staff.title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">{t.staff.title}</h2>
           <p className="mt-0.5 text-sm text-gray-500">{t.staff.subtitle}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -189,9 +189,9 @@ export default function StaffPage() {
 
       {/* Starter plan staff-limit banner */}
       {isStarter && (
-        <div className="flex items-center gap-3 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-4 py-3">
-          <Lock className="h-4 w-4 shrink-0 text-[#D4AF37]" />
-          <p className="text-sm text-gray-300">
+        <div className="flex items-start gap-3 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 px-4 py-3">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#D4AF37]" />
+          <p className="min-w-0 text-sm leading-relaxed text-gray-300">
             <span className="font-semibold text-white">Starter plan</span> — includes up to {STARTER_STAFF_LIMIT} staff members ({staffList.length}/{STARTER_STAFF_LIMIT} used).{" "}
             {atStaffLimit && (
               <button
@@ -208,19 +208,19 @@ export default function StaffPage() {
 
       {/* Attendance — primary ops for payroll days-worked */}
       <Card className="overflow-hidden">
-        <div className="border-b border-white/5 px-5 py-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
+        <div className="border-b border-white/5 px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37]/10 text-[#D4AF37]">
                 <CalendarClock className="h-5 w-5" />
               </span>
-              <div>
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-white">{t.staff.attendanceTitle}</h3>
-                <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-gray-500">{t.staff.attendanceSubtitle}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{t.staff.attendanceSubtitle}</p>
               </div>
             </div>
-            <div className="flex flex-wrap items-end gap-2">
-              <div>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-end sm:gap-2">
+              <div className="min-w-0 sm:min-w-0">
                 <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
                   {t.staff.dateFrom}
                 </label>
@@ -228,10 +228,10 @@ export default function StaffPage() {
                   type="date"
                   value={attFrom}
                   onChange={(e) => setAttFrom(e.target.value)}
-                  className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-2 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40 sm:px-3"
                 />
               </div>
-              <div>
+              <div className="min-w-0 sm:min-w-0">
                 <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
                   {t.staff.dateTo}
                 </label>
@@ -239,15 +239,18 @@ export default function StaffPage() {
                   type="date"
                   value={attTo}
                   onChange={(e) => setAttTo(e.target.value)}
-                  className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-2 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40 sm:px-3"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleAttendanceSave} className="flex flex-wrap items-end gap-3 border-b border-white/5 px-5 py-4">
-          <div className="min-w-[160px] flex-1">
+        <form
+          onSubmit={handleAttendanceSave}
+          className="flex flex-col gap-3 border-b border-white/5 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3 sm:px-5"
+        >
+          <div className="w-full min-w-0 sm:min-w-[160px] sm:flex-1">
             <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.colStaff}</label>
             <select
               value={attStaffId}
@@ -262,7 +265,7 @@ export default function StaffPage() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.dateLabel}</label>
             <input
               type="date"
@@ -270,10 +273,10 @@ export default function StaffPage() {
               min={attFrom}
               max={attTo}
               onChange={(e) => setAttDate(e.target.value)}
-              className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+              className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
             />
           </div>
-          <div className="min-w-[130px]">
+          <div className="w-full sm:min-w-[130px] sm:w-auto">
             <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.statusLabel}</label>
             <select
               value={attStatus}
@@ -290,17 +293,17 @@ export default function StaffPage() {
           <button
             type="submit"
             disabled={attPending || !attStaffId}
-            className="rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:py-2"
           >
             {t.staff.saveAttendance}
           </button>
         </form>
 
         {attBanner && (
-          <div className="border-b border-red-500/20 bg-red-500/5 px-5 py-2 text-xs text-red-400">{attBanner}</div>
+          <div className="border-b border-red-500/20 bg-red-500/5 px-4 py-2 text-xs text-red-400 sm:px-5">{attBanner}</div>
         )}
 
-        <div className="max-h-[min(360px,50vh)] overflow-auto">
+        <div className="max-h-[min(420px,55vh)] overflow-auto">
           {attLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
@@ -311,34 +314,56 @@ export default function StaffPage() {
               <p className="text-sm text-gray-500">{t.staff.noAttendance}</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="sticky top-0 border-b border-white/5 bg-[#141414] text-left text-[11px] font-medium uppercase tracking-wider text-gray-500">
-                  <th className="px-5 py-3">{t.staff.colStaff}</th>
-                  <th className="px-3 py-3">{t.staff.colDate}</th>
-                  <th className="px-3 py-3">{t.staff.colClockIn}</th>
-                  <th className="px-3 py-3">{t.staff.colClockOut}</th>
-                  <th className="px-5 py-3">{t.staff.colStatus}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Mobile: stacked rows — no horizontal table scroll */}
+              <div className="divide-y divide-white/[0.04] sm:hidden">
                 {sortedAttendance.slice(0, 100).map((r) => (
-                  <tr key={r.id} className="border-t border-white/[0.04] transition hover:bg-white/[0.02]">
-                    <td className="px-5 py-2.5 font-medium text-white">{r.staff?.full_name ?? "—"}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-gray-400">{r.date}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_in)}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_out)}</td>
-                    <td className="px-5 py-2.5 text-gray-300">{attendanceStatusLabel(t, r.status)}</td>
-                  </tr>
+                  <div key={r.id} className="px-4 py-3.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 truncate font-medium text-white">{r.staff?.full_name ?? "—"}</p>
+                      <span className="shrink-0 rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-gray-300">
+                        {attendanceStatusLabel(t, r.status)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs tabular-nums text-gray-500">{r.date}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {t.staff.colClockIn}: <span className="tabular-nums text-gray-400">{formatTime(r.clock_in)}</span>
+                      {" · "}
+                      {t.staff.colClockOut}: <span className="tabular-nums text-gray-400">{formatTime(r.clock_out)}</span>
+                    </p>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+              {/* Desktop: table */}
+              <table className="hidden w-full text-sm sm:table">
+                <thead>
+                  <tr className="sticky top-0 border-b border-white/5 bg-[#141414] text-left text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                    <th className="px-5 py-3">{t.staff.colStaff}</th>
+                    <th className="px-3 py-3">{t.staff.colDate}</th>
+                    <th className="px-3 py-3">{t.staff.colClockIn}</th>
+                    <th className="px-3 py-3">{t.staff.colClockOut}</th>
+                    <th className="px-5 py-3">{t.staff.colStatus}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedAttendance.slice(0, 100).map((r) => (
+                    <tr key={r.id} className="border-t border-white/[0.04] transition hover:bg-white/[0.02]">
+                      <td className="px-5 py-2.5 font-medium text-white">{r.staff?.full_name ?? "—"}</td>
+                      <td className="px-3 py-2.5 tabular-nums text-gray-400">{r.date}</td>
+                      <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_in)}</td>
+                      <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_out)}</td>
+                      <td className="px-5 py-2.5 text-gray-300">{attendanceStatusLabel(t, r.status)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </div>
       </Card>
 
       {/* Summary bar */}
-      <Card className="flex flex-wrap items-center gap-6 p-4">
+      <Card className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-gray-500" />
           <span className="text-sm text-gray-400">
@@ -353,8 +378,8 @@ export default function StaffPage() {
         </div>
       </Card>
 
-      {/* Staff grid */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+      {/* Staff grid — 1 col on phone (readable cards), 2 from sm, 3 on xl */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {staffLoading ? (
           <div className="col-span-full rounded-xl border border-white/5 bg-[#1a1a1a] p-8 text-center text-gray-500">
             Loading...
@@ -368,56 +393,58 @@ export default function StaffPage() {
             return (
               <Card
                 key={s.staff_profile_id}
-                className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl"
+                className="p-4 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl sm:p-5"
               >
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-lg font-bold text-white">
+                <div className="mb-3 flex items-start justify-between gap-2 sm:mb-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-sm font-bold text-white sm:h-14 sm:w-14 sm:text-lg">
                       {getInitials(s.full_name)}
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{s.full_name}</h3>
-                      <p className="text-xs text-gray-400">{formatRole(s.role)}</p>
-                      <p className="text-[10px] text-gray-500">{branchName}</p>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-bold text-white">{s.full_name}</h3>
+                      <p className="truncate text-xs text-gray-400">{formatRole(s.role)}</p>
+                      <p className="truncate text-[10px] text-gray-500">{branchName}</p>
                     </div>
                   </div>
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusCls}`}
+                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider sm:text-[10px] ${statusCls}`}
                   >
                     {s.is_active ? t.staff.active : t.staff.inactive}
                   </span>
                 </div>
 
-                <div className="mb-4 grid grid-cols-3 gap-3 rounded-lg bg-[#111] p-3">
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-white">—</p>
-                    <p className="text-[10px] text-gray-500">Customers</p>
+                <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg bg-[#111] p-2.5 sm:mb-4 sm:gap-3 sm:p-3">
+                  <div className="min-w-0 text-center">
+                    <p className="text-base font-bold text-white sm:text-lg">—</p>
+                    <p className="text-[9px] text-gray-500 sm:text-[10px]">Customers</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-emerald-400">—</p>
-                    <p className="text-[10px] text-gray-500">Revenue</p>
+                  <div className="min-w-0 text-center">
+                    <p className="text-base font-bold text-emerald-400 sm:text-lg">—</p>
+                    <p className="text-[9px] text-gray-500 sm:text-[10px]">Revenue</p>
                   </div>
-                  <div className="text-center">
-                    <p className="flex items-center justify-center gap-0.5 text-lg font-bold text-[#D4AF37]">
-                      <Star className="h-3 w-3" /> —
+                  <div className="min-w-0 text-center">
+                    <p className="flex items-center justify-center gap-0.5 text-base font-bold text-[#D4AF37] sm:text-lg">
+                      <Star className="h-3 w-3 shrink-0" /> —
                     </p>
-                    <p className="text-[10px] text-gray-500">Rating</p>
+                    <p className="text-[9px] text-gray-500 sm:text-[10px]">Rating</p>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Link
                     href={`/staff/${s.staff_profile_id}`}
-                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-white/10 py-2 text-xs font-medium text-white hover:bg-white/5"
+                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 sm:flex-1 sm:py-2"
                   >
                     <Eye className="h-3.5 w-3.5" /> View Profile
                   </Link>
-                  <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex justify-center gap-2 sm:shrink-0">
+                    <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </Card>
             );
