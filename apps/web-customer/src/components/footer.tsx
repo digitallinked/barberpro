@@ -84,7 +84,7 @@ export function Footer() {
 
         <div className="border-t border-white/5 py-6 text-center text-sm text-gray-600">
           <p>
-            &copy; {new Date().getFullYear()} BarberPro Technologies Sdn. Bhd.{" "}
+            &copy; {new Date().getFullYear()} barberpro.my{" "}
             {t.footer.allRightsReserved}
           </p>
           <p className="mt-1">

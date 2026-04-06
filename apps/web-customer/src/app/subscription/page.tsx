@@ -65,7 +65,7 @@ export default async function SubscriptionPage({ searchParams }: PageProps) {
 
       <footer className="border-t border-border/50 px-6 py-6">
         <div className="mx-auto max-w-2xl text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} BarberPro. Billing powered by{" "}
+          &copy; {new Date().getFullYear()} barberpro.my. Billing powered by{" "}
           <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="hover:underline">
             Stripe
           </a>

@@ -782,7 +782,7 @@ export default function AppRootPage() {
           </div>
         </div>
         <div className="border-t border-white/5 py-6 text-center text-sm text-gray-600">
-          <p>© {new Date().getFullYear()} BarberPro Technologies Sdn. Bhd. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} barberpro.my. All rights reserved.</p>
           <p className="mt-1">Made with <span className="text-red-500">♥</span> in Malaysia &nbsp;|&nbsp; <Link href="/terms" className="hover:text-gray-400 transition">Terms</Link> · <Link href="/privacy" className="hover:text-gray-400 transition">Privacy</Link></p>
         </div>
       </footer>

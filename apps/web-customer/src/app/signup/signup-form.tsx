@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AlertCircle } from "lucide-react";
@@ -98,7 +99,15 @@ export function SignupForm() {
       </button>
 
       <p className="text-center text-xs text-muted-foreground">
-        By signing up, you agree to our terms of service and privacy policy.
+        By signing up, you agree to our{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy Policy
+        </Link>
+        .
       </p>
     </form>
   );

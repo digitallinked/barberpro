@@ -1,188 +1,157 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { MarketingNav } from "@/components/marketing/marketing-nav";
 
 export const metadata: Metadata = {
   title: "Terms of Service | BarberPro.my",
   description:
-    "BarberPro.my Terms of Service — governing your use of Malaysia's premier barber shop management platform."
+    "BarberPro.my Terms of Service for barber shop operators and other business subscribers using the BarberPro platform in Malaysia.",
 };
 
-const EFFECTIVE_DATE = "1 January 2025";
-const COMPANY_NAME = "BarberPro Technologies Sdn. Bhd.";
-const COMPANY_REG = "[SSM Registration No. to be inserted]";
+const EFFECTIVE_DATE = "6 April 2026";
+const COMPANY_NAME = "NEWY ENTERPRISE";
+const COMPANY_REG = "202403063508 (003583055-X)";
 const COMPANY_ADDRESS =
   "Level 12, Menara XYZ, Jalan Ampang, 50450 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia";
 const CONTACT_EMAIL = "legal@barberpro.my";
-const APP_URL = "https://barberpro.my";
 
 const sections = [
   {
     id: "1",
-    title: "Parties and Acceptance",
+    title: "Scope, Parties, and Acceptance",
     content: [
-      `These Terms of Service ("Terms") constitute a legally binding agreement between ${COMPANY_NAME} (Company No. ${COMPANY_REG}) ("BarberPro", "we", "us", or "our"), a company incorporated in Malaysia under the Companies Act 2016, and you ("User", "Subscriber", or "you"), being the person or legal entity accessing or using the BarberPro.my platform and related services (collectively, the "Service").`,
-      `By registering for, accessing, or using the Service, you acknowledge that you have read, understood, and agree to be bound by these Terms and our Privacy Policy (incorporated herein by reference). If you are entering into these Terms on behalf of a business or other legal entity, you represent that you have the authority to bind that entity to these Terms.`,
-      `If you do not agree to any part of these Terms, you must immediately cease using the Service and delete your account.`
-    ]
+      `${COMPANY_NAME} (Company No. ${COMPANY_REG}) ("BarberPro", "we", "us", or "our") provides the BarberPro software platform, websites, applications, application programming interfaces, communications, support services, and related tools (collectively, the "Service"). These Terms of Service ("Terms") form a legally binding agreement between BarberPro and the individual or legal entity that registers for, accesses, or uses the Service ("Subscriber", "you", or "your").`,
+      `If you accept these Terms on behalf of a company, partnership, sole proprietorship, or other organisation, you represent and warrant that you have full authority to bind that entity, and references to "you" include that entity and its authorised users. If you do not have such authority, or if you do not agree with these Terms, you must not access or use the Service.`,
+      `These Terms apply to all use of the Service by your owners, employees, contractors, temporary workers, franchisees, branch personnel, or any other person to whom you provide access ("Authorised Users"). You are responsible for ensuring that all Authorised Users comply with these Terms.`,
+    ],
   },
   {
     id: "2",
-    title: "Description of Service",
+    title: "Business Use and Nature of the Service",
     content: [
-      `BarberPro.my provides a cloud-based Software-as-a-Service (SaaS) platform designed for barber shop businesses in Malaysia. The Service includes but is not limited to: queue management, point-of-sale (POS), appointment scheduling, payroll and commission calculation, inventory management, customer relationship management (CRM), financial reporting, and multi-branch management.`,
-      `We reserve the right to modify, suspend, or discontinue any part of the Service at any time with reasonable notice. BarberPro.my shall not be liable to you or any third party for any modification, suspension, or discontinuation of the Service.`
-    ]
+      `The Service is provided for business and operational use by barber shops, grooming businesses, and related commercial operators. The Service may include queue management, bookings, point-of-sale, customer records, loyalty, payroll or commission workflows, reporting, inventory, staff management, communications, and related administrative features.`,
+      `The Service is a business tool only. It does not constitute legal advice, employment advice, accounting advice, tax advice, medical advice, financial advice, or regulatory advice. Any reports, calculations, suggestions, templates, reminders, analytics, defaults, automations, or workflows made available through the Service are provided for convenience only, and you remain solely responsible for reviewing them and for all decisions concerning your business operations, staffing, payroll, customer dealings, taxes, compliance, and record keeping.`,
+      `We may add, remove, suspend, replace, improve, restrict, or discontinue any feature, integration, functionality, usage threshold, support channel, security control, or technical requirement at any time. We do not guarantee that any feature, roadmap item, integration, or release timing will continue to be offered.`,
+    ],
   },
   {
     id: "3",
-    title: "Account Registration and Security",
+    title: "Accounts, Security, and Organisational Responsibility",
     content: [
-      `To access the Service, you must register for an account by providing accurate, current, and complete information. You agree to update your information to keep it accurate and current throughout the duration of your subscription.`,
-      `You are solely responsible for maintaining the confidentiality of your account credentials (username and password) and for all activities that occur under your account. You must immediately notify us at ${CONTACT_EMAIL} if you suspect any unauthorised access to or use of your account.`,
-      `You must not: (a) share your login credentials with any person outside your organisation; (b) create accounts by automated means or under false pretences; (c) use another person's account without authorisation. BarberPro.my will not be liable for any loss or damage arising from your failure to comply with these security obligations.`,
-      `You must be at least 18 years of age to register for an account. By registering, you represent and warrant that you meet this requirement.`
-    ]
+      `You must provide true, accurate, current, and complete registration, billing, business, and contact information, and you must keep that information updated at all times. We may rely on the latest information in your account and communications records for notices, billing, enforcement, and service administration.`,
+      `You are solely responsible for: (a) maintaining the confidentiality and security of account credentials, devices, networks, and access methods; (b) controlling who within your organisation can access the Service; (c) all activities that occur under your account; and (d) promptly notifying us of any suspected unauthorised use, compromise, or security incident. We may act on instructions submitted through your account credentials without independent verification.`,
+      `You must not share credentials outside your organisation, create accounts through deception or automation, impersonate any person, or attempt to circumvent account, tenant, branch, subscription, or usage controls. We may require identity, business, or payment verification at any time.`,
+    ],
   },
   {
     id: "4",
-    title: "Subscription Plans and Fees",
+    title: "Orders, Subscription Plans, Fees, Taxes, and Price Changes",
     content: [
-      `Access to the Service is available on a subscription basis. Current pricing plans and fees are published at ${APP_URL}/#pricing and may be updated from time to time. All prices are quoted in Malaysian Ringgit (MYR) and are subject to applicable taxes, including Service Tax as required under the Service Tax Act 2018.`,
-      `Subscription fees are billed monthly or annually in advance depending on the plan chosen. Payments are processed on the billing date unless cancelled before that date.`,
-      `A 14-day free trial may be offered to new subscribers at our discretion. No credit card is required during the trial period. Upon expiry of the free trial, access will require a paid subscription.`,
-      `All fees paid are non-refundable except as expressly stated in Section 5 (Cancellation and Refunds) or as required by applicable Malaysian law. BarberPro.my reserves the right to modify its pricing with 30 days' prior written notice to existing subscribers.`,
-      `In the event of non-payment, BarberPro.my may suspend your access to the Service after providing reasonable notice. Suspended accounts will have their data retained for 90 days, after which the data may be permanently deleted.`
-    ]
+      `The Service is offered under plans, quotations, proposals, order forms, promotional offers, or billing screens made available by BarberPro from time to time. Unless expressly stated otherwise in writing, all subscriptions renew automatically for successive billing periods of the same duration as your then-current term.`,
+      `All fees are payable in advance, in Malaysian Ringgit (MYR), and are exclusive of taxes, duties, levies, bank charges, and payment processing charges unless we expressly state otherwise. You are responsible for all sales, service, withholding, value added, goods and services, and similar taxes arising from your subscription or use of the Service, except taxes based on our net income.`,
+      `We may change our pricing, plan structure, plan names, included features, usage allowances, support entitlements, overage rates, trial terms, promotional terms, and billing mechanics at any time. Updated prices or terms may apply immediately to new subscriptions, add-ons, usage-based charges, taxes, payment processor charges, or renewals. For material pricing changes affecting an existing paid plan, we will generally provide advance notice before the change takes effect at your next renewal or billing cycle, unless a shorter period is required by law, tax, processor requirements, currency movements, fraud prevention, or immediate security or operational necessity.`,
+      `You authorise us and our payment processors to charge all subscription fees, renewals, add-on fees, overage charges, taxes, adjustments, chargeback-related fees, and other amounts due using your nominated payment method. If payment cannot be processed when due, we may suspend or downgrade the Service, restrict features, revoke access, or terminate your account without prejudice to any other rights or remedies available to us.`,
+    ],
   },
   {
     id: "5",
-    title: "Cancellation and Refunds",
+    title: "Trials, Promotions, Credits, and Refund Policy",
     content: [
-      `You may cancel your subscription at any time through your account settings or by contacting us at ${CONTACT_EMAIL}. Upon cancellation, your subscription will remain active until the end of the current billing period. No partial refunds are provided for unused periods within a billing cycle.`,
-      `Annual subscriptions may qualify for a pro-rata refund of the unused months if cancelled within 30 days of the annual renewal date, provided the account has not been in breach of these Terms.`,
-      `Notwithstanding the above, if the Service has a material defect or outage of more than 24 consecutive hours attributable to BarberPro.my, you may request a service credit equivalent to the affected period. BarberPro.my's liability for service credits shall not exceed the total fees paid by you in the preceding one (1) calendar month.`,
-      `Upon cancellation or termination, you may export your data in a standard format (CSV or PDF) within 30 days of cancellation. After 30 days, your data will be permanently deleted from our systems.`
-    ]
+      `Any free trial, pilot, beta release, promotional credit, discount, migration assistance, or goodwill concession is offered at BarberPro's discretion, may be withdrawn or modified at any time, may be subject to additional conditions, and has no cash value unless expressly stated otherwise.`,
+      `Except where non-excludable rights apply under Malaysian law or where we expressly agree otherwise in writing, all fees paid are non-cancellable and non-refundable, including fees paid for partial billing periods, unused licences, unused features, unused support, and early termination. Downgrades or cancellations take effect at the end of the then-current paid term unless we expressly state otherwise.`,
+      `If we issue any refund, service credit, waiver, or billing adjustment in one case, that does not obligate us to issue the same or any similar refund, credit, waiver, or adjustment in any other case. Refunds or credits, if any, will be your sole and exclusive monetary remedy for the relevant issue.`,
+    ],
   },
   {
     id: "6",
-    title: "Acceptable Use",
+    title: "Subscriber Data, PDPA Compliance, and Records",
     content: [
-      `You agree to use the Service only for lawful purposes and in compliance with all applicable Malaysian laws and regulations, including but not limited to: the Communications and Multimedia Act 1998, the Computer Crimes Act 1997, the Personal Data Protection Act 2010, the Contracts Act 1950, and the Consumer Protection Act 1999.`,
-      `You must not: (a) use the Service to engage in any unlawful, fraudulent, deceptive, or harmful activity; (b) process, store, or transmit any data that infringes any intellectual property rights or violates any person's privacy or dignity; (c) upload, transmit, or distribute malicious code, viruses, or other harmful software; (d) attempt to gain unauthorised access to any part of the Service or its underlying infrastructure; (e) use the Service to spam, phish, or send unsolicited communications; (f) reverse-engineer, decompile, disassemble, or otherwise attempt to derive the source code of the Service; (g) resell, sublicense, or make the Service available to third parties without our express written consent.`,
-      `BarberPro.my reserves the right to suspend or terminate your account immediately and without prior notice if we determine, in our reasonable discretion, that you have violated these acceptable use provisions.`
-    ]
+      `As between the parties, you retain responsibility for all data, records, files, communications, documents, media, payroll details, customer details, employee details, inventory records, transaction details, and other information submitted to or generated through your use of the Service ("Subscriber Data"). You represent and warrant that you have all rights, notices, consents, permissions, licences, and lawful bases necessary to collect, use, disclose, transfer, and otherwise process Subscriber Data through the Service.`,
+      `You remain solely responsible for your compliance with all laws applicable to your business and Subscriber Data, including the Personal Data Protection Act 2010, consumer protection laws, employment laws, tax laws, anti-money laundering rules, bookkeeping obligations, licensing obligations, and any sector-specific legal or regulatory requirements. You are responsible for providing your own privacy notices, obtaining valid consents where required, handling access and correction requests, and determining retention periods required for your business.`,
+      `BarberPro may process certain Subscriber Data on your behalf for the purpose of providing, securing, supporting, and improving the Service. However, nothing in these Terms transfers your legal responsibility for the underlying lawfulness, quality, accuracy, completeness, retention, or use of Subscriber Data. You acknowledge that we are not your law firm, data protection officer, employer, accountant, payroll provider, or statutory filing agent.`,
+    ],
   },
   {
     id: "7",
-    title: "Intellectual Property",
+    title: "Acceptable Use and Prohibited Conduct",
     content: [
-      `The Service, including all software, algorithms, code, user interfaces, text, graphics, images, and other content, is owned by BarberPro.my and its licensors and is protected by applicable Malaysian and international intellectual property laws.`,
-      `We grant you a limited, non-exclusive, non-transferable, revocable licence to access and use the Service solely for your internal business purposes in accordance with these Terms. No other rights are granted.`,
-      `You retain ownership of all data, content, and information that you submit, upload, or store through the Service ("Your Data"). By using the Service, you grant BarberPro.my a limited licence to process, store, and transmit Your Data solely as necessary to provide the Service to you.`,
-      `You must not remove, alter, or obscure any copyright, trademark, or other proprietary notices on or within the Service.`
-    ]
+      `You must use the Service only for lawful internal business purposes and in compliance with these Terms, our documentation, and all applicable Malaysian laws and regulations. You must not use the Service in any manner that is fraudulent, misleading, abusive, defamatory, obscene, discriminatory, harassing, anti-competitive, or otherwise unlawful.`,
+      `Without limiting the foregoing, you must not: (a) upload malware, malicious scripts, ransomware, or harmful code; (b) probe, scan, reverse engineer, disable, or attempt to defeat security, tenancy, authentication, or rate limits; (c) access or attempt to access another subscriber's data or environment; (d) use the Service to send spam or unauthorised marketing; (e) use the Service for unlawful surveillance or unlawful monitoring; (f) copy, resell, sublicense, rent, timeshare, bureau-host, or commercially exploit the Service for third parties without our prior written consent; or (g) use the Service in a manner that could damage the Service, our reputation, or other users.`,
+      `We may monitor use of the Service for security, abuse prevention, compliance, and operational reasons. We may suspend, restrict, remove, or investigate any content, account, feature, branch, user, or activity that we reasonably believe breaches these Terms, creates risk, or may expose us or others to loss, liability, or harm.`,
+    ],
   },
   {
     id: "8",
-    title: "Data Protection and Privacy",
+    title: "Third-Party Services, Hardware, and Communications",
     content: [
-      `BarberPro.my processes personal data in accordance with Malaysia's Personal Data Protection Act 2010 ("PDPA"). Our full Privacy Policy, which explains how we collect, use, store, and disclose personal data, is available at ${APP_URL}/privacy and forms part of these Terms.`,
-      `As a Subscriber, you are a Data User (as defined under the PDPA) in respect of the personal data of your customers and employees that you process through the Service. You are solely responsible for ensuring your use of the Service complies with your obligations under the PDPA and any other applicable data protection laws.`,
-      `You represent and warrant that you have obtained all necessary consents and are otherwise lawfully entitled to collect, process, and submit to the Service any personal data that you input into or transmit through the Service.`
-    ]
+      `The Service may interoperate with or depend on third-party products and services, including payment processors, messaging channels, cloud hosting, operating systems, browsers, devices, barcode or receipt hardware, fiscal devices, e-wallets, telecommunications providers, and analytics tools. Such third-party products and services are not controlled by BarberPro and may change or cease functioning at any time.`,
+      `We are not responsible for the acts, omissions, outages, accuracy, security, legality, pricing, terms, availability, support, or performance of any third-party product or service, nor for any fees charged by them. Your use of any third-party service is governed solely by that third party's terms, policies, and service levels.`,
+      `You are solely responsible for procuring and maintaining all internet connectivity, devices, hardware, software, licences, browsers, peripherals, telecommunications, backups, and internal systems required for your use of the Service.`,
+    ],
   },
   {
     id: "9",
-    title: "Disclaimer of Warranties",
+    title: "Intellectual Property, Feedback, and Publicity",
     content: [
-      `THE SERVICE IS PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS WITHOUT ANY WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR UNINTERRUPTED OR ERROR-FREE OPERATION.`,
-      `BarberPro.my does not warrant that: (a) the Service will meet your specific business requirements; (b) the Service will be continuously available or free from technical errors; (c) any financial calculations, reports, or outputs generated by the Service are accurate, complete, or suitable for any regulatory, tax, or legal purpose. You are advised to independently verify any critical financial or business data generated by the Service.`,
-      `Nothing in these Terms shall exclude any warranty or right that cannot lawfully be excluded under Malaysian consumer protection legislation.`
-    ]
+      `BarberPro and its licensors own all right, title, and interest in and to the Service, including all software, source and object code, interfaces, designs, layouts, workflows, documentation, data models, trademarks, trade names, logos, inventions, know-how, and improvements, together with all intellectual property rights therein. No ownership rights are transferred to you.`,
+      `Subject to your compliance with these Terms and payment of all applicable fees, BarberPro grants you a limited, non-exclusive, non-transferable, non-sublicensable, revocable right during the applicable subscription term to access and use the Service for your internal business operations only.`,
+      `If you provide suggestions, ideas, enhancement requests, comments, testimonials, case studies, or other feedback, you grant BarberPro a perpetual, irrevocable, worldwide, royalty-free right to use, modify, and exploit that feedback without restriction or compensation. Unless you instruct otherwise in writing, we may identify you by business name and logo as a customer in reasonable promotional materials.`,
+    ],
   },
   {
     id: "10",
-    title: "Limitation of Liability",
+    title: "Confidentiality",
     content: [
-      `TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE MALAYSIAN LAW, IN NO EVENT SHALL BARBERPRO.MY, ITS DIRECTORS, EMPLOYEES, AGENTS, OR LICENSORS BE LIABLE FOR ANY: (A) INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES; (B) LOSS OF PROFITS, REVENUE, DATA, BUSINESS, OR GOODWILL; (C) BUSINESS INTERRUPTION OR LOSS OF BUSINESS OPPORTUNITY, WHETHER ARISING OUT OF OR IN CONNECTION WITH THESE TERMS OR THE USE OF (OR INABILITY TO USE) THE SERVICE, EVEN IF BARBERPRO.MY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.`,
-      `TO THE MAXIMUM EXTENT PERMITTED BY LAW, BARBERPRO.MY'S TOTAL CUMULATIVE LIABILITY TO YOU ARISING OUT OF OR RELATING TO THESE TERMS OR THE SERVICE SHALL NOT EXCEED THE TOTAL SUBSCRIPTION FEES PAID BY YOU TO BARBERPRO.MY IN THE THREE (3) CALENDAR MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM.`,
-      `Nothing in these Terms shall limit or exclude liability for: (a) death or personal injury caused by negligence; (b) fraud or fraudulent misrepresentation; or (c) any other liability that cannot be excluded or limited under Malaysian law.`
-    ]
+      `Each party may receive non-public information relating to the other party's business, customers, technology, pricing, security, operations, or plans ("Confidential Information"). The receiving party must use the disclosing party's Confidential Information only as necessary to perform or exercise its rights under these Terms and must protect it using at least reasonable care.`,
+      `Confidential Information does not include information that is or becomes public through no breach of these Terms, was already lawfully known to the receiving party without confidentiality obligations, is independently developed without use of the disclosing party's Confidential Information, or is lawfully received from a third party without restriction.`,
+      `A party may disclose Confidential Information where required by applicable law, regulation, court order, stock exchange requirement, or governmental authority, provided that, where legally permitted, it gives prior notice so the other party may seek protective relief.`,
+    ],
   },
   {
     id: "11",
-    title: "Indemnification",
+    title: "Suspension, Termination, and Data Access After Termination",
     content: [
-      `You agree to indemnify, defend, and hold harmless BarberPro.my and its officers, directors, employees, agents, and licensors from and against any and all claims, liabilities, damages, losses, costs, and expenses (including reasonable legal fees) arising out of or relating to: (a) your use of the Service in violation of these Terms; (b) Your Data, including any claim that Your Data infringes any third-party intellectual property or privacy rights; (c) your violation of any applicable law or regulation; or (d) any claim by a third party arising out of your use of the Service.`
-    ]
+      `We may suspend or restrict access to any part of the Service immediately, with or without prior notice, if we reasonably believe that: (a) you have breached these Terms; (b) your use creates security, legal, payment, reputational, or operational risk; (c) fees are overdue; (d) a law, regulator, court, payment processor, or government authority requires or expects us to act; or (e) continued provision of the Service is not commercially, technically, or legally viable.`,
+      `You may terminate your subscription by following the cancellation mechanism we make available or by written notice to us. Termination or cancellation does not relieve you of any obligation to pay fees accrued before the effective date of termination, nor does it create any right to refund unless expressly required by applicable law.`,
+      `Following termination, we may delete or anonymise Subscriber Data in accordance with our retention practices and operational timelines. It is your responsibility to export any Subscriber Data you require before your access ends. We are not liable for any loss arising from your failure to maintain your own independent backups or records.`,
+    ],
   },
   {
     id: "12",
-    title: "Third-Party Services and Integrations",
+    title: "Disclaimers",
     content: [
-      `The Service may integrate with or link to third-party services, including but not limited to payment processors (e.g., DuitNow, FPX, e-wallets), messaging platforms (e.g., WhatsApp), and analytics tools. BarberPro.my is not responsible for the practices, policies, or content of such third-party services.`,
-      `Your use of any third-party service through the Service is governed by the terms and privacy policies of that third party. BarberPro.my shall not be liable for any damage or loss arising from your use of or reliance on any third-party service.`
-    ]
+      `TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SERVICE IS PROVIDED "AS IS", "AS AVAILABLE", AND "WITH ALL FAULTS". BARBERPRO DISCLAIMS ALL WARRANTIES, REPRESENTATIONS, CONDITIONS, AND UNDERTAKINGS OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, SATISFACTORY QUALITY, ACCURACY, OR QUIET ENJOYMENT.`,
+      `WITHOUT LIMITING THE FOREGOING, BARBERPRO DOES NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, SECURE, TIMELY, OR COMPATIBLE WITH YOUR PARTICULAR BUSINESS MODEL, HARDWARE, SOFTWARE, DEVICE, TAX POSITION, EMPLOYMENT STRUCTURE, OR REGULATORY REQUIREMENTS. WE DO NOT WARRANT THE ACCURACY OF REPORTS, PAYROLL OR COMMISSION OUTPUTS, INVENTORY FIGURES, CUSTOMER MESSAGES, QUEUE ESTIMATES, SALES DATA, TAX TREATMENT, OR ANY BUSINESS DECISION YOU MAKE USING THE SERVICE.`,
+      `You acknowledge that software and online services are not error-free and that prudent business practice requires you to maintain independent judgment, independent backups, and appropriate manual checks. Nothing in these Terms excludes any guarantee, warranty, or right that cannot lawfully be excluded under Malaysian law.`,
+    ],
   },
   {
     id: "13",
-    title: "Confidentiality",
+    title: "Limitation of Liability",
     content: [
-      `Each party agrees to keep confidential any non-public information disclosed by the other party that is designated as confidential or that reasonably should be understood to be confidential given the nature of the information and the circumstances of disclosure ("Confidential Information").`,
-      `Neither party shall disclose the other's Confidential Information to any third party without prior written consent, except as required by applicable law, court order, or regulatory authority. In such case, the disclosing party shall provide the other party with prompt written notice (to the extent permitted by law) to allow the other party to seek a protective order.`
-    ]
+      `TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, BARBERPRO AND ITS DIRECTORS, OFFICERS, EMPLOYEES, AFFILIATES, AGENTS, CONTRACTORS, LICENSORS, AND SERVICE PROVIDERS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, PUNITIVE, OR CONSEQUENTIAL LOSS OR DAMAGE, OR FOR ANY LOSS OF REVENUE, PROFITS, BUSINESS, ANTICIPATED SAVINGS, GOODWILL, DATA, CUSTOMERS, OR BUSINESS OPPORTUNITY, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH LOSS OR DAMAGE.`,
+      `TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, BARBERPRO'S TOTAL AGGREGATE LIABILITY ARISING OUT OF OR IN CONNECTION WITH THE SERVICE OR THESE TERMS, WHETHER IN CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, STATUTE, OR OTHERWISE, WILL NOT EXCEED THE TOTAL SUBSCRIPTION FEES ACTUALLY PAID BY YOU TO BARBERPRO FOR THE THREE (3) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM.`,
+      `Nothing in these Terms limits or excludes liability for fraud, fraudulent misrepresentation, death or personal injury caused by negligence, or any liability that cannot lawfully be limited or excluded under Malaysian law.`,
+    ],
   },
   {
     id: "14",
-    title: "Term and Termination",
+    title: "Indemnity",
     content: [
-      `These Terms commence on the date you first access the Service and continue until your subscription is cancelled or terminated in accordance with these Terms.`,
-      `BarberPro.my may terminate your account and these Terms immediately upon written notice if: (a) you materially breach any provision of these Terms and fail to cure such breach within 14 days of receiving written notice; (b) you are subject to insolvency, bankruptcy, or receivership proceedings; or (c) BarberPro.my is required to do so by law or court order.`,
-      `Upon termination: (a) your right to access the Service will cease immediately; (b) all provisions of these Terms that by their nature should survive termination shall survive, including without limitation ownership provisions, warranty disclaimers, indemnity obligations, and limitations of liability.`
-    ]
+      `You must indemnify, defend, and hold harmless BarberPro and its related corporations, officers, directors, employees, agents, contractors, licensors, and service providers from and against all claims, actions, investigations, losses, liabilities, damages, judgments, penalties, fines, costs, and expenses (including reasonable solicitors' fees on a full indemnity basis) arising out of or relating to: (a) your breach of these Terms; (b) your business operations; (c) Subscriber Data; (d) your dealings with customers, employees, contractors, suppliers, or regulators; (e) your violation of law; or (f) any allegation that your data, content, conduct, or use of the Service infringes or misappropriates any rights of a third party.`,
+    ],
   },
   {
     id: "15",
-    title: "Governing Law and Dispute Resolution",
+    title: "Changes, Governing Law, Disputes, and General",
     content: [
-      `These Terms shall be governed by and construed in accordance with the laws of Malaysia, without regard to its conflict of law principles.`,
-      `In the event of any dispute, controversy, or claim arising out of or relating to these Terms or the breach, termination, or validity thereof ("Dispute"), the parties shall first attempt to resolve the Dispute through good-faith negotiation for a period of 30 days from the date of written notice of the Dispute.`,
-      `If the Dispute is not resolved through negotiation, either party may refer the Dispute to mediation administered by the Asian International Arbitration Centre (AIAC) in Kuala Lumpur in accordance with its Mediation Rules.`,
-      `If mediation fails, the Dispute shall be finally resolved by arbitration administered by the AIAC in accordance with its Arbitration Rules. The seat of arbitration shall be Kuala Lumpur, Malaysia. The language of the proceedings shall be English. The arbitral award shall be final and binding.`,
-      `Notwithstanding the above, either party may seek emergency injunctive or other equitable relief from any court of competent jurisdiction in Malaysia to prevent irreparable harm pending final resolution of a Dispute.`
-    ]
+      `We may amend these Terms at any time by posting an updated version on the Service, by email, or through another reasonable notice mechanism. Unless a shorter period is required for security, legal, or operational reasons, material changes will generally take effect on the stated effective date. Your continued access to or use of the Service after the effective date constitutes acceptance of the revised Terms.`,
+      `These Terms are governed by the laws of Malaysia. The parties must first attempt in good faith to resolve any dispute by negotiation. If the dispute is not resolved within thirty (30) days after written notice, either party may refer the dispute to the Asian International Arbitration Centre (AIAC) in Kuala Lumpur, Malaysia for final resolution under the applicable AIAC rules. The seat of arbitration will be Kuala Lumpur and the language will be English. Notwithstanding the foregoing, BarberPro may seek injunctive or equitable relief in any court of competent jurisdiction to protect its confidential information, security, platform integrity, or intellectual property.`,
+      `If any provision of these Terms is held invalid or unenforceable, the remaining provisions will remain in full force. Our failure to enforce any provision is not a waiver. You may not assign or transfer these Terms without our prior written consent. BarberPro may assign these Terms, in whole or in part, to an affiliate, purchaser, successor, or financing party. These Terms, together with our Privacy Policy and any applicable order form or plan-specific terms, constitute the entire agreement between the parties concerning the Service.`,
+      `For legal notices and enquiries, contact ${COMPANY_NAME}, ${COMPANY_ADDRESS}, or email ${CONTACT_EMAIL}.`,
+    ],
   },
-  {
-    id: "16",
-    title: "Changes to These Terms",
-    content: [
-      `BarberPro.my reserves the right to modify these Terms at any time. We will notify you of material changes by: (a) sending an email to the address associated with your account; and/or (b) posting a prominent notice within the Service.`,
-      `Changes will take effect 30 days after notification. Your continued use of the Service after the effective date of any changes constitutes your acceptance of the revised Terms. If you do not agree to the revised Terms, you must cancel your subscription before the effective date.`
-    ]
-  },
-  {
-    id: "17",
-    title: "General Provisions",
-    content: [
-      `Entire Agreement: These Terms, together with the Privacy Policy and any other documents expressly incorporated by reference, constitute the entire agreement between the parties with respect to the Service and supersede all prior agreements, representations, and understandings.`,
-      `Severability: If any provision of these Terms is found to be invalid, illegal, or unenforceable by a court of competent jurisdiction, the remaining provisions shall continue in full force and effect.`,
-      `Waiver: BarberPro.my's failure to enforce any right or provision of these Terms shall not constitute a waiver of such right or provision.`,
-      `No Assignment: You may not assign or transfer any of your rights or obligations under these Terms without the prior written consent of BarberPro.my. BarberPro.my may freely assign these Terms.`,
-      `Force Majeure: Neither party shall be liable for any delay or failure in performance resulting from events beyond their reasonable control, including acts of God, natural disasters, government actions, power failures, or internet disruptions.`,
-      `Language: In the event of any conflict between the English version and any translated version of these Terms, the English version shall prevail.`
-    ]
-  },
-  {
-    id: "18",
-    title: "Contact Information",
-    content: [
-      `For any questions or concerns regarding these Terms, please contact us:`,
-      `${COMPANY_NAME}\n${COMPANY_ADDRESS}\nEmail: ${CONTACT_EMAIL}\nWebsite: ${APP_URL}`
-    ]
-  }
 ];
 
 export default function TermsPage() {
@@ -190,7 +159,6 @@ export default function TermsPage() {
     <main className="min-h-screen bg-[#0d1013] font-sans">
       <MarketingNav />
 
-      {/* ── Header ── */}
       <section className="border-b border-white/5 bg-[#13161a] py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-4 py-1.5 text-xs font-semibold text-[#d4af37]">
@@ -201,15 +169,15 @@ export default function TermsPage() {
             Effective Date: <span className="font-semibold text-white">{EFFECTIVE_DATE}</span>
           </p>
           <p className="mt-2 text-sm text-gray-500">
-            Please read these terms carefully before using BarberPro.my. By accessing or using the Service,
-            you agree to be bound by these Terms.
+            These terms govern use of BarberPro.my by barber shop operators and other business
+            subscribers in Malaysia.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/privacy"
               className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-[#d4af37]/30 hover:text-[#d4af37]"
             >
-              Privacy Policy →
+              Privacy Policy ->
             </Link>
             <a
               href={`mailto:${CONTACT_EMAIL}`}
@@ -221,12 +189,9 @@ export default function TermsPage() {
         </div>
       </section>
 
-      {/* ── Content ── */}
       <section className="py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-12 lg:grid-cols-[240px_1fr]">
-
-            {/* Table of Contents */}
             <aside className="hidden lg:block">
               <div className="sticky top-24">
                 <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-500">
@@ -246,14 +211,13 @@ export default function TermsPage() {
               </div>
             </aside>
 
-            {/* Body */}
             <div className="space-y-10">
               <div className="rounded-2xl border border-[#d4af37]/20 bg-[#1a1400] p-5 text-sm text-gray-300">
                 <p className="font-semibold text-[#d4af37]">Important Notice</p>
                 <p className="mt-1">
-                  These Terms of Service are governed by the laws of Malaysia. By using BarberPro.my,
-                  you submit to the exclusive jurisdiction of the courts and arbitration bodies of Malaysia
-                  for the resolution of any disputes.
+                  BarberPro may revise features, plans, prices, usage allowances, support scope,
+                  and these Terms from time to time. Continued use of the Service after the
+                  effective date of any revision constitutes acceptance of the revised terms.
                 </p>
               </div>
 
@@ -264,7 +228,7 @@ export default function TermsPage() {
                   </h2>
                   <div className="mt-4 space-y-3">
                     {section.content.map((para, i) => (
-                      <p key={i} className="text-sm leading-relaxed text-gray-400 whitespace-pre-line">
+                      <p key={i} className="whitespace-pre-line text-sm leading-relaxed text-gray-400">
                         {para}
                       </p>
                     ))}
@@ -274,9 +238,13 @@ export default function TermsPage() {
 
               <div className="border-t border-white/5 pt-8 text-sm text-gray-500">
                 <p>
-                  This document was last updated on <strong className="text-gray-400">{EFFECTIVE_DATE}</strong>.
-                  For any legal enquiries, please contact {" "}
-                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af37] hover:underline">{CONTACT_EMAIL}</a>.
+                  This document was last updated on{" "}
+                  <strong className="text-gray-400">{EFFECTIVE_DATE}</strong>. For legal
+                  enquiries, contact{" "}
+                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#d4af37] hover:underline">
+                    {CONTACT_EMAIL}
+                  </a>
+                  .
                 </p>
               </div>
             </div>

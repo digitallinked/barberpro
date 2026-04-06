@@ -210,6 +210,8 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
 
         <p className="mt-8 text-center text-[11px] text-gray-700">
           By joining the queue you agree to our{" "}
+          <a href="/terms" className="text-gray-500 underline underline-offset-2">Terms of Service</a>
+          {" "}and{" "}
           <a href="/privacy" className="text-gray-500 underline underline-offset-2">Privacy Policy</a>
         </p>
       </div>
