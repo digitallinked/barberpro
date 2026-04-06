@@ -14,6 +14,7 @@ export function Footer() {
         { label: t.footer.findShops, href: "/shops" },
         { label: t.footer.howItWorks, href: "/how-it-works" },
         { label: t.footer.browseNearMe, href: "/shops" },
+        { label: "Blog", href: "/blog" },
       ],
     },
     {

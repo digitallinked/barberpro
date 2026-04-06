@@ -19,6 +19,23 @@ function slugify(text: string): string {
     .slice(0, 100);
 }
 
+/** Strip HTML tags and estimate reading time (200 wpm average). */
+function estimateReadingTime(html: string): number {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const words = text.split(" ").filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
+/** Parse comma-separated tags from form input into a string array. */
+function parseTags(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
 const PostSchema = z.object({
   title: z.string().min(1).max(200).trim(),
   slug: z.string().min(1).max(120).trim(),
@@ -49,12 +66,13 @@ export async function createPost(formData: FormData) {
   const rawTitle = formData.get("title") as string ?? "";
   const rawSlug = formData.get("slug") as string;
   const slug = rawSlug?.trim() || slugify(rawTitle);
+  const content = formData.get("content") as string ?? "";
 
   const parsed = PostSchema.safeParse({
     title: rawTitle,
     slug,
     excerpt: formData.get("excerpt") ?? undefined,
-    content: formData.get("content") ?? "",
+    content,
     cover_image_url: formData.get("cover_image_url") ?? "",
     status: formData.get("status") ?? "draft",
   });
@@ -65,7 +83,8 @@ export async function createPost(formData: FormData) {
 
   const actor = await getActorInfo();
   const supabase = createAdminClient();
-
+  const tags = parseTags(formData.get("tags") as string);
+  const readingTime = estimateReadingTime(content);
   const publishedAt = parsed.data.status === "published" ? new Date().toISOString() : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +99,8 @@ export async function createPost(formData: FormData) {
       status: parsed.data.status,
       author_email: actor.email,
       author_name: actor.name,
+      tags,
+      reading_time_minutes: readingTime,
       published_at: publishedAt,
     })
     .select("id")
@@ -105,12 +126,13 @@ export async function updatePost(formData: FormData) {
   const rawTitle = formData.get("title") as string ?? "";
   const rawSlug = formData.get("slug") as string;
   const slug = rawSlug?.trim() || slugify(rawTitle);
+  const content = formData.get("content") as string ?? "";
 
   const parsed = PostSchema.safeParse({
     title: rawTitle,
     slug,
     excerpt: formData.get("excerpt") ?? undefined,
-    content: formData.get("content") ?? "",
+    content,
     cover_image_url: formData.get("cover_image_url") ?? "",
     status: formData.get("status") ?? "draft",
   });
@@ -120,6 +142,8 @@ export async function updatePost(formData: FormData) {
   }
 
   const supabase = createAdminClient();
+  const tags = parseTags(formData.get("tags") as string);
+  const readingTime = estimateReadingTime(content);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existing = await (supabase as any).from("blog_posts").select("published_at, status").eq("id", id).maybeSingle() as { data: { published_at: string | null; status: string } | null };
@@ -137,6 +161,8 @@ export async function updatePost(formData: FormData) {
       content: parsed.data.content,
       cover_image_url: parsed.data.cover_image_url || null,
       status: parsed.data.status,
+      tags,
+      reading_time_minutes: readingTime,
       published_at: publishedAt,
       updated_at: new Date().toISOString(),
     })

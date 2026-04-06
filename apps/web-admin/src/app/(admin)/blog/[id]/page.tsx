@@ -38,6 +38,7 @@ export default async function EditBlogPostPage({ params }: PageProps) {
     cover_image_url: string | null;
     status: string;
     author_name: string | null;
+    tags: string[] | null;
     published_at: string | null;
     created_at: string;
     updated_at: string;
@@ -98,6 +99,7 @@ export default async function EditBlogPostPage({ params }: PageProps) {
           content: post.content,
           cover_image_url: post.cover_image_url ?? "",
           status: post.status,
+          tags: post.tags ?? [],
         }}
       />
     </div>

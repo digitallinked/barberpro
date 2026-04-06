@@ -66,6 +66,8 @@ create table if not exists public.blog_posts (
   status           text not null default 'draft' check (status in ('draft', 'published', 'archived')),
   author_email     text,
   author_name      text,
+  tags             text[] not null default '{}',
+  reading_time_minutes integer,
   published_at     timestamptz,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
@@ -87,6 +89,17 @@ create policy "blog_posts_service_write" on public.blog_posts
 
 create index if not exists idx_blog_posts_status on public.blog_posts (status);
 create index if not exists idx_blog_posts_published_at on public.blog_posts (published_at desc);
+create index if not exists idx_blog_posts_tags on public.blog_posts using gin (tags);
+
+-- Full-text search
+alter table public.blog_posts add column if not exists search_vector tsvector
+  generated always as (
+    setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(excerpt, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(content, '')), 'C')
+  ) stored;
+
+create index if not exists idx_blog_posts_search on public.blog_posts using gin (search_vector);
 
 -- ============================================================
 -- 4. Announcements

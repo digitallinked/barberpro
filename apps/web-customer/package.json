@@ -10,12 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@barberpro/types": "workspace:*",
     "@barberpro/db": "workspace:*",
     "@barberpro/env": "workspace:*",
+    "@barberpro/types": "workspace:*",
     "@barberpro/ui": "workspace:*",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.98.0",
+    "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.90.21",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
