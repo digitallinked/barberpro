@@ -77,7 +77,7 @@ export default async function BlogPage({ searchParams }: PageProps) {
   }
 
   const { data } = await query;
-  const rows = (data ?? []) as BlogPostRow[];
+  const rows = (data ?? []) as unknown as BlogPostRow[];
   const posts = rows.map((row) => resolveBlogListItem(row, locale));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

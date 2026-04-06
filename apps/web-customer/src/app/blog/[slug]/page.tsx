@@ -51,7 +51,7 @@ async function getRelatedPosts(
     .contains("tags", [post.tags[0]])
     .order("published_at", { ascending: false })
     .limit(3);
-  const rows = (data ?? []) as BlogPostRow[];
+  const rows = (data ?? []) as unknown as BlogPostRow[];
   return rows.map((row) => resolveBlogListItem(row, locale));
 }
 
