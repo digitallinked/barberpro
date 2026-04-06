@@ -40,10 +40,11 @@ function ModeToggle({
         role="switch"
         aria-checked={enabled}
         onClick={() => onChange(!enabled)}
-        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${enabled ? enabledColor : "bg-white/10"}`}
+        className={`relative mt-0.5 inline-flex h-7 w-[2.875rem] shrink-0 cursor-pointer rounded-full border border-black/20 shadow-inner transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111] ${enabled ? enabledColor : "bg-white/10"}`}
       >
         <span
-          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-1"}`}
+          aria-hidden
+          className={`pointer-events-none absolute left-0.5 top-1/2 h-[1.125rem] w-[1.125rem] -translate-y-1/2 rounded-full bg-white shadow-md ring-1 ring-black/10 transition-transform duration-200 ease-out will-change-transform ${enabled ? "translate-x-6" : "translate-x-0"}`}
         />
       </button>
     </div>
@@ -67,7 +68,6 @@ export default function BranchDetailPage() {
   const [modeSuccess, setModeSuccess] = useState(false);
   const [modeError, setModeError] = useState<string | null>(null);
 
-  // Initialize toggles from server data (only once)
   const effectiveOnline = acceptsOnline ?? branch?.accepts_online_bookings ?? true;
   const effectiveWalkin = acceptsWalkin ?? branch?.accepts_walkin_queue ?? true;
 
@@ -89,7 +89,6 @@ export default function BranchDetailPage() {
         setTimeout(() => setModeSuccess(false), 3000);
       } else {
         setModeError(result.error ?? "Failed to save");
-        // revert
         if (field === "online") setAcceptsOnline(!value);
         else setAcceptsWalkin(!value);
       }
@@ -125,7 +124,6 @@ export default function BranchDetailPage() {
         .join(" • ")
     : "Not set";
 
-  // Determine mode label
   const modeLabel = effectiveOnline && effectiveWalkin
     ? "Accepting bookings & walk-ins"
     : effectiveOnline
@@ -149,7 +147,6 @@ export default function BranchDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to Branches
       </Link>
 
-      {/* Branch header */}
       <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4">
@@ -214,7 +211,6 @@ export default function BranchDetailPage() {
         </div>
       </div>
 
-      {/* Booking mode settings */}
       <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-6">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
@@ -274,7 +270,6 @@ export default function BranchDetailPage() {
         </div>
       </div>
 
-      {/* Staff */}
       <div className="rounded-xl border border-white/5 bg-[#1a1a1a] p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
           <User className="h-5 w-5 text-[#D4AF37]" /> Staff at this Branch ({branchStaff.length})
