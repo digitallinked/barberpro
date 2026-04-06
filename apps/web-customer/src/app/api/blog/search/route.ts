@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     .order("published_at", { ascending: false })
     .limit(8);
 
-  let rows = (data ?? []) as BlogPostRow[];
+  let rows = (data ?? []) as unknown as BlogPostRow[];
 
   if (rows.length === 0) {
     const esc = q.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_").replace(/[(),]/g, "");
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         .or(`title.ilike.%${esc}%,title_ms.ilike.%${esc}%`)
         .order("published_at", { ascending: false })
         .limit(8);
-      rows = (fallback ?? []) as BlogPostRow[];
+      rows = (fallback ?? []) as unknown as BlogPostRow[];
     }
   }
 
