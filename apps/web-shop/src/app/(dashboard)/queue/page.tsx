@@ -729,24 +729,22 @@ export default function QueuePage() {
 
   return (
     <div className="space-y-4">
-      {/* Compact header row */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white leading-tight">{t.queue.walkInQueue}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              {clockReady ? (
-                <>
-                  <span className="text-xs text-gray-500">{formatShopDateLabel(clock)}</span>
-                  <span className="font-mono text-xs text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
-                </>
-              ) : (
-                <span className="text-xs text-gray-600">—</span>
-              )}
-            </div>
+      {/* Compact header row — stacks vertically on mobile */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-white leading-tight">{t.queue.walkInQueue}</h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            {clockReady ? (
+              <>
+                <span className="text-xs text-gray-500">{formatShopDateLabel(clock)}</span>
+                <span className="font-mono text-xs text-[#D4AF37] tabular-nums">{formatShopTimeLabel(clock)}</span>
+              </>
+            ) : (
+              <span className="text-xs text-gray-600">—</span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:shrink-0">
           <button
             type="button"
             onClick={() => void openQrModal()}
@@ -775,19 +773,19 @@ export default function QueuePage() {
           <button
             type="button"
             onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
           >
             <Scissors className="h-3.5 w-3.5" /> {t.queue.newWalkIn}
           </button>
         </div>
       </div>
 
-      {/* Stats bar — single compact row */}
-      <div className="grid grid-cols-4 gap-2">
+      {/* Stats bar — 2 cols on mobile, 4 on sm+ */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (
-            <div key={s.label} className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#1a1a1a] px-4 py-3">
+            <div key={s.label} className="flex items-center gap-3 rounded-xl border border-white/5 bg-[#1a1a1a] px-3 py-3 sm:px-4">
               <span className={`flex-shrink-0 rounded-lg p-1.5 ${s.iconBg}`}>
                 <Icon className={`h-3.5 w-3.5 ${s.iconColor}`} />
               </span>
