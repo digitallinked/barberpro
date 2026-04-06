@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 
 import { CheckInForm } from "./check-in-form";
 
+const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
+
 const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const metadata: Metadata = {
@@ -27,18 +29,32 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
     const admin = createAdminClient();
     const { data } = await admin
       .from("branches")
-      .select("id, name, tenant_id, accepts_walkin_queue, accepts_online_bookings")
+      .select("id, name, tenant_id, accepts_walkin_queue, accepts_online_bookings, tenants(name, logo_url, tenant_images(storage_path, sort_order))")
       .eq("checkin_token", token)
       .maybeSingle();
     if (!data?.name) notFound();
+
+    const tenantRaw = data.tenants as { name?: string; logo_url?: string | null; tenant_images?: { storage_path: string; sort_order: number }[] } | null;
+    const tenantLogoUrl = tenantRaw?.logo_url ?? null;
+    const shopImageUrls = (tenantRaw?.tenant_images ?? [])
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((img) => `${STORAGE_URL}/${img.storage_path}`);
 
     // Branch has disabled walk-in queue
     if (!data.accepts_walkin_queue) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-4 text-center">
           <div className="mx-auto max-w-sm">
-            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
-              <span className="text-3xl">📅</span>
+            <div className="mb-4 inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-amber-500/10">
+              {tenantLogoUrl ? (
+                <img
+                  src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                  alt="Shop logo"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl">📅</span>
+              )}
             </div>
             <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-2">Appointments Only</p>
             <h1 className="text-2xl font-black text-white">{data.name}</h1>
@@ -99,6 +115,37 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
 
     return (
       <div className="min-h-screen bg-[#0a0a0a] px-4 py-12">
+        {/* Shop branding: carousel + logo */}
+        {shopImageUrls.length > 0 && (
+          <div className="mx-auto mb-6 max-w-sm overflow-hidden rounded-2xl">
+            {/* Static server-rendered first image; carousel requires client JS */}
+            <div className="relative aspect-video overflow-hidden rounded-2xl">
+              <img
+                src={shopImageUrls[0]}
+                alt={`${data.name} photo`}
+                className="h-full w-full object-cover"
+              />
+              {shopImageUrls.length > 1 && (
+                <span className="absolute right-2 bottom-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
+                  1 / {shopImageUrls.length}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tenantLogoUrl && shopImageUrls.length === 0 && (
+          <div className="mx-auto mb-6 flex max-w-sm justify-center">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+              <img
+                src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                alt={`${data.name} logo`}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </div>
+        )}
+
         <CheckInForm
           branchName={data.name}
           branchId={data.id}

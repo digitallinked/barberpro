@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, CreditCard, Globe, Save, Scale, Search, Shield } from "lucide-react";
+import { Building2, CreditCard, Globe, Image, Save, Scale, Search, Shield } from "lucide-react";
 import Link from "next/link";
 
 const SST_SETTINGS_KEY = "barberpro:sst";
@@ -30,6 +30,7 @@ import { useTenantProfile } from "@/hooks";
 import { updateTenantProfile, changePassword, updatePreferredLanguage } from "@/actions/settings";
 import { useLanguage, useT } from "@/lib/i18n/language-context";
 import type { Language } from "@/lib/i18n/translations";
+import { SettingsMedia } from "@/components/settings-media";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -74,6 +75,7 @@ export default function SettingsPage() {
 
   const NAV_ITEMS = [
     { id: "profile",    label: t.settings.businessProfile, icon: Building2 },
+    { id: "media",      label: "Shop Media",               icon: Image },
     { id: "security",   label: t.settings.security,        icon: Shield },
     { id: "preferences",label: t.settings.preferences,     icon: Globe },
     { id: "tax",        label: "Tax & Compliance (MY)",    icon: Scale },
@@ -294,6 +296,8 @@ export default function SettingsPage() {
               </form>
             </Card>
           )}
+
+          {activeSection === "media" && <SettingsMedia />}
 
           {activeSection === "security" && (
             <Card className="p-6">

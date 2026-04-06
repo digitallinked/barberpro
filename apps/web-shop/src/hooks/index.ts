@@ -17,4 +17,5 @@ export {
 export { useStaffAttendance, useAttendanceSummaries } from "./use-attendance";
 export { useCommissionSchemes, useStaffAssignments } from "./use-commissions";
 export { useTenantProfile } from "./use-tenant";
+export { useTenantImages } from "./use-tenant-images";
 export { useAppointments } from "./use-appointments";

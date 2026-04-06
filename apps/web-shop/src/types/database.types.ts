@@ -1308,6 +1308,38 @@ export type Database = {
           },
         ]
       }
+      tenant_images: {
+        Row: {
+          id: string
+          tenant_id: string
+          storage_path: string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          storage_path: string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          storage_path?: string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_images_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       tenants: {
         Row: {
           address: string | null
@@ -1316,6 +1348,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          logo_url: string | null
           name: string
           onboarding_completed: boolean | null
           owner_auth_id: string | null
@@ -1341,6 +1374,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           onboarding_completed?: boolean | null
           owner_auth_id?: string | null
@@ -1366,6 +1400,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           onboarding_completed?: boolean | null
           owner_auth_id?: string | null

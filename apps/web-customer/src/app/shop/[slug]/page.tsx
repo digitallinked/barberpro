@@ -5,6 +5,9 @@ import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { ShopImageCarousel } from "@/components/shop-image-carousel";
+
+const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 
 export const revalidate = 60;
 
@@ -20,14 +23,16 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug")
+    .select("id, name, slug, logo_url")
     .eq("slug", slug)
     .eq("status", "active")
     .maybeSingle();
 
   if (!tenant) notFound();
 
-  const [branchesResult, servicesResult, staffResult, queueResult] = await Promise.all([
+  const tenantLogoUrl = tenant.logo_url ?? null;
+
+  const [branchesResult, servicesResult, staffResult, queueResult, imagesResult] = await Promise.all([
     supabase
       .from("branches")
       .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue")
@@ -49,12 +54,20 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
       .eq("tenant_id", tenant.id)
       .in("status", ["waiting", "in_service"])
       .limit(1),
+    supabase
+      .from("tenant_images")
+      .select("storage_path")
+      .eq("tenant_id", tenant.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   const branches = branchesResult.data ?? [];
   const services = servicesResult.data ?? [];
   const staff = staffResult.data ?? [];
   const activeQueueCount = queueResult.count ?? 0;
+  const shopImageUrls = (imagesResult.data ?? []).map(
+    (img) => `${STORAGE_URL}/${img.storage_path}`
+  );
 
   // Determine shop-level mode from primary branch
   const primaryBranch = branches[0];
@@ -94,11 +107,26 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
             </div>
           )}
 
+          {/* Image carousel */}
+          {shopImageUrls.length > 0 && (
+            <div className="mb-8">
+              <ShopImageCarousel images={shopImageUrls} shopName={tenant.name} />
+            </div>
+          )}
+
           {/* Shop header */}
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
-                <Scissors className="h-7 w-7 text-primary" />
+              <div className="mb-3 flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
+                {tenantLogoUrl ? (
+                  <img
+                    src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                    alt={`${tenant.name} logo`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Scissors className="h-7 w-7 text-primary" />
+                )}
               </div>
               <h1 className="text-3xl font-bold">{tenant.name}</h1>
 

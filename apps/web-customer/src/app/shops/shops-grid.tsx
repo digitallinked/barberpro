@@ -4,10 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { MapPin, Store, ArrowRight, Scissors, Search, X } from "lucide-react";
 
+const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
+
 type Shop = {
   id: string;
   name: string;
   slug: string;
+  logo_url: string | null;
   branches: { id: string; name: string; address: string | null }[];
 };
 
@@ -62,14 +65,24 @@ export function ShopsGrid({ shops }: Props) {
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((tenant) => {
           const primaryBranch = tenant.branches[0];
+          const logoSrc = tenant.logo_url ? `${STORAGE_URL}/${tenant.logo_url}` : null;
+
           return (
             <Link
               key={tenant.id}
               href={`/shop/${tenant.slug}`}
               className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
             >
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
-                <Scissors className="h-5 w-5 text-primary" />
+              <div className="mb-3 flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
+                {logoSrc ? (
+                  <img
+                    src={logoSrc}
+                    alt={`${tenant.name} logo`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Scissors className="h-5 w-5 text-primary" />
+                )}
               </div>
 
               <h3 className="text-lg font-semibold transition-colors group-hover:text-primary">

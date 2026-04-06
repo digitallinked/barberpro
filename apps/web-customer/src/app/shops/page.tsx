@@ -11,7 +11,7 @@ export default async function ShopsPage() {
 
   const { data: tenants } = await supabase
     .from("tenants")
-    .select("id, name, slug, created_at, branches(id, name, address)")
+    .select("id, name, slug, logo_url, created_at, branches(id, name, address)")
     .eq("status", "active")
     .in("subscription_status", ["active", "trialing"])
     .order("name");
@@ -20,6 +20,7 @@ export default async function ShopsPage() {
     id: t.id,
     name: t.name,
     slug: t.slug,
+    logo_url: t.logo_url ?? null,
     branches: ((t.branches ?? []) as { id: string; name: string; address: string | null }[]),
   }));
 
