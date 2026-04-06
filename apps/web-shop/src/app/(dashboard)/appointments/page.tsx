@@ -201,28 +201,30 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">{t.appointments.title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">{t.appointments.title}</h2>
           <p className="mt-1 text-sm text-gray-400">Manage booking schedules and appointments</p>
         </div>
         <button
           type="button"
           onClick={() => setShowNewModal(true)}
-          className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 sm:w-auto sm:py-2"
         >
           <Plus className="h-4 w-4" /> New Appointment
         </button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Stat cards — 2 cols on mobile, 4 on xl */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (
-            <Card key={s.label} className="p-5">
+            <Card key={s.label} className="p-4 sm:p-5">
               <div className="flex items-start justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{s.label}</p>
-                <span className={`rounded-lg p-2 ${s.iconBg}`}><Icon className={`h-4 w-4 ${s.iconColor}`} /></span>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 leading-snug">{s.label}</p>
+                <span className={`ml-2 shrink-0 rounded-lg p-2 ${s.iconBg}`}><Icon className={`h-4 w-4 ${s.iconColor}`} /></span>
               </div>
               <h3 className="mt-2 text-2xl font-bold text-white">{appointmentsLoading ? "…" : s.value}</h3>
             </Card>
@@ -230,13 +232,14 @@ export default function AppointmentsPage() {
         })}
       </div>
 
+      {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+            className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37] sm:w-auto"
           />
           <select
             value={statusFilter}
@@ -264,54 +267,55 @@ export default function AppointmentsPage() {
         </div>
       </Card>
 
+      {/* Appointment list */}
       <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                <th className="p-4 text-left">Customer</th>
-                <th className="p-4 text-left">Service</th>
-                <th className="p-4 text-left">Barber</th>
-                <th className="p-4 text-left">Date/Time</th>
-                <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-left">Source</th>
-                <th className="p-4 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointmentsLoading ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500">Loading...</td>
-                </tr>
-              ) : appointmentsError ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-red-400">Failed to load appointments</td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500">No appointments found</td>
-                </tr>
-              ) : (
-                filtered.map((a) => (
-                  <tr key={a.id} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
-                    <td className="p-4 font-medium text-white">{a.customer?.full_name ?? "—"}</td>
-                    <td className="p-4 text-gray-300">{a.service?.name ?? "—"}</td>
-                    <td className="p-4 text-gray-300">{a.barber?.full_name ?? "—"}</td>
-                    <td className="p-4 text-gray-300">{formatDateTime(a.start_at)}</td>
-                    <td className="p-4">
-                      <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(a.status)}`}>
+        {appointmentsLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+          </div>
+        ) : appointmentsError ? (
+          <p className="px-5 py-12 text-center text-sm text-red-400">Failed to load appointments</p>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-16">
+            <CalendarCheck2 className="h-8 w-8 text-gray-700" />
+            <p className="text-sm text-gray-500">No appointments found</p>
+          </div>
+        ) : (
+          <>
+            {/* ── Mobile: card list ── */}
+            <div className="divide-y divide-white/[0.04] sm:hidden">
+              {filtered.map((a) => {
+                const canEdit = !["completed", "cancelled", "no_show"].includes(a.status);
+                return (
+                  <div key={a.id} className="px-4 py-4">
+                    {/* Top row: name + status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="flex-1 truncate font-semibold text-white">
+                        {a.customer?.full_name ?? "—"}
+                      </p>
+                      <span className={`shrink-0 rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(a.status)}`}>
                         {a.status.replace("_", " ")}
                       </span>
-                    </td>
-                    <td className="p-4 text-gray-300 capitalize">{a.source}</td>
-                    <td className="p-4">
-                      <div className="flex flex-wrap items-center gap-1">
+                    </div>
+                    {/* Details */}
+                    <p className="mt-1 truncate text-xs text-gray-400">
+                      {a.service?.name ?? "—"}
+                      {a.barber?.full_name ? ` · ${a.barber.full_name}` : ""}
+                    </p>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      {formatDateTime(a.start_at)}
+                      {a.source && <span className="ml-1 capitalize text-gray-600">· {a.source}</span>}
+                    </div>
+                    {/* Actions */}
+                    {canEdit && (
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
                         {a.status === "booked" && (
                           <button
                             type="button"
                             onClick={() => handleStatusUpdate(a.id, "confirmed")}
                             disabled={!!updatingId}
-                            className="rounded px-2 py-0.5 text-xs text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+                            className="rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
                           >
                             Confirm
                           </button>
@@ -321,7 +325,7 @@ export default function AppointmentsPage() {
                             type="button"
                             onClick={() => handleStatusUpdate(a.id, "in_service")}
                             disabled={!!updatingId}
-                            className="rounded px-2 py-0.5 text-xs text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-50"
+                            className="rounded-md bg-yellow-500/10 px-2.5 py-1 text-xs font-medium text-yellow-400 hover:bg-yellow-500/20 disabled:opacity-50"
                           >
                             Start
                           </button>
@@ -331,69 +335,172 @@ export default function AppointmentsPage() {
                             type="button"
                             onClick={() => handleStatusUpdate(a.id, "completed")}
                             disabled={!!updatingId}
-                            className="rounded px-2 py-0.5 text-xs text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+                            className="rounded-md bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
                           >
                             Complete
                           </button>
                         )}
-                        {!["completed", "cancelled", "no_show"].includes(a.status) && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusUpdate(a.id, "cancelled")}
-                              disabled={!!updatingId}
-                              className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusUpdate(a.id, "no_show")}
-                              disabled={!!updatingId}
-                              className="rounded px-2 py-0.5 text-xs text-gray-400 hover:bg-gray-500/10 disabled:opacity-50"
-                            >
-                              No-Show
-                            </button>
-                          </>
-                        )}
-                        {!["completed", "cancelled", "no_show"].includes(a.status) && (
-                          <button
-                            type="button"
-                            title="Reschedule"
-                            onClick={() => {
-                              const d = new Date(a.start_at);
-                              setEditAppt({
-                                id: a.id,
-                                customer_id: a.customer_id ?? "",
-                                service_id: a.service_id ?? "",
-                                barber_staff_id: a.barber_staff_id ?? null,
-                                branch_id: a.branch_id,
-                                start_date: d.toISOString().slice(0, 10),
-                                start_time: d.toTimeString().slice(0, 5),
-                                notes: a.notes ?? null,
-                              });
-                            }}
-                            className="rounded p-1 text-gray-500 hover:text-[#D4AF37]"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleStatusUpdate(a.id, "no_show")}
+                          disabled={!!updatingId}
+                          className="rounded-md bg-gray-500/10 px-2.5 py-1 text-xs font-medium text-gray-400 hover:bg-gray-500/20 disabled:opacity-50"
+                        >
+                          No-Show
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStatusUpdate(a.id, "cancelled")}
+                          disabled={!!updatingId}
+                          className="rounded-md bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          title="Reschedule"
+                          onClick={() => {
+                            const d = new Date(a.start_at);
+                            setEditAppt({
+                              id: a.id,
+                              customer_id: a.customer_id ?? "",
+                              service_id: a.service_id ?? "",
+                              barber_staff_id: a.barber_staff_id ?? null,
+                              branch_id: a.branch_id,
+                              start_date: d.toISOString().slice(0, 10),
+                              start_time: d.toTimeString().slice(0, 5),
+                              notes: a.notes ?? null,
+                            });
+                          }}
+                          className="ml-auto rounded-md p-1.5 text-gray-500 hover:bg-white/5 hover:text-[#D4AF37]"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                    </td>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Desktop: full table ── */}
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    <th className="p-4 text-left">Customer</th>
+                    <th className="p-4 text-left">Service</th>
+                    <th className="p-4 text-left">Barber</th>
+                    <th className="p-4 text-left">Date/Time</th>
+                    <th className="p-4 text-left">Status</th>
+                    <th className="p-4 text-left">Source</th>
+                    <th className="p-4 text-left">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between border-t border-white/5 px-5 py-3">
-          <p className="text-xs text-gray-500">Showing 1-{filtered.length} of {filtered.length}</p>
+                </thead>
+                <tbody>
+                  {filtered.map((a) => (
+                    <tr key={a.id} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
+                      <td className="p-4 font-medium text-white">{a.customer?.full_name ?? "—"}</td>
+                      <td className="p-4 text-gray-300">{a.service?.name ?? "—"}</td>
+                      <td className="p-4 text-gray-300">{a.barber?.full_name ?? "—"}</td>
+                      <td className="p-4 text-gray-300">{formatDateTime(a.start_at)}</td>
+                      <td className="p-4">
+                        <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(a.status)}`}>
+                          {a.status.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="p-4 text-gray-300 capitalize">{a.source}</td>
+                      <td className="p-4">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {a.status === "booked" && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusUpdate(a.id, "confirmed")}
+                              disabled={!!updatingId}
+                              className="rounded px-2 py-0.5 text-xs text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+                            >
+                              Confirm
+                            </button>
+                          )}
+                          {(a.status === "booked" || a.status === "confirmed") && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusUpdate(a.id, "in_service")}
+                              disabled={!!updatingId}
+                              className="rounded px-2 py-0.5 text-xs text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-50"
+                            >
+                              Start
+                            </button>
+                          )}
+                          {a.status === "in_service" && (
+                            <button
+                              type="button"
+                              onClick={() => handleStatusUpdate(a.id, "completed")}
+                              disabled={!!updatingId}
+                              className="rounded px-2 py-0.5 text-xs text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
+                            >
+                              Complete
+                            </button>
+                          )}
+                          {!["completed", "cancelled", "no_show"].includes(a.status) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusUpdate(a.id, "cancelled")}
+                                disabled={!!updatingId}
+                                className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStatusUpdate(a.id, "no_show")}
+                                disabled={!!updatingId}
+                                className="rounded px-2 py-0.5 text-xs text-gray-400 hover:bg-gray-500/10 disabled:opacity-50"
+                              >
+                                No-Show
+                              </button>
+                            </>
+                          )}
+                          {!["completed", "cancelled", "no_show"].includes(a.status) && (
+                            <button
+                              type="button"
+                              title="Reschedule"
+                              onClick={() => {
+                                const d = new Date(a.start_at);
+                                setEditAppt({
+                                  id: a.id,
+                                  customer_id: a.customer_id ?? "",
+                                  service_id: a.service_id ?? "",
+                                  barber_staff_id: a.barber_staff_id ?? null,
+                                  branch_id: a.branch_id,
+                                  start_date: d.toISOString().slice(0, 10),
+                                  start_time: d.toTimeString().slice(0, 5),
+                                  notes: a.notes ?? null,
+                                });
+                              }}
+                              className="rounded p-1 text-gray-500 hover:text-[#D4AF37]"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        <div className="flex items-center justify-between border-t border-white/5 px-4 py-3 sm:px-5">
+          <p className="text-xs text-gray-500">Showing {filtered.length} of {appointmentsData.length}</p>
         </div>
       </Card>
 
       {editAppt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-lg rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">Reschedule Appointment</h3>
             <form onSubmit={handleEditSubmit} className="mt-4 space-y-4">
               <div>
@@ -458,8 +565,8 @@ export default function AppointmentsPage() {
       )}
 
       {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-lg rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
             <h3 className="text-lg font-bold text-white">New Appointment</h3>
             <form onSubmit={handleCreateSubmit} className="mt-4 space-y-4">
               <div>
