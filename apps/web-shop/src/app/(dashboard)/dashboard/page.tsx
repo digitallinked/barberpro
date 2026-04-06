@@ -184,8 +184,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Welcome row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">
             {greeting}, {userName ?? "User"}
           </h2>
           <p className="mt-1 text-sm text-gray-400">
@@ -194,13 +194,14 @@ export default function DashboardPage() {
             {periodLabel}.
           </p>
         </div>
+        {/* Period selector — full-width pill on mobile */}
         <div className="flex items-center gap-1 rounded-lg border border-white/5 bg-[#1a1a1a] p-1">
           {PERIODS.map(({ label, value }) => (
             <button
               key={value}
               type="button"
               onClick={() => setPeriod(value)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition sm:flex-none ${
                 period === value
                   ? "bg-[#2a2a2a] text-white shadow-sm"
                   : "text-gray-400 hover:text-white"
@@ -212,8 +213,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Stat cards ── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* ── Stat cards — 2 cols on mobile, 4 on xl ── */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Card className="p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl">
           <div className="flex items-start justify-between">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -224,7 +225,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold text-white">
+            <h3 className="text-xl font-bold text-white sm:text-2xl">
               {stats ? formatAmount(stats.todayRevenue) : "RM 0.00"}
             </h3>
           </div>
@@ -292,7 +293,7 @@ export default function DashboardPage() {
 
       {/* ── Main grid ── */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           {/* Sales & Revenue chart */}
           <Card className="p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -325,7 +326,7 @@ export default function DashboardPage() {
 
           {/* Recent Transactions */}
           <Card>
-            <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-white/5 px-4 py-4 sm:px-5">
               <h3 className="font-bold text-white">{t.dashboard.recentTransactions}</h3>
               <Link
                 href="/reports"
@@ -334,55 +335,84 @@ export default function DashboardPage() {
                 {t.common.viewAll}
               </Link>
             </div>
-            <div className="overflow-x-auto">
-              {transactions.length === 0 ? (
-                <div className="px-5 py-12 text-center text-sm text-gray-500">
-                  {t.dashboard.noDataYet}
-                </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      <th className="p-4 text-left">{t.dashboard.customer}</th>
-                      <th className="p-4 text-left">{t.dashboard.payment}</th>
-                      <th className="p-4 text-left">{t.dashboard.amount}</th>
-                      <th className="p-4 text-left">{t.dashboard.status}</th>
-                      <th className="p-4 text-left">{t.dashboard.date}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => (
-                      <tr
-                        key={tx.id}
-                        className="border-t border-white/[0.04] transition hover:bg-white/[0.02]"
-                      >
-                        <td className="p-4 font-medium text-white">
+
+            {transactions.length === 0 ? (
+              <div className="px-5 py-12 text-center text-sm text-gray-500">
+                {t.dashboard.noDataYet}
+              </div>
+            ) : (
+              <>
+                {/* Mobile: card list */}
+                <div className="divide-y divide-white/[0.04] sm:hidden">
+                  {transactions.map((tx) => (
+                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-white">
                           {tx.customer?.full_name ?? t.dashboard.walkIn}
-                        </td>
-                        <td className="p-4 text-gray-300">{tx.payment_method}</td>
-                        <td className="p-4 font-bold text-white">
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-gray-500">
+                          {tx.payment_method} · {formatDate(tx.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-sm font-bold text-white">
                           {formatAmount(tx.total_amount)}
-                        </td>
-                        <td className="p-4">
-                          <StatusBadge
-                            status={tx.payment_status}
-                            color={
-                              tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"
-                            }
-                          />
-                        </td>
-                        <td className="p-4 text-gray-500">{formatDate(tx.created_at)}</td>
+                        </span>
+                        <StatusBadge
+                          status={tx.payment_status}
+                          color={tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: full table */}
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        <th className="p-4 text-left">{t.dashboard.customer}</th>
+                        <th className="p-4 text-left">{t.dashboard.payment}</th>
+                        <th className="p-4 text-left">{t.dashboard.amount}</th>
+                        <th className="p-4 text-left">{t.dashboard.status}</th>
+                        <th className="p-4 text-left">{t.dashboard.date}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                    </thead>
+                    <tbody>
+                      {transactions.map((tx) => (
+                        <tr
+                          key={tx.id}
+                          className="border-t border-white/[0.04] transition hover:bg-white/[0.02]"
+                        >
+                          <td className="p-4 font-medium text-white">
+                            {tx.customer?.full_name ?? t.dashboard.walkIn}
+                          </td>
+                          <td className="p-4 text-gray-300">{tx.payment_method}</td>
+                          <td className="p-4 font-bold text-white">
+                            {formatAmount(tx.total_amount)}
+                          </td>
+                          <td className="p-4">
+                            <StatusBadge
+                              status={tx.payment_status}
+                              color={
+                                tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"
+                              }
+                            />
+                          </td>
+                          <td className="p-4 text-gray-500">{formatDate(tx.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </Card>
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Quick Actions */}
           <Card className="p-5">
             <h3 className="mb-4 font-bold text-white">{t.dashboard.quickActions}</h3>
