@@ -29,6 +29,7 @@ export function Footer() {
       title: t.footer.company,
       links: [
         { label: t.footer.forBusinesses, href: "/for-businesses" },
+        { label: t.footer.contactUs, href: "/contact" },
         { label: t.footer.privacyPolicy, href: "/privacy" },
         { label: t.footer.termsOfService, href: "/terms" },
       ],
