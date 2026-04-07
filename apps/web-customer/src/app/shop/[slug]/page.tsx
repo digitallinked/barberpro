@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight, Hash, Ban } from "lucide-react";
+import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight, Hash, Ban, Navigation } from "lucide-react";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
@@ -35,7 +35,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const [branchesResult, servicesResult, staffResult, queueResult, imagesResult] = await Promise.all([
     supabase
       .from("branches")
-      .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue")
+      .select("id, name, address, latitude, longitude, operating_hours, accepts_online_bookings, accepts_walkin_queue")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true),
     supabase
@@ -73,6 +73,15 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const primaryBranch = branches[0];
   const acceptsBookings = branches.some((b) => b.accepts_online_bookings);
   const acceptsWalkin = branches.some((b) => b.accepts_walkin_queue);
+
+  // Build a Google Maps directions URL from lat/lng or address text
+  function getMapsUrl(address: string | null, lat?: number | null, lng?: number | null): string | null {
+    if (!address && lat == null) return null;
+    if (lat != null && lng != null) {
+      return `https://maps.google.com/?q=${lat},${lng}`;
+    }
+    return `https://maps.google.com/?q=${encodeURIComponent(address ?? "")}`;
+  }
 
   // Determine if shop is open today based on operating_hours
   function getTodayHours(operatingHours: unknown): string | null {
@@ -130,12 +139,29 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               </div>
               <h1 className="text-3xl font-bold">{tenant.name}</h1>
 
-              {branches.length > 0 && (
-                <div className="mt-2 flex items-center gap-1.5 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{branches[0]?.address || "—"}</span>
-                </div>
-              )}
+              {branches.length > 0 && (() => {
+                const b0 = branches[0];
+                const mapsUrl = b0 ? getMapsUrl(b0.address, (b0 as unknown as { latitude?: number | null }).latitude, (b0 as unknown as { longitude?: number | null }).longitude) : null;
+                return (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span>{b0?.address || "—"}</span>
+                    </span>
+                    {mapsUrl && (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                      >
+                        <Navigation className="h-3 w-3" />
+                        Get Directions
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
@@ -270,11 +296,13 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               <div className="grid gap-4 sm:grid-cols-2">
                 {branches.map((branch) => {
                   const todayHours = getTodayHours(branch.operating_hours);
+                  const branchWithGeo = branch as unknown as { latitude?: number | null; longitude?: number | null };
+                  const mapsUrl = getMapsUrl(branch.address, branchWithGeo.latitude, branchWithGeo.longitude);
                   return (
                     <div key={branch.id} className="rounded-xl border border-border bg-card p-4">
                       <p className="font-medium">{branch.name}</p>
-                      <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
+                      <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                         {branch.address || "—"}
                       </p>
                       {todayHours && (
@@ -282,6 +310,17 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
                           <Clock className="h-3 w-3" />
                           {todayHours}
                         </p>
+                      )}
+                      {mapsUrl && (
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                        >
+                          <Navigation className="h-3 w-3" />
+                          Get Directions
+                        </a>
                       )}
                     </div>
                   );
