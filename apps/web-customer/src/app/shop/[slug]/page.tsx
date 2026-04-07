@@ -35,7 +35,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const [branchesResult, servicesResult, staffResult, queueResult, imagesResult] = await Promise.all([
     supabase
       .from("branches")
-      .select("id, name, address, latitude, longitude, operating_hours, accepts_online_bookings, accepts_walkin_queue")
+      .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true),
     supabase
@@ -74,13 +74,10 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const acceptsBookings = branches.some((b) => b.accepts_online_bookings);
   const acceptsWalkin = branches.some((b) => b.accepts_walkin_queue);
 
-  // Build a Google Maps directions URL from lat/lng or address text
-  function getMapsUrl(address: string | null, lat?: number | null, lng?: number | null): string | null {
-    if (!address && lat == null) return null;
-    if (lat != null && lng != null) {
-      return `https://maps.google.com/?q=${lat},${lng}`;
-    }
-    return `https://maps.google.com/?q=${encodeURIComponent(address ?? "")}`;
+  // Build a Google Maps directions URL from address text
+  function getMapsUrl(address: string | null): string | null {
+    if (!address) return null;
+    return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
   }
 
   // Determine if shop is open today based on operating_hours
@@ -141,7 +138,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
 
               {branches.length > 0 && (() => {
                 const b0 = branches[0];
-                const mapsUrl = b0 ? getMapsUrl(b0.address, (b0 as unknown as { latitude?: number | null }).latitude, (b0 as unknown as { longitude?: number | null }).longitude) : null;
+                const mapsUrl = b0 ? getMapsUrl(b0.address) : null;
                 return (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -296,8 +293,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               <div className="grid gap-4 sm:grid-cols-2">
                 {branches.map((branch) => {
                   const todayHours = getTodayHours(branch.operating_hours);
-                  const branchWithGeo = branch as unknown as { latitude?: number | null; longitude?: number | null };
-                  const mapsUrl = getMapsUrl(branch.address, branchWithGeo.latitude, branchWithGeo.longitude);
+                  const mapsUrl = getMapsUrl(branch.address);
                   return (
                     <div key={branch.id} className="rounded-xl border border-border bg-card p-4">
                       <p className="font-medium">{branch.name}</p>
