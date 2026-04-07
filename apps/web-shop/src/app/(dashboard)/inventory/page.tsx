@@ -12,7 +12,7 @@ import {
   Search,
   TrendingUp
 } from "lucide-react";
-import { useInventoryItems, useInventoryStats } from "@/hooks";
+import { useInventoryItems, useInventoryStats, useSuppliers } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
 import { createInventoryItem, updateInventoryItem, adjustStock } from "@/actions/inventory";
 
@@ -59,10 +59,13 @@ export default function InventoryPage() {
   const queryClient = useQueryClient();
   const { data: inventoryResult, isLoading: inventoryLoading } = useInventoryItems();
   const { data: statsResult, isLoading: statsLoading } = useInventoryStats();
+  const { data: suppliersResult } = useSuppliers();
+  const suppliers = suppliersResult?.data ?? [];
 
   type EditableItem = {
     id: string; name: string; sku: string | null; item_type: string;
     unit_cost: number; sell_price: number | null; stock_qty: number; reorder_level: number;
+    supplier_id: string | null;
   };
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -79,6 +82,7 @@ export default function InventoryPage() {
   const stats = statsResult?.data ?? { totalItems: 0, lowStock: 0 };
 
   const totalValue = itemsData.reduce((sum, i) => sum + (i.stock_qty ?? 0) * (i.unit_cost ?? 0), 0);
+  const supplierMap = Object.fromEntries(suppliers.map((s) => [s.id, s.name]));
 
   let filtered = itemsData;
   if (search) {
@@ -299,6 +303,7 @@ export default function InventoryPage() {
                           sell_price: item.sell_price ?? null,
                           stock_qty: item.stock_qty ?? 0,
                           reorder_level: item.reorder_level ?? 0,
+                          supplier_id: item.supplier_id ?? null,
                         })
                       }
                       className="rounded p-1 text-gray-500 hover:bg-white/5 hover:text-white"
@@ -356,7 +361,7 @@ export default function InventoryPage() {
                       <td className="p-4 font-bold text-white">
                         {item.sell_price != null ? formatAmount(item.sell_price) : "—"}
                       </td>
-                      <td className="p-4 text-gray-300">—</td>
+                      <td className="p-4 text-gray-300">{item.supplier_id ? (supplierMap[item.supplier_id] ?? "—") : "—"}</td>
                       <td className="p-4">
                         <span
                           className={`rounded border px-2 py-0.5 text-xs font-bold ${
@@ -386,6 +391,7 @@ export default function InventoryPage() {
                               item_type: item.item_type, unit_cost: item.unit_cost ?? 0,
                               sell_price: item.sell_price ?? null, stock_qty: item.stock_qty ?? 0,
                               reorder_level: item.reorder_level ?? 0,
+                              supplier_id: item.supplier_id ?? null,
                             })}
                             className="rounded p-1 text-gray-500 hover:bg-white/5 hover:text-white"
                           >
@@ -435,6 +441,20 @@ export default function InventoryPage() {
                   <option value="consumable">Consumable</option>
                 </select>
               </div>
+              {suppliers.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Supplier</label>
+                  <select
+                    name="supplier_id"
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">— None —</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">Unit Cost</label>
@@ -581,6 +601,21 @@ export default function InventoryPage() {
                   <option value="consumable">Consumable</option>
                 </select>
               </div>
+              {suppliers.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-400">Supplier</label>
+                  <select
+                    name="supplier_id"
+                    defaultValue={editItem.supplier_id ?? ""}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">— None —</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-400">Unit Cost</label>

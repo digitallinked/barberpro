@@ -4,6 +4,7 @@ import type { Database, Tables } from "@/types/database.types";
 type Client = SupabaseClient<Database>;
 type InventoryItemRow = Tables<"inventory_items">;
 type InventoryMovementRow = Tables<"inventory_movements">;
+type SupplierRow = Tables<"suppliers">;
 
 export async function getInventoryItems(
   client: Client,
@@ -54,6 +55,19 @@ export async function getInventoryStats(
     },
     error: null,
   };
+}
+
+export async function getSuppliers(
+  client: Client,
+  tenantId: string
+): Promise<{ data: SupplierRow[] | null; error: Error | null }> {
+  const { data, error } = await client
+    .from("suppliers")
+    .select("id, name, contact_name, phone, email, tenant_id, created_at, updated_at")
+    .eq("tenant_id", tenantId)
+    .order("name", { ascending: true });
+
+  return { data, error: error ? new Error(error.message) : null };
 }
 
 export async function getInventoryMovements(

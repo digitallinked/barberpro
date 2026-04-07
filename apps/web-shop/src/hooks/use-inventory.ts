@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
-import { getInventoryItems, getInventoryStats } from "@/services/inventory";
+import { getInventoryItems, getInventoryStats, getSuppliers } from "@/services/inventory";
 
 export function useInventoryItems() {
   const supabase = useSupabase();
@@ -22,5 +22,15 @@ export function useInventoryStats() {
   return useQuery({
     queryKey: ["inventory-stats", tenantId],
     queryFn: () => getInventoryStats(supabase, tenantId),
+  });
+}
+
+export function useSuppliers() {
+  const supabase = useSupabase();
+  const { tenantId } = useTenant();
+
+  return useQuery({
+    queryKey: ["suppliers", tenantId],
+    queryFn: () => getSuppliers(supabase, tenantId),
   });
 }

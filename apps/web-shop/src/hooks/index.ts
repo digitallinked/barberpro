@@ -6,7 +6,7 @@ export { useServices, useServiceCategories } from "./use-catalog";
 export { useQueueTickets, useQueueStats, useQueueBoard, useSeats } from "./use-queue";
 export { useTransactions, useDashboardStats, useDailyRevenue } from "./use-transactions";
 export { useExpenses, useExpenseStats } from "./use-expenses";
-export { useInventoryItems, useInventoryStats } from "./use-inventory";
+export { useInventoryItems, useInventoryStats, useSuppliers } from "./use-inventory";
 export {
   usePayrollPeriods,
   usePayrollEntries,
