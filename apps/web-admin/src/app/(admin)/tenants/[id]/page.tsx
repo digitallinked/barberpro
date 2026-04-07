@@ -5,7 +5,9 @@ import { ArrowLeft, ExternalLink, GitBranch, Users } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { requireAccess } from "@/lib/require-access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hasStripeEnv } from "@/lib/stripe";
 import { suspendTenant, unsuspendTenant } from "../actions";
+import { SubscriptionManagement } from "./subscription-management";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -117,7 +119,7 @@ export default async function TenantDetailPage({ params }: PageProps) {
 
       {/* Two-col detail grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Billing & Stripe */}
+        {/* Billing & Stripe refs */}
         <div className="rounded-lg border border-border bg-card p-5">
           <h2 className="mb-4 font-semibold">Billing &amp; Stripe</h2>
           <dl className="space-y-3 text-sm">
@@ -164,9 +166,6 @@ export default async function TenantDetailPage({ params }: PageProps) {
               </dd>
             </div>
           </dl>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Plan changes, refunds, and cancellations are managed in the Stripe Dashboard or by the owner via Customer Portal.
-          </p>
         </div>
 
         {/* Account info */}
@@ -192,6 +191,17 @@ export default async function TenantDetailPage({ params }: PageProps) {
           </dl>
         </div>
       </div>
+
+      {/* Subscription management — super_admin only */}
+      {role === "super_admin" && (
+        <SubscriptionManagement
+          tenantId={tenant.id}
+          currentPlan={tenant.plan}
+          subscriptionStatus={tenant.subscription_status}
+          stripeSubscriptionId={tenant.stripe_subscription_id}
+          hasStripe={hasStripeEnv()}
+        />
+      )}
 
       {/* Branches */}
       <div className="rounded-lg border border-border bg-card">
