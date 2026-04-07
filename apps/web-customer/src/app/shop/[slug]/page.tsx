@@ -184,62 +184,50 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
       <Navbar />
 
       <main className="flex-1">
-        {/* ── Hero: full-bleed carousel with logo overlay ── */}
-        <div className="relative">
-          {shopImageUrls.length > 0 ? (
-            <>
+        <div className="px-4 pt-4 sm:px-6">
+          <div className="mx-auto max-w-3xl">
+            {/* ── Photo strip: short, inset, same width as content ── */}
+            {shopImageUrls.length > 0 ? (
               <ShopImageCarousel images={shopImageUrls} shopName={tenant.name} />
-              {/* Logo badge overlaid bottom-left of carousel */}
-              <div className="absolute bottom-4 left-4 flex items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/20 bg-black/60 shadow-lg backdrop-blur-sm">
-                  {resolvedLogoUrl ? (
-                    <img
-                      src={`${STORAGE_URL}/${resolvedLogoUrl}`}
-                      alt={`${tenant.name} logo`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Scissors className="h-7 w-7 text-primary" />
-                  )}
-                </div>
-                <div className="rounded-xl bg-black/60 px-3 py-1.5 backdrop-blur-sm">
-                  <p className="text-sm font-bold text-white">{tenant.name}</p>
-                  {todayHours && (
-                    <p className={`text-[11px] font-medium ${todayHours.closed ? "text-red-400" : "text-emerald-400"}`}>
-                      {todayHours.label}
-                    </p>
-                  )}
-                </div>
+            ) : (
+              <div className="aspect-[21/9] max-h-[min(200px,34vh)] rounded-2xl bg-gradient-to-br from-primary/20 via-primary/5 to-background sm:max-h-[240px] md:max-h-[260px]" />
+            )}
+
+            {/* ── Brand row: no overlap with hero; logo scales with title ── */}
+            <div className="mt-5 flex items-start gap-4 sm:mt-6 sm:gap-5">
+              <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card shadow-md sm:h-28 sm:w-28">
+                {resolvedLogoUrl ? (
+                  <img
+                    src={`${STORAGE_URL}/${resolvedLogoUrl}`}
+                    alt={`${tenant.name} logo`}
+                    className="max-h-full max-w-full object-contain p-2"
+                  />
+                ) : (
+                  <Scissors className="h-12 w-12 text-primary sm:h-14 sm:w-14" />
+                )}
               </div>
-            </>
-          ) : (
-            /* No images — show a gradient placeholder with logo */
-            <div className="relative h-40 bg-gradient-to-br from-primary/20 via-primary/5 to-background sm:h-52">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 shadow-lg">
-                    {resolvedLogoUrl ? (
-                      <img
-                        src={`${STORAGE_URL}/${resolvedLogoUrl}`}
-                        alt={`${tenant.name} logo`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Scissors className="h-9 w-9 text-primary" />
-                    )}
-                  </div>
-                </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+                  {tenant.name}
+                </h1>
+                {todayHours && (
+                  <p
+                    className={`mt-1.5 text-sm font-medium ${todayHours.closed ? "text-destructive" : "text-primary"}`}
+                  >
+                    {todayHours.closed ? "Closed today" : `Today · ${todayHours.label}`}
+                  </p>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="px-4 pb-16 sm:px-6">
-          <div className="mx-auto max-w-3xl">
+          <div className="mx-auto mt-6 max-w-3xl">
 
             {/* ── Booking success banner ── */}
             {booked === "true" && (
-              <div className="mt-5 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 p-4">
+              <div className="mb-6 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 p-4">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
                 <div>
                   <p className="font-medium text-primary">Booking Confirmed!</p>
@@ -253,13 +241,12 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               </div>
             )}
 
-            {/* ── Shop title + meta ── */}
-            <div className="mt-6">
-              <h1 className="text-2xl font-bold sm:text-3xl">{tenant.name}</h1>
+            {/* ── Shop meta ── */}
+            <div>
 
               {/* Address */}
               {primaryAddress && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <MapPin className="h-4 w-4 shrink-0" />
                     {primaryAddress}

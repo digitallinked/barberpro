@@ -6,9 +6,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 type Props = {
   images: string[]; // full public URLs
   shopName: string;
+  className?: string;
 };
 
-export function ShopImageCarousel({ images, shopName }: Props) {
+export function ShopImageCarousel({ images, shopName, className }: Props) {
   const [current, setCurrent] = useState(0);
 
   if (images.length === 0) return null;
@@ -17,7 +18,9 @@ export function ShopImageCarousel({ images, shopName }: Props) {
   const next = () => setCurrent((c) => (c === images.length - 1 ? 0 : c + 1));
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl bg-muted" style={{ aspectRatio: "16/7" }}>
+    <div
+      className={`relative aspect-[21/9] w-full max-h-[min(200px,34vh)] overflow-hidden rounded-2xl bg-muted sm:max-h-[240px] md:max-h-[260px] ${className ?? ""}`}
+    >
       {/* Slides */}
       <div
         className="flex h-full transition-transform duration-300 ease-out"
