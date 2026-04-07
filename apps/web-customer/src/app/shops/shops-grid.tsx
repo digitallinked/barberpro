@@ -48,6 +48,7 @@ type Shop = {
     id: string;
     name: string;
     address: string | null;
+    logo_url: string | null;
     latitude: number | null;
     longitude: number | null;
   }[];
@@ -129,7 +130,7 @@ export function ShopsGrid({ shops }: Props) {
             shopId: shop.id,
             shopName: shop.name,
             shopSlug: shop.slug,
-            logoUrl: shop.logo_url,
+            logoUrl: b.logo_url ?? shop.logo_url,
             branchName: b.name,
             branchAddress: b.address,
             latitude: b.latitude,

@@ -3,6 +3,8 @@
 import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+
+const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useBranches } from "@/hooks";
@@ -105,41 +107,65 @@ export default function BranchesPage() {
           <p className="text-gray-400">No branches found.</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {branches.map((b) => (
-            <Link
-              key={b.id}
-              href={`/branches/${b.id}`}
-              className="rounded-xl border border-white/5 bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#D4AF37]/10">
-                  <Store className="h-5 w-5 text-[#D4AF37]" />
-                </div>
-                <div className="flex items-center gap-2">
-                  {b.is_hq && (
-                    <span className="rounded-full bg-[#D4AF37]/20 px-2 py-0.5 text-[10px] font-bold text-[#D4AF37]">
-                      HQ
-                    </span>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {branches.map((b) => {
+            const logoUrl = b.logo_url;
+            const modeLabel = b.accepts_online_bookings && b.accepts_walkin_queue ? "Bookings & Walk-ins"
+              : b.accepts_online_bookings ? "Appointments only"
+              : b.accepts_walkin_queue ? "Walk-in only"
+              : "Not accepting";
+            const modeBadgeColor = b.accepts_online_bookings && b.accepts_walkin_queue ? "bg-emerald-500/10 text-emerald-400"
+              : !b.accepts_online_bookings && !b.accepts_walkin_queue ? "bg-red-500/10 text-red-400"
+              : "bg-amber-500/10 text-amber-400";
+            return (
+              <Link
+                key={b.id}
+                href={`/branches/${b.id}`}
+                className="group rounded-xl border border-white/5 bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl hover:shadow-black/20"
+              >
+                <div className="flex items-start gap-3 mb-4">
+                  {logoUrl ? (
+                    <img src={`${STORAGE_URL}/${logoUrl}`}
+                      alt={b.name} className="h-12 w-12 shrink-0 rounded-lg object-cover border border-white/10" />
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#D4AF37]/10">
+                      <Store className="h-6 w-6 text-[#D4AF37]" />
+                    </div>
                   )}
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      b.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                    }`}
-                  >
-                    {b.is_active ? "Open" : "Closed"}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                      {b.is_hq && (
+                        <span className="rounded-full bg-[#D4AF37]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#D4AF37]">HQ</span>
+                      )}
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${b.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                        {b.is_active ? "Open" : "Closed"}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-white truncate">{b.name}</h3>
+                    <p className="font-mono text-[11px] text-gray-500">{b.code}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="min-w-0 break-words">
-                <h3 className="text-sm font-bold text-white">{b.name}</h3>
-                <p className="mt-1 font-mono text-xs text-gray-500">{b.code}</p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                  <MapPin className="h-3 w-3 shrink-0" /> {b.address || "No address"}
-                </p>
-              </div>
-            </Link>
-          ))}
+
+                <div className="space-y-1.5">
+                  <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <MapPin className="h-3 w-3 shrink-0 text-gray-600" />
+                    <span className="truncate">{b.address || "No address set"}</span>
+                  </p>
+                  {b.phone && (
+                    <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <ArrowRight className="h-3 w-3 shrink-0 text-gray-600" />
+                      {b.phone}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${modeBadgeColor}`}>{modeLabel}</span>
+                  <span className="text-[11px] text-gray-600 group-hover:text-[#D4AF37] transition">View details →</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
 

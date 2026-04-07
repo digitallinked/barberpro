@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -14,6 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          actor_email: string
+          actor_role: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_email: string
+          actor_role: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string
+          actor_role?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
+      admin_staff: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          is_active: boolean
+          name: string
+          role: Database["public"]["Enums"]["admin_role"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          name: string
+          role?: Database["public"]["Enums"]["admin_role"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          is_active?: boolean
+          name?: string
+          role?: Database["public"]["Enums"]["admin_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_staff_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "admin_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sent_at: string
+          sent_by: string | null
+          target: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sent_at?: string
+          sent_by?: string | null
+          target?: string
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sent_at?: string
+          sent_by?: string | null
+          target?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       app_users: {
         Row: {
           auth_user_id: string | null
@@ -155,6 +259,111 @@ export type Database = {
           },
         ]
       }
+      blog_posts: {
+        Row: {
+          author_email: string | null
+          author_name: string | null
+          content: string
+          content_ms: string | null
+          cover_image_url: string | null
+          created_at: string
+          excerpt: string | null
+          excerpt_ms: string | null
+          id: string
+          published_at: string | null
+          reading_time_minutes: number | null
+          search_vector: unknown
+          slug: string
+          status: string
+          tags: string[]
+          title: string
+          title_ms: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_email?: string | null
+          author_name?: string | null
+          content?: string
+          content_ms?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string | null
+          excerpt_ms?: string | null
+          id?: string
+          published_at?: string | null
+          reading_time_minutes?: number | null
+          search_vector?: unknown
+          slug: string
+          status?: string
+          tags?: string[]
+          title: string
+          title_ms?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_email?: string | null
+          author_name?: string | null
+          content?: string
+          content_ms?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string | null
+          excerpt_ms?: string | null
+          id?: string
+          published_at?: string | null
+          reading_time_minutes?: number | null
+          search_vector?: unknown
+          slug?: string
+          status?: string
+          tags?: string[]
+          title?: string
+          title_ms?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      branch_images: {
+        Row: {
+          branch_id: string
+          created_at: string
+          id: string
+          sort_order: number
+          storage_path: string
+          tenant_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          storage_path: string
+          tenant_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          storage_path?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "branch_images_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_images_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branch_seats: {
         Row: {
           branch_id: string
@@ -225,6 +434,9 @@ export type Database = {
           id: string
           is_active: boolean
           is_hq: boolean
+          latitude: number | null
+          logo_url: string | null
+          longitude: number | null
           name: string
           operating_hours: Json
           phone: string | null
@@ -242,6 +454,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_hq?: boolean
+          latitude?: number | null
+          logo_url?: string | null
+          longitude?: number | null
           name: string
           operating_hours?: Json
           phone?: string | null
@@ -259,6 +474,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_hq?: boolean
+          latitude?: number | null
+          logo_url?: string | null
+          longitude?: number | null
           name?: string
           operating_hours?: Json
           phone?: string | null
@@ -716,27 +934,6 @@ export type Database = {
           },
         ]
       }
-      processed_webhook_events: {
-        Row: {
-          id: string
-          event_id: string
-          event_type: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          event_id: string
-          event_type: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          event_id?: string
-          event_type?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
       payroll_periods: {
         Row: {
           approved_at: string | null
@@ -810,6 +1007,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
       }
       queue_ticket_seats: {
         Row: {
@@ -1090,32 +1311,96 @@ export type Database = {
       }
       shop_reviews: {
         Row: {
-          id: string
-          tenant_id: string
-          reviewer_name: string
-          rating: number
           comment: string | null
           created_at: string
+          id: string
+          rating: number
+          reviewer_name: string
+          tenant_id: string
         }
         Insert: {
-          id?: string
-          tenant_id: string
-          reviewer_name: string
-          rating: number
           comment?: string | null
           created_at?: string
+          id?: string
+          rating: number
+          reviewer_name: string
+          tenant_id: string
         }
         Update: {
-          id?: string
-          tenant_id?: string
-          reviewer_name?: string
-          rating?: number
           comment?: string | null
           created_at?: string
+          id?: string
+          rating?: number
+          reviewer_name?: string
+          tenant_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "shop_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_attendance: {
+        Row: {
+          branch_id: string | null
+          clock_in: string | null
+          clock_out: string | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          staff_id: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          clock_in?: string | null
+          clock_out?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          notes?: string | null
+          staff_id: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          clock_in?: string | null
+          clock_out?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          staff_id?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_attendance_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_attendance_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1171,70 +1456,6 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_commission_assignments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staff_attendance: {
-        Row: {
-          id: string
-          tenant_id: string
-          staff_id: string
-          branch_id: string | null
-          date: string
-          clock_in: string | null
-          clock_out: string | null
-          status: string
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          staff_id: string
-          branch_id?: string | null
-          date: string
-          clock_in?: string | null
-          clock_out?: string | null
-          status?: string
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          staff_id?: string
-          branch_id?: string | null
-          date?: string
-          clock_in?: string | null
-          clock_out?: string | null
-          status?: string
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_attendance_staff_id_fkey"
-            columns: ["staff_id"]
-            isOneToOne: false
-            referencedRelation: "staff_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_attendance_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_attendance_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1302,6 +1523,24 @@ export type Database = {
           },
         ]
       }
+      super_admins: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           contact_name: string | null
@@ -1345,25 +1584,25 @@ export type Database = {
       }
       tenant_images: {
         Row: {
-          id: string
-          tenant_id: string
-          storage_path: string
-          sort_order: number
           created_at: string
+          id: string
+          sort_order: number
+          storage_path: string
+          tenant_id: string
         }
         Insert: {
-          id?: string
-          tenant_id: string
-          storage_path: string
-          sort_order?: number
           created_at?: string
+          id?: string
+          sort_order?: number
+          storage_path: string
+          tenant_id: string
         }
         Update: {
-          id?: string
-          tenant_id?: string
-          storage_path?: string
-          sort_order?: number
           created_at?: string
+          id?: string
+          sort_order?: number
+          storage_path?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -1372,7 +1611,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       tenants: {
@@ -1390,6 +1629,7 @@ export type Database = {
           phone: string | null
           plan: string | null
           postcode: string | null
+          preferred_language: string
           registration_number: string | null
           slug: string
           state: string | null
@@ -1416,6 +1656,7 @@ export type Database = {
           phone?: string | null
           plan?: string | null
           postcode?: string | null
+          preferred_language?: string
           registration_number?: string | null
           slug: string
           state?: string | null
@@ -1442,6 +1683,7 @@ export type Database = {
           phone?: string | null
           plan?: string | null
           postcode?: string | null
+          preferred_language?: string
           registration_number?: string | null
           slug?: string
           state?: string | null
@@ -1548,6 +1790,7 @@ export type Database = {
           paid_at: string | null
           payment_method: string
           payment_status: string
+          proof_storage_path: string | null
           queue_ticket_id: string | null
           subtotal: number
           tax_amount: number
@@ -1565,6 +1808,7 @@ export type Database = {
           paid_at?: string | null
           payment_method: string
           payment_status?: string
+          proof_storage_path?: string | null
           queue_ticket_id?: string | null
           subtotal?: number
           tax_amount?: number
@@ -1582,6 +1826,7 @@ export type Database = {
           paid_at?: string | null
           payment_method?: string
           payment_status?: string
+          proof_storage_path?: string | null
           queue_ticket_id?: string | null
           subtotal?: number
           tax_amount?: number
@@ -1634,6 +1879,7 @@ export type Database = {
     Functions: {
       current_role: { Args: never; Returns: string }
       current_tenant_id: { Args: never; Returns: string }
+      get_admin_role: { Args: never; Returns: string }
       get_my_owned_tenant_ids: { Args: never; Returns: string[] }
       get_my_tenant_id: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
@@ -1643,7 +1889,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      admin_role: "super_admin" | "accounts" | "support" | "reports_viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1770,7 +2016,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      admin_role: ["super_admin", "accounts", "support", "reports_viewer"],
+    },
   },
 } as const
 

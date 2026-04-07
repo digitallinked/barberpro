@@ -1,7 +1,7 @@
 export { useSupabase } from "./use-supabase";
 export { useCustomers, useCustomerStats, useCustomerVisitStats } from "./use-customers";
 export { useStaffMembers, useStaffMember, useStaffStats } from "./use-staff";
-export { useBranches, useBranch } from "./use-branches";
+export { useBranches, useBranch, useBranchImages } from "./use-branches";
 export { useServices, useServiceCategories } from "./use-catalog";
 export { useQueueTickets, useQueueStats, useQueueBoard, useSeats } from "./use-queue";
 export { useTransactions, useDashboardStats, useDailyRevenue } from "./use-transactions";

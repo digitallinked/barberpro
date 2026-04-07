@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, CreditCard, Globe, Image, Save, Scale, Search, Shield } from "lucide-react";
+import { Building2, CreditCard, Globe, Image as ImageIcon, Loader2, Save, Scale, Search, Shield, Upload, X } from "lucide-react";
 import Link from "next/link";
 
 const SST_SETTINGS_KEY = "barberpro:sst";
@@ -27,10 +27,13 @@ function saveSstSettings(s: SstSettings) {
 }
 import { useTenant } from "@/components/tenant-provider";
 import { useTenantProfile } from "@/hooks";
+import { useSupabase } from "@/hooks";
 import { updateTenantProfile, changePassword, updatePreferredLanguage } from "@/actions/settings";
+import { saveTenantLogo, removeTenantLogo } from "@/actions/shop-media";
 import { useLanguage, useT } from "@/lib/i18n/language-context";
 import type { Language } from "@/lib/i18n/translations";
-import { SettingsMedia } from "@/components/settings-media";
+
+const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -69,16 +72,16 @@ function FormField({
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const tenant = useTenant();
+  const supabase = useSupabase();
   const { data: profileResult } = useTenantProfile();
   const t = useT();
   const { language, setLanguage } = useLanguage();
 
   const NAV_ITEMS = [
-    { id: "profile",    label: t.settings.businessProfile, icon: Building2 },
-    { id: "media",      label: "Shop Media",               icon: Image },
-    { id: "security",   label: t.settings.security,        icon: Shield },
-    { id: "preferences",label: t.settings.preferences,     icon: Globe },
-    { id: "tax",        label: "Tax & Compliance (MY)",    icon: Scale },
+    { id: "profile",    label: t.settings.businessProfile,     icon: Building2 },
+    { id: "security",   label: t.settings.security,            icon: Shield },
+    { id: "preferences",label: t.settings.preferences,         icon: Globe },
+    { id: "tax",        label: "Tax & Compliance (MY)",        icon: Scale },
     { id: "billing",    label: t.settings.subscriptionBilling, icon: CreditCard, href: "/settings/billing" as const },
   ];
 
@@ -91,6 +94,9 @@ export default function SettingsPage() {
   const [prefPending, setPrefPending] = useState(false);
   const [sstSettings, setSstSettings] = useState<SstSettings>({ registered: false, sstNumber: "", registeredSince: "", sstRateOverride: "8" });
   const [sstSaved, setSstSaved] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInputRef = useRef<React.ElementRef<"input">>(null);
 
   useEffect(() => { setSstSettings(loadSstSettings()); }, []);
 
@@ -126,6 +132,32 @@ export default function SettingsPage() {
     } else {
       setFormError(result.error ?? "Failed to change password");
     }
+  }
+
+  async function handleLogoUpload(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setLogoError("Only JPEG, PNG, WebP, or GIF images are allowed."); return;
+    }
+    if (file.size > 5 * 1024 * 1024) { setLogoError("Logo must be smaller than 5 MB."); return; }
+    setLogoError(null); setLogoUploading(true);
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const storagePath = `${tenant.tenantId}/logo/logo.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("shop-media")
+      .upload(storagePath, file, { upsert: true, contentType: file.type });
+    if (uploadError) { setLogoError(uploadError.message); setLogoUploading(false); return; }
+    const result = await saveTenantLogo(storagePath);
+    setLogoUploading(false);
+    if (!result.success) { setLogoError(result.error ?? "Failed to save logo"); return; }
+    queryClient.invalidateQueries({ queryKey: ["tenant-profile"] });
+  }
+
+  async function handleLogoRemove() {
+    setLogoError(null); setLogoUploading(true);
+    const result = await removeTenantLogo();
+    setLogoUploading(false);
+    if (!result.success) { setLogoError(result.error ?? "Failed to remove logo"); return; }
+    queryClient.invalidateQueries({ queryKey: ["tenant-profile"] });
   }
 
   async function handlePreferencesSave() {
@@ -294,10 +326,57 @@ export default function SettingsPage() {
                   />
                 </div>
               </form>
+
+              {/* Brand Logo */}
+              <div className="mt-6 border-t border-white/5 pt-6">
+                <p className="mb-1 text-sm font-semibold text-gray-300">Brand Logo</p>
+                <p className="mb-3 text-xs text-gray-500">Appears on the customer-facing shop page and search results. Use a square image for best results.</p>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#111]">
+                    {profile?.logo_url ? (
+                      <img src={`${STORAGE_URL}/${profile.logo_url}`} alt="Brand logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImageIcon className="h-7 w-7 text-gray-600" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleLogoUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={logoUploading}
+                      onClick={() => logoInputRef.current?.click()}
+                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+                    >
+                      {logoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {profile?.logo_url ? "Replace Logo" : "Upload Logo"}
+                    </button>
+                    {profile?.logo_url && (
+                      <button
+                        type="button"
+                        disabled={logoUploading}
+                        onClick={() => void handleLogoRemove()}
+                        className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-2 text-sm text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        <X className="h-4 w-4" /> Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {logoError && <p className="mt-2 text-sm text-red-400">{logoError}</p>}
+                <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 5 MB · recommended 400 × 400 px</p>
+              </div>
             </Card>
           )}
-
-          {activeSection === "media" && <SettingsMedia />}
 
           {activeSection === "security" && (
             <Card className="p-6">

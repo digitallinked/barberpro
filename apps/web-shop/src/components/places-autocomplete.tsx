@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader, importLibrary } from "@googlemaps/js-api-loader";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { MapPin, Loader2 } from "lucide-react";
 
 type Props = {
@@ -37,8 +37,8 @@ export function PlacesAutocomplete({
       return;
     }
 
-    // Loader v2: configure options, then use the standalone importLibrary function
-    new Loader({ apiKey: API_KEY, version: "weekly" });
+    // v3 functional API: configure once, then importLibrary
+    setOptions({ key: API_KEY, v: "weekly" });
 
     importLibrary("places").then((placesLib) => {
       if (!inputRef.current) return;

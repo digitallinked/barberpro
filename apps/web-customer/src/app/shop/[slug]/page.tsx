@@ -37,15 +37,16 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
 
   if (!tenant) notFound();
 
-  const tenantLogoUrl = tenant.logo_url ?? null;
+  // Prefer HQ branch logo; fall back to tenant brand logo
 
-  const [branchesResult, servicesResult, staffResult, queueResult, imagesResult, reviewsResult] =
+  const [branchesResult, servicesResult, staffResult, queueResult, branchImagesResult, tenantImagesResult, reviewsResult] =
     await Promise.all([
       supabase
         .from("branches")
-        .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue, checkin_token")
+        .select("id, name, address, logo_url, operating_hours, accepts_online_bookings, accepts_walkin_queue, checkin_token")
         .eq("tenant_id", tenant.id)
-        .eq("is_active", true),
+        .eq("is_active", true)
+        .order("is_hq", { ascending: false }),
       supabase
         .from("services")
         .select("id, name, is_active")
@@ -63,6 +64,11 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
         .eq("queue_day", shopCalendarDateString())
         .in("status", ["waiting", "in_service"]),
       supabase
+        .from("branch_images")
+        .select("storage_path, branch_id")
+        .eq("tenant_id", tenant.id)
+        .order("sort_order", { ascending: true }),
+      supabase
         .from("tenant_images")
         .select("storage_path")
         .eq("tenant_id", tenant.id)
@@ -79,10 +85,14 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const services = servicesResult.data ?? [];
   const staffCount = staffResult.data?.length ?? 0;
   const activeQueueCount = queueResult.count ?? 0;
-  const shopImageUrls = (imagesResult.data ?? []).map(
-    (img) => `${STORAGE_URL}/${img.storage_path}`
-  );
   const reviews = reviewsResult.data ?? [];
+
+  // Prefer branch_images (new); fall back to tenant_images (legacy) if no branch photos yet
+  const branchImagePaths = branchImagesResult.data ?? [];
+  const tenantImagePaths = tenantImagesResult.data ?? [];
+  const shopImageUrls = (
+    branchImagePaths.length > 0 ? branchImagePaths : tenantImagePaths
+  ).map((img) => `${STORAGE_URL}/${img.storage_path}`);
 
   // ── Check if current user has a completed visit at this shop ──────────────
   let isLoggedIn = false;
@@ -122,6 +132,11 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   }
 
   const primaryBranch = branches[0];
+  // HQ branch logo → tenant logo → null
+  const resolvedLogoUrl =
+    (primaryBranch as typeof primaryBranch & { logo_url?: string | null })?.logo_url ??
+    tenant.logo_url ??
+    null;
   const acceptsBookings = branches.some((b) => b.accepts_online_bookings);
   const acceptsWalkin = branches.some((b) => b.accepts_walkin_queue);
   // Use the first walk-in enabled branch's token for the Join Queue link
@@ -133,11 +148,25 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
 
   function getTodayHours(operatingHours: unknown): { label: string; closed: boolean } | null {
     if (!operatingHours || typeof operatingHours !== "object") return null;
-    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const today = days[new Date().getDay()]!;
-    const hours = (operatingHours as Record<string, { open?: string; close?: string; closed?: boolean }>)[today];
-    if (!hours || hours.closed) return { label: "Closed today", closed: true };
-    if (hours.open && hours.close) return { label: `${hours.open} – ${hours.close}`, closed: false };
+    const lowerDays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const capitalDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const idx = new Date().getDay();
+    const oh = operatingHours as Record<string, unknown>;
+    // Try lowercase key first (legacy format), then capitalized (new format from edit modal)
+    const entry = oh[lowerDays[idx]!] ?? oh[capitalDays[idx]!];
+    if (entry === undefined || entry === null) return null;
+    // Object format: { open: "09:00", close: "22:00", closed: false }
+    if (typeof entry === "object") {
+      const h = entry as { open?: string; close?: string; closed?: boolean };
+      if (h.closed) return { label: "Closed today", closed: true };
+      if (h.open && h.close) return { label: `${h.open} – ${h.close}`, closed: false };
+    }
+    // String format: "09:00 - 22:00" or "Closed"
+    if (typeof entry === "string") {
+      if (entry.toLowerCase() === "closed") return { label: "Closed today", closed: true };
+      const parts = entry.split(" - ");
+      if (parts.length >= 2) return { label: `${parts[0]} – ${parts[1]}`, closed: false };
+    }
     return null;
   }
 
@@ -163,9 +192,9 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               {/* Logo badge overlaid bottom-left of carousel */}
               <div className="absolute bottom-4 left-4 flex items-center gap-3">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/20 bg-black/60 shadow-lg backdrop-blur-sm">
-                  {tenantLogoUrl ? (
+                  {resolvedLogoUrl ? (
                     <img
-                      src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                      src={`${STORAGE_URL}/${resolvedLogoUrl}`}
                       alt={`${tenant.name} logo`}
                       className="h-full w-full object-cover"
                     />
@@ -189,9 +218,9 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 shadow-lg">
-                    {tenantLogoUrl ? (
+                    {resolvedLogoUrl ? (
                       <img
-                        src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                        src={`${STORAGE_URL}/${resolvedLogoUrl}`}
                         alt={`${tenant.name} logo`}
                         className="h-full w-full object-cover"
                       />
