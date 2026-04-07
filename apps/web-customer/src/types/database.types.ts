@@ -1088,6 +1088,41 @@ export type Database = {
           },
         ]
       }
+      shop_reviews: {
+        Row: {
+          id: string
+          tenant_id: string
+          reviewer_name: string
+          rating: number
+          comment: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          reviewer_name: string
+          rating: number
+          comment?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          reviewer_name?: string
+          rating?: number
+          comment?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_commission_assignments: {
         Row: {
           created_at: string
