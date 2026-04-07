@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Banknote,
   BarChart3,
   Bell,
@@ -349,6 +350,7 @@ function AppShellInner({ children }: AppShellProps) {
   let userRole = "owner";
   let branchName = "Main Branch";
   let branches: { id: string; name: string; is_hq: boolean }[] = [];
+  let subscriptionStatus: string | null = null;
 
   try {
     const tenant = useTenant();
@@ -356,9 +358,12 @@ function AppShellInner({ children }: AppShellProps) {
     userRole = tenant.userRole;
     branchName = tenant.branchName ?? "No Branch";
     branches = tenant.branches;
+    subscriptionStatus = tenant.subscriptionStatus ?? null;
   } catch {
     // TenantProvider not available (e.g. dev mode without Supabase)
   }
+
+  const isPaymentPastDue = subscriptionStatus === "past_due" || subscriptionStatus === "unpaid";
 
   const onNewWalkIn = () => {
     requestOpenNewWalkIn();
@@ -445,6 +450,24 @@ function AppShellInner({ children }: AppShellProps) {
             </button>
           </div>
         </header>
+
+        {isPaymentPastDue && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+              <p className="text-sm text-amber-300">
+                <span className="font-semibold">Payment failed.</span>{" "}
+                Please update your payment method to avoid service interruption.
+              </p>
+            </div>
+            <Link
+              href="/settings/billing"
+              className="shrink-0 rounded-md bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/30"
+            >
+              Update billing
+            </Link>
+          </div>
+        )}
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#111111] px-4 py-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
           {children}

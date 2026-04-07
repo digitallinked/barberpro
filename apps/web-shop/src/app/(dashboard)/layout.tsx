@@ -8,7 +8,7 @@ import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/queries";
 
-const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete_expired", "paused"];
+const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete", "incomplete_expired", "paused"];
 
 type DashboardLayoutProps = {
   children: ReactNode;

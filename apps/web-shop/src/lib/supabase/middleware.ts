@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import type { Database } from "@/types/database.types";
 
 const ACTIVE_STATUSES = ["trialing", "active", "past_due"];
-const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete_expired", "paused"];
+const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete", "incomplete_expired", "paused"];
 
 const TENANT_CACHE_COOKIE = "bp_tenant_state";
 const TENANT_CACHE_MAX_AGE = 60; // seconds — refresh from DB every 60s
@@ -142,6 +142,14 @@ export async function updateSession(request: NextRequest) {
     if (!tenantState || !tenantState.onboardingCompleted) {
       url.pathname = "/register";
       url.searchParams.set("step", tenantState ? "payment" : "onboarding");
+    } else if (
+      tenantState.subscriptionStatus === "incomplete" ||
+      tenantState.subscriptionStatus === "incomplete_expired"
+    ) {
+      // incomplete = Stripe checkout was not finished (e.g. 3DS required) → send back to payment step
+      // incomplete_expired = checkout window expired → same
+      url.pathname = "/register";
+      url.searchParams.set("step", "payment");
     } else if (
       tenantState.subscriptionStatus &&
       !ACTIVE_STATUSES.includes(tenantState.subscriptionStatus)

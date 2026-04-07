@@ -9,6 +9,7 @@ export type TenantContext = {
   tenantName: string;
   tenantSlug: string;
   tenantPlan: string;
+  subscriptionStatus: string | null;
   preferredLanguage: Language;
   userId: string;
   appUserId: string;
@@ -39,7 +40,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug, plan")
+    .select("id, name, slug, plan, subscription_status")
     .eq("id", appUser.tenant_id)
     .single();
 
@@ -71,6 +72,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
     tenantName: tenant.name,
     tenantSlug: tenant.slug,
     tenantPlan: tenant.plan ?? "starter",
+    subscriptionStatus: (tenant as Record<string, unknown>).subscription_status as string | null ?? null,
     preferredLanguage,
     userId: user.id,
     appUserId: appUser.id,
