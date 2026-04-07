@@ -29,7 +29,7 @@ import { useTenant } from "@/components/tenant-provider";
 import { useTenantProfile } from "@/hooks";
 import { useSupabase } from "@/hooks";
 import { updateTenantProfile, changePassword, updatePreferredLanguage } from "@/actions/settings";
-import { SHOP_MEDIA_MAX_FILE_BYTES, SHOP_MEDIA_MAX_FILE_LABEL, shopMediaObjectPublicUrl } from "@barberpro/db";
+import { SHOP_MEDIA_MAX_FILE_BYTES, SHOP_MEDIA_MAX_FILE_LABEL, shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 
 import { saveTenantLogo, removeTenantLogo } from "@/actions/shop-media";
 import { useLanguage, useT } from "@/lib/i18n/language-context";

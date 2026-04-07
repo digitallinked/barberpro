@@ -34,7 +34,7 @@ import {
   SHOP_MEDIA_MAX_FILE_BYTES,
   SHOP_MEDIA_MAX_FILE_LABEL,
   shopMediaObjectPublicUrl,
-} from "@barberpro/db";
+} from "@barberpro/db/shop-media";
 
 import { saveBranchLogo, removeBranchLogo, addBranchImage, deleteBranchImage } from "@/actions/branch-media";
 import { useSupabase } from "@/hooks";

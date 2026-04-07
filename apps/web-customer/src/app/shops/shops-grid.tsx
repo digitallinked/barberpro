@@ -14,7 +14,7 @@ import {
   Navigation,
   Loader2,
 } from "lucide-react";
-import { shopMediaDisplayUrl } from "@barberpro/db";
+import { shopMediaDisplayUrl } from "@barberpro/db/shop-media";
 
 const MALAYSIA_STATES = [
   "Johor",

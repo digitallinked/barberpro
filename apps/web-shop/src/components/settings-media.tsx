@@ -8,7 +8,7 @@ import {
   SHOP_MEDIA_MAX_FILE_BYTES,
   SHOP_MEDIA_MAX_FILE_LABEL,
   shopMediaObjectPublicUrl,
-} from "@barberpro/db";
+} from "@barberpro/db/shop-media";
 
 import { useTenant } from "@/components/tenant-provider";
 import { useTenantProfile, useTenantImages } from "@/hooks";

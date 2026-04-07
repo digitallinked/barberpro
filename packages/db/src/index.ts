@@ -8,11 +8,3 @@ export {
   type BranchPickRow,
 } from "./branch-resolution";
 export type { SupabaseConfig } from "./types";
-export {
-  SHOP_MEDIA_BUCKET,
-  SHOP_MEDIA_MAX_FILE_BYTES,
-  SHOP_MEDIA_MAX_FILE_LABEL,
-  shopMediaObjectPublicUrl,
-  shopMediaDisplayUrl,
-  type ShopMediaTransformOptions,
-} from "./shop-media";

@@ -4,7 +4,7 @@ import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { shopMediaObjectPublicUrl } from "@barberpro/db";
+import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 
 import { useBranches } from "@/hooks";
 import { createBranch } from "@/actions/branches";

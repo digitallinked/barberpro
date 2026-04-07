@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { shopMediaDisplayUrl } from "@barberpro/db";
+import { shopMediaDisplayUrl } from "@barberpro/db/shop-media";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";

@@ -10,7 +10,8 @@
     "./server": "./src/server.ts",
     "./admin": "./src/admin.ts",
     "./middleware": "./src/middleware.ts",
-    "./branch-resolution": "./src/branch-resolution.ts"
+    "./branch-resolution": "./src/branch-resolution.ts",
+    "./shop-media": "./src/shop-media.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
