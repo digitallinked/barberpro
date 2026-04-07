@@ -21,7 +21,7 @@ export default async function ShopsPage() {
     name: t.name,
     slug: t.slug,
     logo_url: t.logo_url ?? null,
-    branches: ((t.branches ?? []) as {
+    branches: ((t.branches ?? []) as unknown as {
       id: string;
       name: string;
       address: string | null;
