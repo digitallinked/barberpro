@@ -300,8 +300,9 @@ export async function POST(request: Request) {
         const info = await getSubscriberEmailInfo(supabase, subscription);
         if (info) {
           const plan = inferPlanLabel(subscription);
-          const accessUntil = subscription.current_period_end
-            ? formatDate(subscription.current_period_end)
+          const subAny = subscription as unknown as { current_period_end?: number };
+          const accessUntil = subAny.current_period_end
+            ? formatDate(subAny.current_period_end)
             : "immediately";
 
           const tpl = subscriptionCancelledEmail({
@@ -341,12 +342,13 @@ export async function POST(request: Request) {
         const info = await getSubscriberEmailInfo(supabase, subscription);
         if (info) {
           const plan = inferPlanLabel(subscription);
+          const subAny = subscription as unknown as { current_period_end?: number };
           const tpl = subscriptionRenewedEmail({
             ownerName: info.ownerName,
             shopName: info.shopName,
             plan,
             amountPaid: formatMyr(invoice.amount_paid),
-            nextBillingDate: formatDate(subscription.current_period_end),
+            nextBillingDate: formatDate(subAny.current_period_end),
             invoiceUrl: (invoice as Stripe.Invoice & { hosted_invoice_url?: string | null }).hosted_invoice_url ?? undefined,
             billingUrl: billingUrl(),
           });
