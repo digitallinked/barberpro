@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 };
 
 const EFFECTIVE_DATE = "6 April 2026";
-const COMPANY_NAME = "NEWY ENTERPRISE";
-const COMPANY_REG = "202403063508 (003583055-X)";
+const COMPANY_NAME = "BARBERPRO TECHNOLOGIES";
+const COMPANY_REG = "202603081534 (NS0320892-W)";
 const COMPANY_ADDRESS =
-  "Level 12, Menara XYZ, Jalan Ampang, 50450 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia";
+  "No. 23, Jalan 2/2, Bandar Baru Bangi, 43650 Bandar Baru Bangi, Selangor, Malaysia";
 const CONTACT_EMAIL = "privacy@barberpro.my";
 const DPO_EMAIL = "dpo@barberpro.my";
 

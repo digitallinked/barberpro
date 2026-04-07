@@ -45,9 +45,9 @@ const contactChannels = [
 
 const offices = [
   {
-    city: "Kuala Lumpur (HQ)",
-    address: "Level 12, Menara XYZ, Jalan Ampang, 50450 Kuala Lumpur, Wilayah Persekutuan",
-    mapQuery: "Menara+XYZ+Jalan+Ampang+Kuala+Lumpur"
+    city: "Bandar Baru Bangi, Selangor",
+    address: "No. 23, Jalan 2/2, Bandar Baru Bangi, 43650 Bandar Baru Bangi, Selangor",
+    mapQuery: "No+23+Jalan+2%2F2+Bandar+Baru+Bangi+43650"
   }
 ];
 
