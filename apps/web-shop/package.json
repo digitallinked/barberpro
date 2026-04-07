@@ -12,9 +12,10 @@
   "dependencies": {
     "@barberpro/auth": "workspace:*",
     "@barberpro/db": "workspace:*",
-    "@barberpro/types": "workspace:*",
     "@barberpro/env": "workspace:*",
+    "@barberpro/types": "workspace:*",
     "@barberpro/ui": "workspace:*",
+    "@googlemaps/js-api-loader": "^2.0.2",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@stripe/stripe-js": "^8.9.0",

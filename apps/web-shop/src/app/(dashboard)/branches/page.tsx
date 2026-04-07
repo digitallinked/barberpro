@@ -9,6 +9,7 @@ import { useBranches } from "@/hooks";
 import { createBranch } from "@/actions/branches";
 import { useTenant } from "@/components/tenant-provider";
 import { useT } from "@/lib/i18n/language-context";
+import { PlacesAutocomplete } from "@/components/places-autocomplete";
 
 export default function BranchesPage() {
   const t = useT();
@@ -251,11 +252,9 @@ export default function BranchesPage() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Address</label>
-                <textarea
-                  name="address"
-                  rows={2}
+                <PlacesAutocomplete
+                  placeholder="Search address…"
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  placeholder="Full address"
                 />
               </div>
               <div className="flex gap-3 pt-2">

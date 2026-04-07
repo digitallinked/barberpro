@@ -16,6 +16,10 @@ export async function createBranch(formData: FormData) {
     const address = (formData.get("address") as string) || null;
     const operating_hours = formData.get("operating_hours");
     const is_hq = formData.get("is_hq") === "true" || formData.get("is_hq") === "1";
+    const latRaw = formData.get("latitude") as string | null;
+    const lngRaw = formData.get("longitude") as string | null;
+    const latitude = latRaw ? parseFloat(latRaw) : null;
+    const longitude = lngRaw ? parseFloat(lngRaw) : null;
 
     if (!name || !code) {
       return { success: false, error: "Name and code are required" };
@@ -35,6 +39,8 @@ export async function createBranch(formData: FormData) {
       operating_hours: hours,
       is_hq,
       checkin_token: randomUUID(),
+      latitude,
+      longitude,
     });
 
     if (error) return { success: false, error: error.message };
@@ -57,6 +63,10 @@ export async function updateBranch(id: string, formData: FormData) {
     const address = (formData.get("address") as string) || null;
     const operating_hours = formData.get("operating_hours");
     const is_hq = formData.get("is_hq") === "true" || formData.get("is_hq") === "1";
+    const latRaw = formData.get("latitude") as string | null;
+    const lngRaw = formData.get("longitude") as string | null;
+    const latitude = latRaw ? parseFloat(latRaw) : null;
+    const longitude = lngRaw ? parseFloat(lngRaw) : null;
 
     if (!name || !code) {
       return { success: false, error: "Name and code are required" };
@@ -70,6 +80,8 @@ export async function updateBranch(id: string, formData: FormData) {
       address: address || null,
       is_hq,
       updated_at: new Date().toISOString(),
+      ...(latRaw !== null && { latitude }),
+      ...(lngRaw !== null && { longitude }),
     };
 
     if (operating_hours !== undefined && operating_hours !== null) {

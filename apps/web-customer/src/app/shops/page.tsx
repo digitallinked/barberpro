@@ -11,7 +11,7 @@ export default async function ShopsPage() {
 
   const { data: tenants } = await supabase
     .from("tenants")
-    .select("id, name, slug, logo_url, created_at, branches(id, name, address)")
+    .select("id, name, slug, logo_url, created_at, branches(id, name, address, latitude, longitude)")
     .eq("status", "active")
     .in("subscription_status", ["active", "trialing"])
     .order("name");
@@ -21,8 +21,20 @@ export default async function ShopsPage() {
     name: t.name,
     slug: t.slug,
     logo_url: t.logo_url ?? null,
-    branches: ((t.branches ?? []) as { id: string; name: string; address: string | null }[]),
+    branches: ((t.branches ?? []) as {
+      id: string;
+      name: string;
+      address: string | null;
+      latitude: number | null;
+      longitude: number | null;
+    }[]),
   }));
+
+  // Count individual branch locations (each branch = one card in the grid)
+  const locationCount = shops.reduce(
+    (sum, s) => sum + Math.max(s.branches.length, 1),
+    0
+  );
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -30,7 +42,7 @@ export default async function ShopsPage() {
 
       <main className="flex-1 px-6 py-12">
         <div className="mx-auto max-w-6xl">
-          <ShopsHeader count={shops.length} />
+          <ShopsHeader count={locationCount} />
 
           <ShopsGrid shops={shops} />
         </div>
