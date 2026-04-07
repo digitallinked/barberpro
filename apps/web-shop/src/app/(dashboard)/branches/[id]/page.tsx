@@ -30,15 +30,20 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { useBranch, useBranchImages, useStaffMembers } from "@/hooks";
 import { updateBranch, updateBranchMode, deleteBranch } from "@/actions/branches";
+import {
+  SHOP_MEDIA_MAX_FILE_BYTES,
+  SHOP_MEDIA_MAX_FILE_LABEL,
+  shopMediaObjectPublicUrl,
+} from "@barberpro/db";
+
 import { saveBranchLogo, removeBranchLogo, addBranchImage, deleteBranchImage } from "@/actions/branch-media";
 import { useSupabase } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import type { BranchImage } from "@/services/branches";
 
-const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 function publicUrl(storagePath: string) {
-  return `${STORAGE_URL}/${storagePath}`;
+  return shopMediaObjectPublicUrl(storagePath);
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
@@ -205,7 +210,10 @@ export default function BranchDetailPage() {
     if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
       setLogoError("Only JPEG, PNG, WebP, or GIF images are allowed."); return;
     }
-    if (file.size > 5 * 1024 * 1024) { setLogoError("Logo must be smaller than 5 MB."); return; }
+    if (file.size > SHOP_MEDIA_MAX_FILE_BYTES) {
+      setLogoError(`Logo must be smaller than ${SHOP_MEDIA_MAX_FILE_LABEL}.`);
+      return;
+    }
 
     setLogoError(null); setLogoUploading(true);
     const ext = file.name.split(".").pop() ?? "jpg";
@@ -239,8 +247,11 @@ export default function BranchDetailPage() {
       (f) => !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(f.type)
     );
     if (invalid) { setImageError("Only JPEG, PNG, WebP, or GIF images are allowed."); return; }
-    const tooBig = Array.from(files).find((f) => f.size > 5 * 1024 * 1024);
-    if (tooBig) { setImageError("Each image must be smaller than 5 MB."); return; }
+    const tooBig = Array.from(files).find((f) => f.size > SHOP_MEDIA_MAX_FILE_BYTES);
+    if (tooBig) {
+      setImageError(`Each image must be smaller than ${SHOP_MEDIA_MAX_FILE_LABEL}.`);
+      return;
+    }
 
     setImageError(null); setImageUploading(true);
     const nextOrder = images.length;
@@ -431,7 +442,7 @@ export default function BranchDetailPage() {
             </div>
           </div>
           {logoError && <p className="mt-2 text-sm text-red-400">{logoError}</p>}
-          <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 5 MB · recommended 400 × 400 px</p>
+          <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max {SHOP_MEDIA_MAX_FILE_LABEL} · recommended 400 × 400 px</p>
         </div>
 
         {/* Gallery */}
@@ -535,7 +546,7 @@ export default function BranchDetailPage() {
               )}
             </div>
           )}
-          <p className="mt-3 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 5 MB per image</p>
+          <p className="mt-3 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max {SHOP_MEDIA_MAX_FILE_LABEL} per image</p>
         </div>
       </div>
 

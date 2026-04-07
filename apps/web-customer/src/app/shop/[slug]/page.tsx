@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 
 
+import { shopMediaDisplayUrl } from "@barberpro/db";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { shopCalendarDateString } from "@/lib/shop-day";
@@ -13,8 +15,6 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ShopImageCarousel } from "@/components/shop-image-carousel";
 import { ReviewsSection } from "@/components/reviews-section";
-
-const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 
 export const revalidate = 60;
 
@@ -92,7 +92,9 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
   const tenantImagePaths = tenantImagesResult.data ?? [];
   const shopImageUrls = (
     branchImagePaths.length > 0 ? branchImagePaths : tenantImagePaths
-  ).map((img) => `${STORAGE_URL}/${img.storage_path}`);
+  ).map((img) =>
+    shopMediaDisplayUrl(img.storage_path, { width: 1600, quality: 88 })
+  );
 
   // ── Check if current user has a completed visit at this shop ──────────────
   let isLoggedIn = false;
@@ -198,7 +200,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
               <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card shadow-md sm:h-28 sm:w-28">
                 {resolvedLogoUrl ? (
                   <img
-                    src={`${STORAGE_URL}/${resolvedLogoUrl}`}
+                    src={shopMediaDisplayUrl(resolvedLogoUrl, { width: 384, quality: 90 })}
                     alt={`${tenant.name} logo`}
                     className="max-h-full max-w-full object-contain p-2"
                   />

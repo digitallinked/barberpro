@@ -29,11 +29,11 @@ import { useTenant } from "@/components/tenant-provider";
 import { useTenantProfile } from "@/hooks";
 import { useSupabase } from "@/hooks";
 import { updateTenantProfile, changePassword, updatePreferredLanguage } from "@/actions/settings";
+import { SHOP_MEDIA_MAX_FILE_BYTES, SHOP_MEDIA_MAX_FILE_LABEL, shopMediaObjectPublicUrl } from "@barberpro/db";
+
 import { saveTenantLogo, removeTenantLogo } from "@/actions/shop-media";
 import { useLanguage, useT } from "@/lib/i18n/language-context";
 import type { Language } from "@/lib/i18n/translations";
-
-const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -138,7 +138,10 @@ export default function SettingsPage() {
     if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
       setLogoError("Only JPEG, PNG, WebP, or GIF images are allowed."); return;
     }
-    if (file.size > 5 * 1024 * 1024) { setLogoError("Logo must be smaller than 5 MB."); return; }
+    if (file.size > SHOP_MEDIA_MAX_FILE_BYTES) {
+      setLogoError(`Logo must be smaller than ${SHOP_MEDIA_MAX_FILE_LABEL}.`);
+      return;
+    }
     setLogoError(null); setLogoUploading(true);
     const ext = file.name.split(".").pop() ?? "jpg";
     const storagePath = `${tenant.tenantId}/logo/logo.${ext}`;
@@ -334,7 +337,7 @@ export default function SettingsPage() {
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#111]">
                     {profile?.logo_url ? (
-                      <img src={`${STORAGE_URL}/${profile.logo_url}`} alt="Brand logo" className="h-full w-full object-cover" />
+                      <img src={shopMediaObjectPublicUrl(profile.logo_url)} alt="Brand logo" className="h-full w-full object-cover" />
                     ) : (
                       <ImageIcon className="h-7 w-7 text-gray-600" />
                     )}
@@ -373,7 +376,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 {logoError && <p className="mt-2 text-sm text-red-400">{logoError}</p>}
-                <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 5 MB · recommended 400 × 400 px</p>
+                <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max {SHOP_MEDIA_MAX_FILE_LABEL} · recommended 400 × 400 px</p>
               </div>
             </Card>
           )}

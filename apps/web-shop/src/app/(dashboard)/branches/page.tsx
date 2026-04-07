@@ -3,9 +3,8 @@
 import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-
-const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 import { useQueryClient } from "@tanstack/react-query";
+import { shopMediaObjectPublicUrl } from "@barberpro/db";
 
 import { useBranches } from "@/hooks";
 import { createBranch } from "@/actions/branches";
@@ -125,8 +124,11 @@ export default function BranchesPage() {
               >
                 <div className="flex items-start gap-3 mb-4">
                   {logoUrl ? (
-                    <img src={`${STORAGE_URL}/${logoUrl}`}
-                      alt={b.name} className="h-12 w-12 shrink-0 rounded-lg object-cover border border-white/10" />
+                    <img
+                      src={shopMediaObjectPublicUrl(logoUrl)}
+                      alt={b.name}
+                      className="h-12 w-12 shrink-0 rounded-lg border border-white/10 object-cover"
+                    />
                   ) : (
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#D4AF37]/10">
                       <Store className="h-6 w-6 text-[#D4AF37]" />

@@ -14,9 +14,7 @@ import {
   Navigation,
   Loader2,
 } from "lucide-react";
-
-const STORAGE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
+import { shopMediaDisplayUrl } from "@barberpro/db";
 
 const MALAYSIA_STATES = [
   "Johor",
@@ -338,7 +336,7 @@ export function ShopsGrid({ shops }: Props) {
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {paginated.map((card) => {
           const logoSrc = card.logoUrl
-            ? `${STORAGE_URL}/${card.logoUrl}`
+            ? shopMediaDisplayUrl(card.logoUrl, { width: 240, quality: 85 })
             : null;
           const stateLabel = getStateFromAddress(card.branchAddress);
           const distance =

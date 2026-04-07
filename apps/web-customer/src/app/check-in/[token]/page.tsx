@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { shopMediaDisplayUrl } from "@barberpro/db";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 import { CheckInForm } from "./check-in-form";
-
-const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 
 const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -38,7 +38,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
     const tenantLogoUrl = tenantRaw?.logo_url ?? null;
     const shopImageUrls = (tenantRaw?.tenant_images ?? [])
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((img) => `${STORAGE_URL}/${img.storage_path}`);
+      .map((img) => shopMediaDisplayUrl(img.storage_path, { width: 960, quality: 85 }));
 
     // Branch has disabled walk-in queue
     if (!data.accepts_walkin_queue) {
@@ -48,7 +48,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
             <div className="mb-4 inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-amber-500/10">
               {tenantLogoUrl ? (
                 <img
-                  src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                  src={shopMediaDisplayUrl(tenantLogoUrl, { width: 256, quality: 90 })}
                   alt="Shop logo"
                   className="h-full w-full object-cover"
                 />
@@ -138,7 +138,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ token:
           <div className="mx-auto mb-6 flex max-w-sm justify-center">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5">
               <img
-                src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                src={shopMediaDisplayUrl(tenantLogoUrl, { width: 256, quality: 90 })}
                 alt={`${data.name} logo`}
                 className="h-full w-full object-cover"
               />

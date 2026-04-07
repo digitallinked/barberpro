@@ -4,16 +4,20 @@ import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image as ImageIcon, Loader2, Plus, Trash2, Upload, X } from "lucide-react";
 
+import {
+  SHOP_MEDIA_MAX_FILE_BYTES,
+  SHOP_MEDIA_MAX_FILE_LABEL,
+  shopMediaObjectPublicUrl,
+} from "@barberpro/db";
+
 import { useTenant } from "@/components/tenant-provider";
 import { useTenantProfile, useTenantImages } from "@/hooks";
 import { useSupabase } from "@/hooks";
 import { saveTenantLogo, removeTenantLogo, addTenantImage, deleteTenantImage } from "@/actions/shop-media";
 import type { TenantImage } from "@/services/tenants";
 
-const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
-
 function publicUrl(storagePath: string) {
-  return `${STORAGE_URL}/${storagePath}`;
+  return shopMediaObjectPublicUrl(storagePath);
 }
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -45,8 +49,8 @@ export function SettingsMedia() {
       setLogoError("Only JPEG, PNG, WebP, or GIF images are allowed.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setLogoError("Logo must be smaller than 5 MB.");
+    if (file.size > SHOP_MEDIA_MAX_FILE_BYTES) {
+      setLogoError(`Logo must be smaller than ${SHOP_MEDIA_MAX_FILE_LABEL}.`);
       return;
     }
 
@@ -99,9 +103,9 @@ export function SettingsMedia() {
       setImageError("Only JPEG, PNG, WebP, or GIF images are allowed.");
       return;
     }
-    const tooBig = Array.from(files).find((f) => f.size > 5 * 1024 * 1024);
+    const tooBig = Array.from(files).find((f) => f.size > SHOP_MEDIA_MAX_FILE_BYTES);
     if (tooBig) {
-      setImageError("Each image must be smaller than 5 MB.");
+      setImageError(`Each image must be smaller than ${SHOP_MEDIA_MAX_FILE_LABEL}.`);
       return;
     }
 
@@ -218,7 +222,7 @@ export function SettingsMedia() {
         {logoError && (
           <p className="mt-2 text-sm text-red-400">{logoError}</p>
         )}
-        <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 5 MB · recommended 400 × 400 px</p>
+        <p className="mt-2 text-xs text-gray-600">JPEG, PNG, WebP or GIF · max {SHOP_MEDIA_MAX_FILE_LABEL} · recommended 400 × 400 px</p>
       </div>
 
       {/* Gallery Images */}
@@ -323,7 +327,7 @@ export function SettingsMedia() {
         )}
 
         <p className="mt-3 text-xs text-gray-600">
-          JPEG, PNG, WebP or GIF · max 5 MB per image · up to 10 photos
+          JPEG, PNG, WebP or GIF · max {SHOP_MEDIA_MAX_FILE_LABEL} per image · up to 10 photos
         </p>
       </div>
     </Card>
