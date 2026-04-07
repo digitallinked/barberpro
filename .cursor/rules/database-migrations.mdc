@@ -130,15 +130,40 @@ Current tables with Realtime enabled:
 - `queue_ticket_seats`
 - `branch_seats`
 
-## After Every Migration
+## After Every Migration — MANDATORY STEPS
 
-```bash
-# Apply to local Supabase
-supabase db push
+**This must be done after EVERY migration, without exception. Skipping causes build failures on Vercel.**
 
-# Regenerate TypeScript types
-supabase gen types typescript --local > apps/web-shop/src/types/database.types.ts
+### 1. Apply migration to DB
+Use `apply_migration` MCP tool (preferred) or Supabase CLI.
+
+### 2. Regenerate TypeScript types from live DB
+Use `generate_typescript_types` MCP tool and write to BOTH apps:
+
+```typescript
+// Use MCP:
+CallMcpTool({ server: "project-0-barberpro-supabase", toolName: "generate_typescript_types", arguments: { project_id: "fhhrckbsxiupwzgmbarz" } })
+// Then write the result to:
+//   apps/web-shop/src/types/database.types.ts
+//   apps/web-customer/src/types/database.types.ts
+//   apps/web-admin/src/types/database.types.ts  (if affected)
 ```
+
+### 3. Run TypeScript check before committing
+```bash
+pnpm --filter @barberpro/web-shop exec tsc --noEmit
+pnpm --filter @barberpro/web-customer exec tsc --noEmit
+```
+
+**Never manually edit `database.types.ts`** — it is fully generated. Any manual edit will be overwritten and can mask schema drift.
+
+### Why this matters
+The build has broken multiple times because:
+- Code referenced a table/column that didn't exist in DB (`processed_webhook_events`, `branch_images`, `logo_url`)
+- The old types file was a corrupted binary that masked type errors locally
+- Types were regenerated without first applying the migration
+
+**Rule: write migration → apply to DB → regenerate types → run tsc → commit. In that order, every time.**
 
 ## Common Patterns
 
