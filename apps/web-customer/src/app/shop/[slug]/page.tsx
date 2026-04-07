@@ -1,11 +1,18 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Clock, MapPin, Users, Scissors, CalendarCheck, CheckCircle2, ArrowRight, Hash, Ban, Navigation } from "lucide-react";
+import {
+  Clock, MapPin, Scissors, CalendarCheck, CheckCircle2,
+  Hash, Ban, Navigation, Users, Sparkles, QrCode,
+} from "lucide-react";
+
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { shopCalendarDateString } from "@/lib/shop-day";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ShopImageCarousel } from "@/components/shop-image-carousel";
+import { ReviewsSection } from "@/components/reviews-section";
 
 const STORAGE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL + "/storage/v1/object/public/shop-media";
 
@@ -32,162 +39,242 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
 
   const tenantLogoUrl = tenant.logo_url ?? null;
 
-  const [branchesResult, servicesResult, staffResult, queueResult, imagesResult] = await Promise.all([
-    supabase
-      .from("branches")
-      .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue")
-      .eq("tenant_id", tenant.id)
-      .eq("is_active", true),
-    supabase
-      .from("services")
-      .select("id, name, price, duration_min, is_active")
-      .eq("tenant_id", tenant.id)
-      .eq("is_active", true)
-      .order("name"),
-    supabase
-      .from("staff_profiles")
-      .select("id, user_id, app_users(full_name)")
-      .eq("tenant_id", tenant.id),
-    supabase
-      .from("queue_tickets")
-      .select("id, status, branch_id", { count: "exact", head: false })
-      .eq("tenant_id", tenant.id)
-      .in("status", ["waiting", "in_service"])
-      .limit(1),
-    supabase
-      .from("tenant_images")
-      .select("storage_path")
-      .eq("tenant_id", tenant.id)
-      .order("sort_order", { ascending: true }),
-  ]);
+  const [branchesResult, servicesResult, staffResult, queueResult, imagesResult, reviewsResult] =
+    await Promise.all([
+      supabase
+        .from("branches")
+        .select("id, name, address, operating_hours, accepts_online_bookings, accepts_walkin_queue, checkin_token")
+        .eq("tenant_id", tenant.id)
+        .eq("is_active", true),
+      supabase
+        .from("services")
+        .select("id, name, is_active")
+        .eq("tenant_id", tenant.id)
+        .eq("is_active", true)
+        .order("name"),
+      supabase
+        .from("staff_profiles")
+        .select("id")
+        .eq("tenant_id", tenant.id),
+      supabase
+        .from("queue_tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenant.id)
+        .eq("queue_day", shopCalendarDateString())
+        .in("status", ["waiting", "in_service"]),
+      supabase
+        .from("tenant_images")
+        .select("storage_path")
+        .eq("tenant_id", tenant.id)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("shop_reviews")
+        .select("id, reviewer_name, rating, comment, created_at")
+        .eq("tenant_id", tenant.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
 
   const branches = branchesResult.data ?? [];
   const services = servicesResult.data ?? [];
-  const staff = staffResult.data ?? [];
+  const staffCount = staffResult.data?.length ?? 0;
   const activeQueueCount = queueResult.count ?? 0;
   const shopImageUrls = (imagesResult.data ?? []).map(
     (img) => `${STORAGE_URL}/${img.storage_path}`
   );
+  const reviews = reviewsResult.data ?? [];
 
-  // Determine shop-level mode from primary branch
+  // ── Check if current user has a completed visit at this shop ──────────────
+  let isLoggedIn = false;
+  let canReview = false;
+  try {
+    const sessionClient = await createClient();
+    const { data: { user } } = await sessionClient.auth.getUser();
+    if (user?.email) {
+      isLoggedIn = true;
+      const { data: customerRows } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("tenant_id", tenant.id)
+        .eq("phone", user.email);
+
+      const customerIds = (customerRows ?? []).map((c) => c.id);
+      if (customerIds.length > 0) {
+        const { count: queueCount } = await supabase
+          .from("queue_tickets")
+          .select("id", { count: "exact", head: true })
+          .in("customer_id", customerIds)
+          .in("status", ["done", "paid"]);
+        if ((queueCount ?? 0) > 0) canReview = true;
+
+        if (!canReview) {
+          const { count: apptCount } = await supabase
+            .from("appointments")
+            .select("id", { count: "exact", head: true })
+            .in("customer_id", customerIds)
+            .eq("status", "completed");
+          if ((apptCount ?? 0) > 0) canReview = true;
+        }
+      }
+    }
+  } catch {
+    // Non-critical — treat as unauthenticated
+  }
+
   const primaryBranch = branches[0];
   const acceptsBookings = branches.some((b) => b.accepts_online_bookings);
   const acceptsWalkin = branches.some((b) => b.accepts_walkin_queue);
+  // Use the first walk-in enabled branch's token for the Join Queue link
 
-  // Build a Google Maps directions URL from address text
   function getMapsUrl(address: string | null): string | null {
     if (!address) return null;
     return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
   }
 
-  // Determine if shop is open today based on operating_hours
-  function getTodayHours(operatingHours: unknown): string | null {
+  function getTodayHours(operatingHours: unknown): { label: string; closed: boolean } | null {
     if (!operatingHours || typeof operatingHours !== "object") return null;
     const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const today = days[new Date().getDay()]!;
     const hours = (operatingHours as Record<string, { open?: string; close?: string; closed?: boolean }>)[today];
-    if (!hours || hours.closed) return "Closed today";
-    if (hours.open && hours.close) return `${hours.open} – ${hours.close}`;
+    if (!hours || hours.closed) return { label: "Closed today", closed: true };
+    if (hours.open && hours.close) return { label: `${hours.open} – ${hours.close}`, closed: false };
     return null;
   }
+
+  const todayHours = primaryBranch ? getTodayHours(primaryBranch.operating_hours) : null;
+  const primaryAddress = primaryBranch?.address ?? null;
+  const mapsUrl = getMapsUrl(primaryAddress);
+
+  const avgRating =
+    reviews.length > 0
+      ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+      : null;
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="flex-1 px-6 py-10">
-        <div className="mx-auto max-w-4xl">
-          {/* Booking success banner */}
-          {booked === "true" && (
-            <div className="mb-8 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 p-4">
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
-              <div>
-                <p className="font-medium text-primary">Booking Confirmed!</p>
-                <p className="text-sm text-muted-foreground">
-                  Your appointment at {tenant.name} has been booked. Check your profile for details.
-                </p>
-              </div>
-              <Link href="/profile" className="ml-auto shrink-0 text-sm text-primary hover:underline">
-                View →
-              </Link>
-            </div>
-          )}
-
-          {/* Image carousel */}
-          {shopImageUrls.length > 0 && (
-            <div className="mb-8">
+      <main className="flex-1">
+        {/* ── Hero: full-bleed carousel with logo overlay ── */}
+        <div className="relative">
+          {shopImageUrls.length > 0 ? (
+            <>
               <ShopImageCarousel images={shopImageUrls} shopName={tenant.name} />
-            </div>
-          )}
-
-          {/* Shop header */}
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="mb-3 flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
-                {tenantLogoUrl ? (
-                  <img
-                    src={`${STORAGE_URL}/${tenantLogoUrl}`}
-                    alt={`${tenant.name} logo`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Scissors className="h-7 w-7 text-primary" />
-                )}
+              {/* Logo badge overlaid bottom-left of carousel */}
+              <div className="absolute bottom-4 left-4 flex items-center gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-white/20 bg-black/60 shadow-lg backdrop-blur-sm">
+                  {tenantLogoUrl ? (
+                    <img
+                      src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                      alt={`${tenant.name} logo`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Scissors className="h-7 w-7 text-primary" />
+                  )}
+                </div>
+                <div className="rounded-xl bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+                  <p className="text-sm font-bold text-white">{tenant.name}</p>
+                  {todayHours && (
+                    <p className={`text-[11px] font-medium ${todayHours.closed ? "text-red-400" : "text-emerald-400"}`}>
+                      {todayHours.label}
+                    </p>
+                  )}
+                </div>
               </div>
-              <h1 className="text-3xl font-bold">{tenant.name}</h1>
-
-              {branches.length > 0 && (() => {
-                const b0 = branches[0];
-                const mapsUrl = b0 ? getMapsUrl(b0.address) : null;
-                return (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <MapPin className="h-4 w-4 shrink-0" />
-                      <span>{b0?.address || "—"}</span>
-                    </span>
-                    {mapsUrl && (
-                      <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-                      >
-                        <Navigation className="h-3 w-3" />
-                        Get Directions
-                      </a>
+            </>
+          ) : (
+            /* No images — show a gradient placeholder with logo */
+            <div className="relative h-40 bg-gradient-to-br from-primary/20 via-primary/5 to-background sm:h-52">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 shadow-lg">
+                    {tenantLogoUrl ? (
+                      <img
+                        src={`${STORAGE_URL}/${tenantLogoUrl}`}
+                        alt={`${tenant.name} logo`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Scissors className="h-9 w-9 text-primary" />
                     )}
                   </div>
-                );
-              })()}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-              <div className="mt-3 flex flex-wrap gap-4 text-sm text-muted-foreground">
+        <div className="px-4 pb-16 sm:px-6">
+          <div className="mx-auto max-w-3xl">
+
+            {/* ── Booking success banner ── */}
+            {booked === "true" && (
+              <div className="mt-5 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 p-4">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <p className="font-medium text-primary">Booking Confirmed!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your appointment at {tenant.name} has been booked.
+                  </p>
+                </div>
+                <Link href="/profile" className="ml-auto shrink-0 text-sm text-primary hover:underline">
+                  View →
+                </Link>
+              </div>
+            )}
+
+            {/* ── Shop title + meta ── */}
+            <div className="mt-6">
+              <h1 className="text-2xl font-bold sm:text-3xl">{tenant.name}</h1>
+
+              {/* Address */}
+              {primaryAddress && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 shrink-0" />
+                    {primaryAddress}
+                  </span>
+                  {mapsUrl && (
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      Directions
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Stats row */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+                {staffCount > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-4 w-4" /> {staffCount} barber{staffCount !== 1 ? "s" : ""}
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5">
-                  <Users className="h-4 w-4" /> {staff.length} barbers
+                  <Sparkles className="h-4 w-4" /> {services.length} service{services.length !== 1 ? "s" : ""}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" /> {services.length} services
-                </span>
-                {primaryBranch && (() => {
-                  const todayHours = getTodayHours(primaryBranch.operating_hours);
-                  return todayHours ? (
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-4 w-4 text-primary" />
-                      <span className={todayHours === "Closed today" ? "text-destructive" : "text-primary"}>
-                        {todayHours}
-                      </span>
-                    </span>
-                  ) : null;
-                })()}
+                {avgRating !== null && (
+                  <span className="flex items-center gap-1 font-medium text-primary">
+                    ★ {avgRating.toFixed(1)}
+                    <span className="font-normal text-muted-foreground">({reviews.length})</span>
+                  </span>
+                )}
               </div>
 
-              {/* Mode + queue badges */}
+              {/* Feature badges */}
               <div className="mt-3 flex flex-wrap gap-2">
                 {acceptsBookings ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                     <CalendarCheck className="h-3 w-3" /> Online Booking
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground line-through">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                     <Ban className="h-3 w-3" /> No Online Booking
                   </span>
                 )}
@@ -195,183 +282,147 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                     <Hash className="h-3 w-3" /> Walk-in Queue
                     {activeQueueCount > 0 && (
-                      <span className="ml-1 flex items-center gap-1">
+                      <span className="ml-0.5 flex items-center gap-1">
                         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                         {activeQueueCount} in queue
                       </span>
                     )}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground line-through">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                     <Ban className="h-3 w-3" /> No Walk-ins
                   </span>
                 )}
               </div>
             </div>
 
-            {acceptsBookings ? (
-              <Link
-                href={`/shop/${slug}/book`}
-                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:self-start"
-              >
-                <CalendarCheck className="h-4 w-4" />
-                Book Appointment
-              </Link>
-            ) : (
-              <span className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-border bg-muted px-6 py-3 font-semibold text-muted-foreground sm:self-start cursor-not-allowed">
-                <Ban className="h-4 w-4" />
-                Booking Unavailable
-              </span>
-            )}
-          </div>
-
-          {/* Services */}
-          <div className="mt-10">
-            <h2 className="mb-4 text-xl font-semibold">Services</h2>
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              {services.map((service, i) => (
-                <div
-                  key={service.id}
-                  className={`flex items-center justify-between px-5 py-4 ${
-                    i < services.length - 1 ? "border-b border-border" : ""
-                  }`}
-                >
-                  <div>
-                    <p className="font-medium">{service.name}</p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      {service.duration_min} min
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-primary">RM {Number(service.price).toFixed(2)}</p>
-                  </div>
-                </div>
-              ))}
-              {services.length === 0 && (
-                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                  No services listed yet
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Barbers */}
-          {staff.length > 0 && (
-            <div className="mt-10">
-              <h2 className="mb-4 text-xl font-semibold">Our Barbers</h2>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {staff.map((barber) => {
-                  const appUser = barber.app_users as { full_name: string } | null;
-                  const name = appUser?.full_name ?? "Barber";
-                  const initials = name
-                    .split(" ")
-                    .slice(0, 2)
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase();
-                  return (
-                    <div
-                      key={barber.id}
-                      className="rounded-xl border border-border bg-card p-4 text-center"
-                    >
-                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                        <span className="text-sm font-bold text-primary">{initials}</span>
-                      </div>
-                      <p className="mt-3 font-medium">{name}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Multiple branches */}
-          {branches.length > 1 && (
-            <div className="mt-10">
-              <h2 className="mb-4 text-xl font-semibold">Branches</h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {branches.map((branch) => {
-                  const todayHours = getTodayHours(branch.operating_hours);
-                  const mapsUrl = getMapsUrl(branch.address);
-                  return (
-                    <div key={branch.id} className="rounded-xl border border-border bg-card p-4">
-                      <p className="font-medium">{branch.name}</p>
-                      <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        {branch.address || "—"}
-                      </p>
-                      {todayHours && (
-                        <p className={`mt-1.5 flex items-center gap-1.5 text-xs ${todayHours === "Closed today" ? "text-destructive" : "text-primary"}`}>
-                          <Clock className="h-3 w-3" />
-                          {todayHours}
-                        </p>
-                      )}
-                      {mapsUrl && (
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-                        >
-                          <Navigation className="h-3 w-3" />
-                          Get Directions
-                        </a>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* CTA */}
-          <div className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
-            {acceptsBookings && acceptsWalkin ? (
-              <>
-                <h3 className="text-lg font-semibold">Ready to visit?</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Book an appointment or walk in and join the queue.
-                </p>
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+            {/* ── Primary CTA buttons ── */}
+            <div className="mt-5 flex flex-col gap-3">
+              {acceptsBookings && (
+                <div>
                   <Link
                     href={`/shop/${slug}/book`}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-opacity hover:opacity-90"
                   >
-                    <CalendarCheck className="h-4 w-4" /> Book Appointment
+                    <CalendarCheck className="h-4 w-4" />
+                    Book Appointment
                   </Link>
-                  <span className="text-sm text-muted-foreground">or walk in & scan QR</span>
                 </div>
-              </>
-            ) : acceptsBookings ? (
-              <>
-                <h3 className="text-lg font-semibold">Book your appointment</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {tenant.name} accepts appointments only — no walk-ins.
-                </p>
-                <Link
-                  href={`/shop/${slug}/book`}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-                >
-                  Book Now <ArrowRight className="h-4 w-4" />
-                </Link>
-              </>
-            ) : acceptsWalkin ? (
-              <>
-                <h3 className="text-lg font-semibold">Walk-ins welcome</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {tenant.name} only accepts walk-in customers. Visit the shop and scan the QR code to join the queue.
-                  {activeQueueCount > 0 && ` There ${activeQueueCount === 1 ? "is" : "are"} currently ${activeQueueCount} customer${activeQueueCount === 1 ? "" : "s"} in queue.`}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold">Currently closed to new customers</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  This shop is not accepting bookings or walk-ins right now. Please check back later.
-                </p>
-              </>
+              )}
+
+              {acceptsWalkin && (
+                <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
+                  <QrCode className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Walk-in Queue</p>
+                    <p className="text-xs text-muted-foreground">
+                      Scan the QR code at the shop entrance to join the queue.
+                      {activeQueueCount > 0 && (
+                        <span className="ml-1 font-medium text-primary">
+                          {activeQueueCount} currently in queue.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!acceptsBookings && !acceptsWalkin && (
+                <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-muted px-5 py-3 text-sm font-medium text-muted-foreground cursor-not-allowed">
+                  <Ban className="h-4 w-4" /> Currently unavailable
+                </span>
+              )}
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="mt-10 border-t border-border" />
+
+            {/* ── Services ── */}
+            <div className="mt-8">
+              <h2 className="mb-4 text-lg font-semibold">Services</h2>
+              {services.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {services.map((service) => (
+                    <span
+                      key={service.id}
+                      className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium text-foreground"
+                    >
+                      {service.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No services listed yet.</p>
+              )}
+            </div>
+
+            {/* ── Multiple branches ── */}
+            {branches.length > 1 && (
+              <div className="mt-10">
+                <div className="mb-4 border-t border-border pt-8">
+                  <h2 className="text-lg font-semibold">Branches</h2>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {branches.map((branch) => {
+                    const bHours = getTodayHours(branch.operating_hours);
+                    const bMapsUrl = getMapsUrl(branch.address);
+                    return (
+                      <div key={branch.id} className="rounded-xl border border-border bg-card p-4">
+                        <p className="font-medium">{branch.name}</p>
+                        {branch.address && (
+                          <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            {branch.address}
+                          </p>
+                        )}
+                        {bHours && (
+                          <p className={`mt-1.5 flex items-center gap-1.5 text-xs ${bHours.closed ? "text-destructive" : "text-primary"}`}>
+                            <Clock className="h-3 w-3" />
+                            {bHours.label}
+                          </p>
+                        )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {bMapsUrl && (
+                            <a
+                              href={bMapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                            >
+                              <Navigation className="h-3 w-3" />
+                              Directions
+                            </a>
+                          )}
+                          {branch.accepts_walkin_queue && (
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                              <QrCode className="h-3 w-3" />
+                              Scan QR to join queue
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
+
+            {/* ── Reviews ── */}
+            <div className="mt-10 border-t border-border pt-8">
+              <ReviewsSection
+                slug={slug}
+                isLoggedIn={isLoggedIn}
+                canReview={canReview}
+                initialReviews={reviews.map((r) => ({
+                  id: r.id,
+                  reviewer_name: r.reviewer_name,
+                  rating: r.rating,
+                  comment: r.comment,
+                  created_at: r.created_at,
+                }))}
+              />
+            </div>
+
           </div>
         </div>
       </main>
