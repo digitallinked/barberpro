@@ -1,12 +1,14 @@
 "use server";
 
 import type Stripe from "stripe";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { getStripe, STRIPE_PLANS, type StripePlan } from "@/lib/stripe";
 import { planFromStripePriceId, tierFromStripePriceId } from "@/lib/plan-from-price";
+
+const TENANT_CACHE_COOKIE = "bp_tenant_state";
 
 export type CheckoutIntent = "onboarding" | "billing" | "recovery";
 
@@ -107,7 +109,7 @@ export async function createCheckoutSession(
     successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}&next=${encodeURIComponent("/settings/billing")}`;
     cancelUrl = `${appUrl}/settings/billing?checkout=canceled`;
   } else if (intent === "recovery") {
-    successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}`;
+    successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}&next=${encodeURIComponent("/dashboard?welcome=true")}`;
     cancelUrl = `${appUrl}/subscription-required?checkout=canceled`;
   }
 
@@ -184,6 +186,11 @@ export async function finalizeSubscription(sessionId: string) {
       ...(planValue ? { plan: planValue } : {})
     })
     .eq("id", tenant.id);
+
+  // Bust the middleware tenant-state cache so the next request reads
+  // the fresh subscription status from DB instead of the stale cookie.
+  const cookieStore = await cookies();
+  cookieStore.delete(TENANT_CACHE_COOKIE);
 
   return { success: true };
 }

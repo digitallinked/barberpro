@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertTriangle,
   BarChart2,
   BookOpen,
   CalendarPlus,
+  CheckCircle2,
   CircleDollarSign,
   CreditCard,
   PlusCircle,
   ShoppingCart,
   Timer,
-  Users
+  Users,
+  X
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 
 import {
   useDashboardStats,
@@ -89,8 +92,21 @@ function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
 
 export default function DashboardPage() {
   const t = useT();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [period, setPeriod] = useState<Period>("today");
+  const [showWelcome, setShowWelcome] = useState(false);
   const { userName, branchName } = useTenant();
+
+  useEffect(() => {
+    if (searchParams.get("welcome") === "true") {
+      setShowWelcome(true);
+      // Remove the param from URL without re-rendering
+      const url = new URL(window.location.href);
+      url.searchParams.delete("welcome");
+      router.replace(url.pathname + (url.search || ""), { scroll: false });
+    }
+  }, [searchParams, router]);
   const { data: statsData, isLoading: statsLoading } = useDashboardStats(period);
   const { data: chartData } = useDailyRevenue(period);
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
@@ -182,6 +198,26 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Subscription activated banner */}
+      {showWelcome && (
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+          <div className="flex-1">
+            <p className="font-semibold text-emerald-400">Subscription activated!</p>
+            <p className="mt-0.5 text-sm text-emerald-400/70">
+              Welcome back — your account is fully restored and all features are unlocked.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowWelcome(false)}
+            className="text-emerald-400/60 transition hover:text-emerald-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Welcome row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
