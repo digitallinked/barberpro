@@ -44,10 +44,17 @@ export async function createBillingPortalSession(returnPath?: string) {
   const returnUrl = `${appUrl}${path}`;
 
   const stripe = getStripe();
-  const session = await stripe.billingPortal.sessions.create({
+
+  const sessionParams: Parameters<typeof stripe.billingPortal.sessions.create>[0] = {
     customer: customerId,
-    return_url: returnUrl
-  });
+    return_url: returnUrl,
+  };
+
+  if (env.STRIPE_PORTAL_CONFIG_ID) {
+    sessionParams.configuration = env.STRIPE_PORTAL_CONFIG_ID;
+  }
+
+  const session = await stripe.billingPortal.sessions.create(sessionParams);
 
   return { url: session.url };
 }
