@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { QuickPaymentSheet } from "@/components/quick-payment-sheet";
 import { useTenant } from "@/components/tenant-provider";
 import {
@@ -481,6 +482,8 @@ function AppShellInner({ children }: AppShellProps) {
 
         <QuickPaymentSheet open={quickPayOpen} onOpenChange={setQuickPayOpen} />
       </div>
+
+      <PwaInstallBanner />
     </div>
   );
 }
