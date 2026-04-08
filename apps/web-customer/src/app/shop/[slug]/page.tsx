@@ -33,6 +33,7 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
     .select("id, name, slug, logo_url")
     .eq("slug", slug)
     .eq("status", "active")
+    .in("subscription_status", ["active", "trialing"])
     .maybeSingle();
 
   if (!tenant) notFound();

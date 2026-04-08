@@ -5,8 +5,12 @@ function inferTenantPlanFromEnvPrice(priceId: string | null): string | null {
   if (!priceId) return null;
   const starter = process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID;
   const pro = process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID;
+  const starterYearly = process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID;
+  const proYearly = process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID;
   if (starter && priceId === starter) return "starter";
   if (pro && priceId === pro) return "professional";
+  if (starterYearly && priceId === starterYearly) return "starter";
+  if (proYearly && priceId === proYearly) return "professional";
   return null;
 }
 

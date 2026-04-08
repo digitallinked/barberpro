@@ -180,6 +180,8 @@ export async function saveOnboarding(data: {
     return { success: true, tenantId: existing.id };
   }
 
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
   const { data: tenant, error } = await supabase
     .from("tenants")
     .insert({
@@ -195,7 +197,9 @@ export async function saveOnboarding(data: {
       email: user.email,
       owner_auth_id: user.id,
       status: "active",
-      subscription_status: "trialing"
+      subscription_status: "trialing",
+      trial_ends_at: trialEndsAt,
+      onboarding_completed: true
     })
     .select("id")
     .single();

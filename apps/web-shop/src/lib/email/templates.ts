@@ -347,9 +347,11 @@ export function trialEndingEmail(params: {
   trialEndsAt: string;
   daysLeft: number;
   billingUrl: string;
+  requiresPayment?: boolean;
 }): { subject: string; html: string } {
   const planLabel = params.plan.charAt(0).toUpperCase() + params.plan.slice(1);
   const urgency = params.daysLeft <= 1 ? "#dc2626" : params.daysLeft <= 3 ? "#d97706" : "#7c3aed";
+  const requiresPayment = params.requiresPayment ?? true;
 
   return {
     subject: `Your free trial ends in ${params.daysLeft} day${params.daysLeft !== 1 ? "s" : ""} — BarberPro`,
@@ -361,20 +363,29 @@ export function trialEndingEmail(params: {
         <h1 style="margin:20px 0 8px;color:${BRAND_COLOR};font-size:26px;font-weight:700;letter-spacing:-0.5px;">Your trial is ending soon</h1>
         <p style="margin:0;color:#64748b;font-size:16px;">Hi ${params.ownerName}, your 14-day free trial for <strong>${params.shopName}</strong> ends on <strong>${params.trialEndsAt}</strong>.</p>
       </div>
-      ${alertBox(
-        `After your trial ends, your subscription will automatically continue at the <strong>BarberPro ${planLabel}</strong> rate. No action needed if you wish to continue — your card on file will be charged.`,
-        "#faf5ff", "#ddd6fe", "💳"
-      )}
+      ${requiresPayment
+        ? alertBox(
+            `Subscribe before your trial ends to keep <strong>${params.shopName}</strong> active on BarberPro. No credit card required to sign up — add one at any time from your billing settings.`,
+            "#faf5ff", "#ddd6fe", "💳"
+          )
+        : alertBox(
+            `After your trial ends, your subscription will automatically continue at the <strong>BarberPro ${planLabel}</strong> rate. Your card on file will be charged.`,
+            "#faf5ff", "#ddd6fe", "💳"
+          )
+      }
       ${infoTable(`
         ${infoRow("Shop", params.shopName)}
         ${infoRow("Plan", `BarberPro ${planLabel}`)}
         ${infoRow("Trial ends", params.trialEndsAt)}
         ${infoRow("Days remaining", `${params.daysLeft} day${params.daysLeft !== 1 ? "s" : ""}`)}
       `)}
-      ${ctaButton("Manage Subscription", params.billingUrl, urgency)}
+      ${ctaButton(requiresPayment ? "Subscribe Now" : "Manage Subscription", params.billingUrl, urgency)}
       ${divider()}
       <p style="color:#94a3b8;font-size:13px;text-align:center;margin:0;">
-        Want to cancel before being charged? Visit your billing settings.
+        ${requiresPayment
+          ? "Your shop data is kept safe for 90 days after trial ends."
+          : "Want to cancel before being charged? Visit your billing settings."
+        }
       </p>
       `,
       `Your BarberPro trial ends in ${params.daysLeft} day${params.daysLeft !== 1 ? "s" : ""} on ${params.trialEndsAt}.`

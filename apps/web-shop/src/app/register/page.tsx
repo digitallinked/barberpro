@@ -4,21 +4,21 @@ import {
   Building2,
   Check,
   ChevronRight,
-  CreditCard,
   Eye,
   EyeOff,
   Loader2,
   Mail,
   Scissors,
   ShieldCheck,
-  Star
+  Sparkles,
+  Star,
+  Zap
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 
 import { checkSlugAvailability, saveOnboarding, signUp, verifyOtp } from "@/actions/auth";
-import { createCheckoutSession } from "@/actions/stripe";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,7 @@ const STEPS: { id: Step; label: string; icon: React.ReactNode }[] = [
   { id: "account", label: "Account", icon: <Mail className="h-4 w-4" /> },
   { id: "verify", label: "Verify", icon: <ShieldCheck className="h-4 w-4" /> },
   { id: "onboarding", label: "Shop", icon: <Building2 className="h-4 w-4" /> },
-  { id: "payment", label: "Plan", icon: <CreditCard className="h-4 w-4" /> }
+  { id: "payment", label: "Plan", icon: <Star className="h-4 w-4" /> }
 ];
 
 const STEP_ORDER: Step[] = ["account", "verify", "onboarding", "payment"];
@@ -342,20 +342,9 @@ function RegisterContent() {
     setStep("payment");
   };
 
-  // Step 4: Payment — redirect to Stripe Checkout
-  const handleStartTrial = async () => {
-    setError(null);
-    setIsLoading(true);
-    const result = await createCheckoutSession(selectedPlan);
-    setIsLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    if (result.url) {
-      window.location.href = result.url;
-    }
+  // Step 4: Start free trial — go directly to dashboard (no card required)
+  const handleStartTrial = () => {
+    router.push("/dashboard");
   };
 
   const currentStepIndex = STEP_ORDER.indexOf(step);
@@ -544,7 +533,7 @@ function RegisterContent() {
                   <Link href="/privacy" target="_blank" className="text-primary hover:underline">
                     Privacy Policy
                   </Link>
-                  . I understand my card will be charged after the 14-day free trial.
+                  . I understand I will need to subscribe after my 14-day free trial.
                 </span>
               </label>
 
@@ -780,125 +769,108 @@ function RegisterContent() {
             </form>
           )}
 
-          {/* Step 4: Plan + Payment */}
+          {/* Step 4: Trial started — no card required */}
           {step === "payment" && (
             <div className="space-y-5">
-              <div>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <CreditCard className="h-5 w-5 text-primary" />
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-2 ring-primary/30">
+                  <Sparkles className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="text-lg font-semibold">Choose your plan</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  14 days free — your card will{" "}
-                  <span className="font-medium text-foreground">not</span> be charged until your trial ends
+                <h2 className="text-xl font-bold">Your 14-day trial is ready!</h2>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  No credit card required. Full access, completely free.
                 </p>
               </div>
 
-              {/* Plan picker */}
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    {
-                      id: "starter" as const,
-                      name: "Starter",
-                      price: "RM 99",
-                      desc: "1 branch, up to 5 staff",
-                      features: ["Queue & POS", "Appointments & CRM", "Basic payroll & reports"],
-                      popular: false
-                    },
-                    {
-                      id: "professional" as const,
-                      name: "Professional",
-                      price: "RM 249",
-                      desc: "Unlimited branches & staff",
-                      features: ["Everything in Starter", "Advanced commissions & analytics", "Priority support"],
-                      popular: true
-                    }
-                  ]
-                ).map((plan) => (
-                  <button
-                    key={plan.id}
-                    type="button"
-                    onClick={() => setSelectedPlan(plan.id)}
-                    className={cn(
-                      "relative rounded-lg border p-3.5 text-left transition-all",
-                      selectedPlan === plan.id
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-muted hover:border-border/80"
-                    )}
-                  >
-                    {plan.popular && (
-                      <span className="absolute -top-2 right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                        Popular
-                      </span>
-                    )}
-                    {selectedPlan === plan.id && (
-                      <Check className="absolute right-2 top-2.5 h-3.5 w-3.5 text-primary" />
-                    )}
-                    <div className="text-sm font-semibold">{plan.name}</div>
-                    <div className="mt-0.5 text-xl font-bold text-primary">{plan.price}</div>
-                    <div className="text-xs text-muted-foreground">{plan.desc}/mo</div>
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5">
-                      <Star className="h-2.5 w-2.5 text-primary" />
-                      <span className="text-[10px] font-semibold text-primary">14 days free</span>
-                    </div>
-                    <ul className="mt-2.5 space-y-1">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-start gap-1.5">
-                          <Check className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
-                          <span className="text-[11px] leading-tight text-muted-foreground">{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
-                ))}
-              </div>
-
-              {/* What happens */}
-              <div className="rounded-lg border border-border/50 bg-muted/50 px-4 py-3 space-y-1.5">
+              {/* Trial benefits */}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
                 {[
-                  "Full access for 14 days, completely free",
-                  "Card collected securely via Stripe — no charge now",
-                  "Cancel anytime before trial ends"
+                  { icon: <Zap className="h-4 w-4 text-primary" />, text: "Full access to all features for 14 days" },
+                  { icon: <Check className="h-4 w-4 text-primary" />, text: "No credit card required to start" },
+                  { icon: <Check className="h-4 w-4 text-primary" />, text: "Cancel anytime — no obligation" },
+                  { icon: <Check className="h-4 w-4 text-primary" />, text: "We'll remind you before your trial ends" },
                 ].map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
-                    {item}
+                  <div key={item.text} className="flex items-center gap-3">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      {item.icon}
+                    </div>
+                    <span className="text-sm text-foreground">{item.text}</span>
                   </div>
                 ))}
               </div>
 
+              {/* Plan selection (for when trial ends — user can choose before or later) */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Plan after trial — choose now or later
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(
+                    [
+                      {
+                        id: "starter" as const,
+                        name: "Starter",
+                        price: "RM 99",
+                        desc: "1 branch, up to 5 staff",
+                        features: ["Queue & POS", "Appointments & CRM", "Basic payroll & reports"],
+                        popular: false
+                      },
+                      {
+                        id: "professional" as const,
+                        name: "Professional",
+                        price: "RM 249",
+                        desc: "Unlimited branches & staff",
+                        features: ["Everything in Starter", "Advanced analytics", "Priority support"],
+                        popular: true
+                      }
+                    ]
+                  ).map((plan) => (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setSelectedPlan(plan.id)}
+                      className={cn(
+                        "relative rounded-lg border p-3.5 text-left transition-all",
+                        selectedPlan === plan.id
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-muted hover:border-border/80"
+                      )}
+                    >
+                      {plan.popular && (
+                        <span className="absolute -top-2 right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                          Popular
+                        </span>
+                      )}
+                      {selectedPlan === plan.id && (
+                        <Check className="absolute right-2 top-2.5 h-3.5 w-3.5 text-primary" />
+                      )}
+                      <div className="text-sm font-semibold">{plan.name}</div>
+                      <div className="mt-0.5 text-xl font-bold text-primary">{plan.price}</div>
+                      <div className="text-xs text-muted-foreground">{plan.desc}/mo</div>
+                      <ul className="mt-2.5 space-y-1">
+                        {plan.features.map((f) => (
+                          <li key={f} className="flex items-start gap-1.5">
+                            <Check className="mt-0.5 h-3 w-3 flex-shrink-0 text-primary" />
+                            <span className="text-[11px] leading-tight text-muted-foreground">{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  You can change your plan anytime from your billing settings.
+                </p>
+              </div>
+
               <Button
                 className="w-full"
+                size="lg"
                 onClick={handleStartTrial}
-                disabled={isLoading}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redirecting to Stripe…
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Add card &amp; start trial
-                  </>
-                )}
+                <Zap className="mr-2 h-4 w-4" />
+                Start my free trial
               </Button>
-
-              <p className="text-center text-xs text-muted-foreground">
-                Secured by{" "}
-                <span className="font-semibold text-foreground">Stripe</span>. Your card
-                details are never stored on our servers.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => router.push("/dashboard")}
-                className="w-full text-center text-xs text-muted-foreground hover:text-foreground hover:underline"
-              >
-                Skip for now — I&apos;ll add payment later
-              </button>
             </div>
           )}
         </div>

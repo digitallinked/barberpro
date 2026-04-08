@@ -5,7 +5,7 @@ import type Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { getStripe, STRIPE_PLANS, type StripePlan } from "@/lib/stripe";
-import { planFromStripePriceId } from "@/lib/plan-from-price";
+import { planFromStripePriceId, tierFromStripePriceId } from "@/lib/plan-from-price";
 
 export type CheckoutIntent = "onboarding" | "billing" | "recovery";
 
@@ -26,7 +26,7 @@ export async function createCheckoutSession(
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, stripe_customer_id, name, email, subscription_status, stripe_subscription_id")
+    .select("id, stripe_customer_id, name, email, subscription_status, stripe_subscription_id, trial_ends_at")
     .eq("owner_auth_id", user.id)
     .maybeSingle();
 
@@ -34,6 +34,7 @@ export async function createCheckoutSession(
     return { error: "Shop details not found. Please complete the onboarding first." };
   }
 
+  // Block if already has an active Stripe subscription (not just a DB-only trial)
   const activeStates = ["active", "trialing"];
   if (
     activeStates.includes((tenant.subscription_status as string) ?? "") &&
@@ -65,16 +66,21 @@ export async function createCheckoutSession(
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const intent = options?.intent ?? "onboarding";
 
+  // Only apply trial in Stripe if the tenant hasn't already used their DB trial
+  // (i.e. no trial_ends_at set, meaning they went straight to payment without the no-card trial)
+  const hasUsedDbTrial = Boolean((tenant as Record<string, unknown>).trial_ends_at);
   const useTrial =
-    !tenant.subscription_status ||
-    tenant.subscription_status === "incomplete" ||
-    tenant.subscription_status === "incomplete_expired";
+    !hasUsedDbTrial &&
+    (!tenant.subscription_status ||
+      tenant.subscription_status === "incomplete" ||
+      tenant.subscription_status === "incomplete_expired");
 
+  const planTier = selectedPlan.tier;
   const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
     metadata: {
       tenant_id: tenant.id,
       user_id: user.id,
-      plan
+      plan: planTier
     }
   };
   if (useTrial) {
@@ -108,7 +114,7 @@ export async function createCheckoutSession(
     metadata: {
       tenant_id: tenant.id,
       user_id: user.id,
-      plan
+      plan: planTier
     }
   });
 
@@ -145,11 +151,11 @@ export async function finalizeSubscription(sessionId: string) {
 
   const metaPlan = subscription.metadata?.plan;
   const priceId = subscription.items.data[0]?.price.id ?? null;
-  const inferredPlan = planFromStripePriceId(priceId);
+  const inferredTier = tierFromStripePriceId(priceId);
   const planValue =
     metaPlan === "starter" || metaPlan === "professional" || metaPlan === "enterprise"
       ? metaPlan
-      : inferredPlan;
+      : inferredTier;
 
   await supabase
     .from("tenants")

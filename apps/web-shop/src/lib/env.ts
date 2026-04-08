@@ -11,8 +11,11 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID: z.string().min(1).optional(),
   NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID: z.string().min(1).optional(),
+  NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID: z.string().min(1).optional(),
+  NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().min(1).optional().default("BarberPro <noreply@barberpro.my>"),
+  CRON_SECRET: z.string().min(1).optional(),
 });
 
 export const env = parseEnv(envSchema, {
@@ -25,8 +28,11 @@ export const env = parseEnv(envSchema, {
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID,
   NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID,
+  NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID,
+  NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
+  CRON_SECRET: process.env.CRON_SECRET,
 });
 
 export function hasSupabaseEnv() {

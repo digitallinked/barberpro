@@ -39,8 +39,14 @@ function inferPlanLabel(sub: Stripe.Subscription): string {
   const meta = sub.metadata?.plan;
   if (meta) return meta;
   const priceId = sub.items.data[0]?.price?.id ?? "";
-  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID) return "professional";
-  if (priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID) return "starter";
+  if (
+    priceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ||
+    priceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID
+  ) return "professional";
+  if (
+    priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ||
+    priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID
+  ) return "starter";
   return "starter";
 }
 
@@ -272,10 +278,13 @@ export async function POST(request: Request) {
         const prevItems = previous?.items as Stripe.ApiList<Stripe.SubscriptionItem> | undefined;
         const prevPriceId = prevItems?.data?.[0]?.price?.id;
         if (prevPriceId && prevPriceId !== newPriceId) {
-          const oldPlan =
-            prevPriceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID
-              ? "professional"
-              : "starter";
+          const professionalPrices = [
+            process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID,
+            process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
+          ].filter(Boolean);
+          const oldPlan = professionalPrices.includes(prevPriceId)
+            ? "professional"
+            : "starter";
           const tpl = planChangedEmail({
             ownerName: info.ownerName,
             shopName: info.shopName,
@@ -392,7 +401,7 @@ export async function POST(request: Request) {
         break;
       }
 
-      // ── Trial ending soon (3 days before) ───────────────────────────────────
+      // ── Trial ending soon (3 days before, via Stripe — card-required trial) ─
       case "customer.subscription.trial_will_end": {
         const subscription = event.data.object as Stripe.Subscription;
         const info = await getSubscriberEmailInfo(supabase, subscription);
@@ -410,6 +419,7 @@ export async function POST(request: Request) {
             trialEndsAt: formatDate(trialEnd),
             daysLeft,
             billingUrl: billingUrl(),
+            requiresPayment: false, // Stripe-based trials already have a card on file
           });
           await sendEmail({ to: info.email, subject: tpl.subject, html: tpl.html });
         }

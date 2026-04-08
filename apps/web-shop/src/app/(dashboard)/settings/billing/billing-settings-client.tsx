@@ -1,19 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, Receipt, Zap } from "lucide-react";
+import { AlertCircle, Calendar, CheckCircle2, CreditCard, ExternalLink, Loader2, Receipt, Zap } from "lucide-react";
 
 import { createBillingPortalSession, listShopInvoicesAction, type ShopInvoiceRow } from "@/actions/billing";
 import { createCheckoutSession, type CheckoutIntent } from "@/actions/stripe";
 import type { ShopBillingSnapshot } from "@/lib/billing-snapshot";
-import { STRIPE_PLANS, type StripePlan } from "@/lib/stripe";
+import { STRIPE_PLANS, type PlanTier, type BillingPeriod } from "@/lib/stripe";
+import { cn } from "@/lib/utils";
 
 type Props = {
   snapshot: ShopBillingSnapshot;
   stripeConfigured: boolean;
 };
 
-const PLAN_FEATURES: Record<StripePlan, string[]> = {
+const PLAN_FEATURES: Record<PlanTier, string[]> = {
   starter: ["1 branch", "Up to 5 staff", "Queue & POS", "Appointments & CRM", "Inventory tracking", "Expense management", "Basic payroll", "Basic reports"],
   professional: [
     "Unlimited branches",
@@ -66,7 +67,17 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<ShopInvoiceRow[] | null>(null);
-  const [plan, setPlan] = useState<StripePlan>(snapshot.planKey ?? "starter");
+  const initialTier: PlanTier =
+    snapshot.planKey === "professional" || snapshot.planKey === "professional_yearly"
+      ? "professional"
+      : "starter";
+  const initialPeriod: BillingPeriod =
+    snapshot.planKey === "starter_yearly" || snapshot.planKey === "professional_yearly"
+      ? "yearly"
+      : "monthly";
+
+  const [tier, setTier] = useState<PlanTier>(initialTier);
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>(initialPeriod);
 
   const loadInvoices = useCallback(async () => {
     if (!stripeConfigured) return;
@@ -90,7 +101,8 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   async function startCheckout(intent: CheckoutIntent) {
     setError(null);
     setLoading("checkout");
-    const res = await createCheckoutSession(plan, { intent });
+    const planKey = billingPeriod === "yearly" ? `${tier}_yearly` as const : tier;
+    const res = await createCheckoutSession(planKey, { intent });
     setLoading(null);
     if (res.error) { setError(res.error); return; }
     if (res.url) window.location.href = res.url;
@@ -102,6 +114,11 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   // past_due still has a subscription — they need the portal to fix payment, NOT a new checkout
   const canCheckout = !active && !pastDue;
   const daysLeft = trialDaysLeft(snapshot.trialEndsAt);
+
+  const monthlyStarter = STRIPE_PLANS.starter.amount;
+  const yearlyStarter = STRIPE_PLANS.starter_yearly.amount;
+  const monthlyPro = STRIPE_PLANS.professional.amount;
+  const yearlyPro = STRIPE_PLANS.professional_yearly.amount;
 
   return (
     <div className="space-y-6">
@@ -200,43 +217,79 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
             {status === "canceled" || status === "none" ? "Subscribe" : "Reactivate your subscription"}
           </h3>
           <p className="mt-1 text-sm text-gray-400">
-            {status === "none"
-              ? "Start with a 14-day free trial. No charge until the trial ends."
-              : "Resubscribe to restore full access. Trials only apply on first subscription."}
+            Choose your plan. Cancel anytime.
           </p>
 
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {(Object.keys(STRIPE_PLANS) as StripePlan[]).map((key) => {
-              const p = STRIPE_PLANS[key];
-              const selected = plan === key;
+          {/* Billing period toggle */}
+          <div className="mt-5 flex items-center gap-2 rounded-lg border border-white/10 bg-black/30 p-1">
+            {(["monthly", "yearly"] as BillingPeriod[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setBillingPeriod(p)}
+                className={cn(
+                  "flex-1 rounded-md py-1.5 text-xs font-semibold transition-all",
+                  billingPeriod === p
+                    ? "bg-[#1a1a1a] shadow text-white"
+                    : "text-gray-400 hover:text-white"
+                )}
+              >
+                {p === "monthly" ? "Monthly" : (
+                  <span className="inline-flex items-center gap-1.5 justify-center">
+                    <Calendar className="h-3 w-3" />
+                    Yearly
+                    <span className="rounded-full bg-[#D4AF37]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#D4AF37]">
+                      Save 2 months
+                    </span>
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {(["starter", "professional"] as PlanTier[]).map((t) => {
+              const selected = tier === t;
+              const price = billingPeriod === "yearly"
+                ? (t === "starter" ? yearlyStarter : yearlyPro)
+                : (t === "starter" ? monthlyStarter : monthlyPro);
+              const saving = t === "starter"
+                ? monthlyStarter * 12 - yearlyStarter
+                : monthlyPro * 12 - yearlyPro;
+
               return (
                 <button
-                  key={key}
+                  key={t}
                   type="button"
-                  onClick={() => setPlan(key)}
+                  onClick={() => setTier(t)}
                   className={`relative rounded-xl border p-4 text-left transition-all ${
                     selected
                       ? "border-[#D4AF37] bg-[#D4AF37]/10 ring-1 ring-[#D4AF37]/30"
                       : "border-white/10 hover:border-white/20"
                   }`}
                 >
-                  {key === "professional" && (
+                  {t === "professional" && (
                     <span className="absolute -top-2.5 right-3 rounded-full bg-[#D4AF37] px-2 py-0.5 text-[10px] font-bold text-[#111]">
                       Popular
                     </span>
                   )}
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-semibold text-white">{p.name}</p>
+                      <p className="font-semibold text-white capitalize">{t}</p>
                       <p className="mt-0.5 text-lg font-bold text-[#D4AF37]">
-                        RM {p.amount}
-                        <span className="text-xs font-normal text-gray-400">/mo</span>
+                        RM {price}
+                        <span className="text-xs font-normal text-gray-400">
+                          {billingPeriod === "yearly" ? "/yr" : "/mo"}
+                        </span>
                       </p>
+                      {billingPeriod === "yearly" && (
+                        <p className="text-[11px] text-[#D4AF37]/70">Save RM {saving} vs monthly</p>
+                      )}
                     </div>
                     {selected && <CheckCircle2 className="h-5 w-5 text-[#D4AF37]" />}
                   </div>
                   <ul className="mt-3 space-y-1">
-                    {PLAN_FEATURES[key].map((f) => (
+                    {PLAN_FEATURES[t].map((f) => (
                       <li key={f} className="flex items-center gap-1.5 text-xs text-gray-400">
                         <CheckCircle2 className="h-3 w-3 shrink-0 text-[#D4AF37]/60" />
                         {f}

@@ -10,6 +10,8 @@ export type TenantContext = {
   tenantSlug: string;
   tenantPlan: string;
   subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  stripeSubscriptionId: string | null;
   preferredLanguage: Language;
   userId: string;
   appUserId: string;
@@ -40,7 +42,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug, plan, subscription_status")
+    .select("id, name, slug, plan, subscription_status, trial_ends_at, stripe_subscription_id")
     .eq("id", appUser.tenant_id)
     .single();
 
@@ -67,12 +69,16 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   const preferredLanguage = (preferredLang === "en" ? "en" : "ms") as Language;
 
+  const tenantAny = tenant as Record<string, unknown>;
+
   return {
     tenantId: tenant.id,
     tenantName: tenant.name,
     tenantSlug: tenant.slug,
     tenantPlan: tenant.plan ?? "starter",
-    subscriptionStatus: (tenant as Record<string, unknown>).subscription_status as string | null ?? null,
+    subscriptionStatus: tenantAny.subscription_status as string | null ?? null,
+    trialEndsAt: tenantAny.trial_ends_at as string | null ?? null,
+    stripeSubscriptionId: tenantAny.stripe_subscription_id as string | null ?? null,
     preferredLanguage,
     userId: user.id,
     appUserId: appUser.id,
