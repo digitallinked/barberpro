@@ -77,7 +77,7 @@ async function main() {
       subscription_update: {
         enabled: true,
         default_allowed_updates: ["price"] as Stripe.BillingPortal.ConfigurationCreateParams.Features.SubscriptionUpdate.DefaultAllowedUpdates[],
-        proration_behavior: "create_prorations" as const,
+        proration_behavior: "none" as const,
         products: [
           {
             product: STARTER_PRODUCT,
