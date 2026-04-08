@@ -1,5 +1,7 @@
 "use server";
 
+import type Stripe from "stripe";
+
 import { createClient } from "@/lib/supabase/server";
 import { env, hasStripeEnv } from "@/lib/env";
 import { getStripe } from "@/lib/stripe";
@@ -45,14 +47,11 @@ export async function createBillingPortalSession(returnPath?: string) {
 
   const stripe = getStripe();
 
-  const sessionParams: Parameters<typeof stripe.billingPortal.sessions.create>[0] = {
+  const sessionParams: Stripe.BillingPortal.SessionCreateParams = {
     customer: customerId,
     return_url: returnUrl,
+    ...(env.STRIPE_PORTAL_CONFIG_ID ? { configuration: env.STRIPE_PORTAL_CONFIG_ID } : {}),
   };
-
-  if (env.STRIPE_PORTAL_CONFIG_ID) {
-    sessionParams.configuration = env.STRIPE_PORTAL_CONFIG_ID;
-  }
 
   const session = await stripe.billingPortal.sessions.create(sessionParams);
 
