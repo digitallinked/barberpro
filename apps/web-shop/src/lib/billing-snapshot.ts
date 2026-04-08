@@ -10,7 +10,10 @@ export type ShopBillingSnapshot = {
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
-  cancelAtPeriodEnd: boolean;
+  /** True when the subscription is scheduled to cancel (either cancel_at_period_end or a cancel_at timestamp is set) */
+  cancelScheduled: boolean;
+  /** ISO date the subscription will be cancelled, when cancel_at is set */
+  cancelAt: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   stripePriceId: string | null;
@@ -34,18 +37,23 @@ export async function loadShopBillingSnapshot(): Promise<ShopBillingSnapshot | n
   if (!tenant) return null;
 
   let currentPeriodEnd: string | null = null;
-  let cancelAtPeriodEnd = false;
+  let cancelScheduled = false;
+  let cancelAt: string | null = null;
   if (tenant.stripe_subscription_id && hasStripeEnv()) {
     try {
       const sub = (await getStripe().subscriptions.retrieve(tenant.stripe_subscription_id)) as {
         current_period_end?: number;
         cancel_at_period_end?: boolean;
+        cancel_at?: number | null;
       };
       if (sub.current_period_end) {
         currentPeriodEnd = new Date(sub.current_period_end * 1000).toISOString();
       }
-      if (sub.cancel_at_period_end) {
-        cancelAtPeriodEnd = true;
+      if (sub.cancel_at_period_end || sub.cancel_at) {
+        cancelScheduled = true;
+        cancelAt = sub.cancel_at
+          ? new Date(sub.cancel_at * 1000).toISOString()
+          : currentPeriodEnd;
       }
     } catch {
       /* ignore */
@@ -63,7 +71,8 @@ export async function loadShopBillingSnapshot(): Promise<ShopBillingSnapshot | n
     subscriptionStatus: tenant.subscription_status as string | null,
     trialEndsAt: tenant.trial_ends_at as string | null,
     currentPeriodEnd,
-    cancelAtPeriodEnd,
+    cancelScheduled,
+    cancelAt,
     stripeCustomerId: tenant.stripe_customer_id as string | null,
     stripeSubscriptionId: tenant.stripe_subscription_id as string | null,
     stripePriceId: tenant.stripe_price_id as string | null

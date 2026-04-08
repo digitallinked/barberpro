@@ -111,7 +111,8 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   const status = snapshot.subscriptionStatus ?? "none";
   const active = status === "active" || status === "trialing";
   const pastDue = status === "past_due" || status === "unpaid";
-  const cancelPending = active && snapshot.cancelAtPeriodEnd;
+  const cancelPending = active && snapshot.cancelScheduled;
+  const cancelDate = snapshot.cancelAt ?? snapshot.currentPeriodEnd;
   // past_due still has a subscription — they need the portal to fix payment, NOT a new checkout
   const canCheckout = !active && !pastDue;
   const daysLeft = trialDaysLeft(snapshot.trialEndsAt);
@@ -174,8 +175,8 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               <strong className="font-semibold">Cancellation scheduled.</strong> Your subscription has been cancelled and will remain active until{" "}
-              {snapshot.currentPeriodEnd
-                ? new Date(snapshot.currentPeriodEnd).toLocaleDateString("en-MY", {
+              {cancelDate
+                ? new Date(cancelDate).toLocaleDateString("en-MY", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
@@ -187,13 +188,13 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
         )}
 
         <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-          {snapshot.currentPeriodEnd && active && (
+          {(cancelDate ?? snapshot.currentPeriodEnd) && active && (
             <div>
               <dt className="text-xs uppercase tracking-wider text-gray-500">
                 {status === "trialing" ? "Trial ends" : cancelPending ? "Access until" : "Next billing date"}
               </dt>
               <dd className="mt-1 text-sm text-gray-200">
-                {new Date(snapshot.currentPeriodEnd).toLocaleDateString("en-MY", {
+                {new Date((cancelPending ? cancelDate : snapshot.currentPeriodEnd) ?? "").toLocaleDateString("en-MY", {
                   day: "numeric",
                   month: "long",
                   year: "numeric",
