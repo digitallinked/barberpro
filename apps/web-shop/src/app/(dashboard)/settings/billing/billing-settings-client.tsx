@@ -111,6 +111,7 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   const status = snapshot.subscriptionStatus ?? "none";
   const active = status === "active" || status === "trialing";
   const pastDue = status === "past_due" || status === "unpaid";
+  const cancelPending = active && snapshot.cancelAtPeriodEnd;
   // past_due still has a subscription — they need the portal to fix payment, NOT a new checkout
   const canCheckout = !active && !pastDue;
   const daysLeft = trialDaysLeft(snapshot.trialEndsAt);
@@ -167,11 +168,29 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
           </div>
         )}
 
+        {/* Cancellation scheduled banner */}
+        {cancelPending && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              <strong className="font-semibold">Cancellation scheduled.</strong> Your subscription has been cancelled and will remain active until{" "}
+              {snapshot.currentPeriodEnd
+                ? new Date(snapshot.currentPeriodEnd).toLocaleDateString("en-MY", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })
+                : "the end of your billing period"}
+              . You can reactivate anytime before then.
+            </span>
+          </div>
+        )}
+
         <dl className="mt-6 grid gap-4 sm:grid-cols-2">
           {snapshot.currentPeriodEnd && active && (
             <div>
               <dt className="text-xs uppercase tracking-wider text-gray-500">
-                {status === "trialing" ? "Trial ends" : "Next billing date"}
+                {status === "trialing" ? "Trial ends" : cancelPending ? "Access until" : "Next billing date"}
               </dt>
               <dd className="mt-1 text-sm text-gray-200">
                 {new Date(snapshot.currentPeriodEnd).toLocaleDateString("en-MY", {
@@ -201,7 +220,7 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
               className="inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
             >
               {loading === "portal" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              {pastDue ? "Update payment method" : "Manage subscription & payment"}
+              {pastDue ? "Update payment method" : cancelPending ? "Reactivate or manage subscription" : "Manage subscription & payment"}
             </button>
             <p className="mt-2 text-xs text-gray-500">
               Opens Stripe — update card, switch plan, view receipts, or cancel.

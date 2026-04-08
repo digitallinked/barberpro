@@ -10,6 +10,7 @@ export type ShopBillingSnapshot = {
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   stripePriceId: string | null;
@@ -33,13 +34,18 @@ export async function loadShopBillingSnapshot(): Promise<ShopBillingSnapshot | n
   if (!tenant) return null;
 
   let currentPeriodEnd: string | null = null;
+  let cancelAtPeriodEnd = false;
   if (tenant.stripe_subscription_id && hasStripeEnv()) {
     try {
       const sub = (await getStripe().subscriptions.retrieve(tenant.stripe_subscription_id)) as {
         current_period_end?: number;
+        cancel_at_period_end?: boolean;
       };
       if (sub.current_period_end) {
         currentPeriodEnd = new Date(sub.current_period_end * 1000).toISOString();
+      }
+      if (sub.cancel_at_period_end) {
+        cancelAtPeriodEnd = true;
       }
     } catch {
       /* ignore */
@@ -57,6 +63,7 @@ export async function loadShopBillingSnapshot(): Promise<ShopBillingSnapshot | n
     subscriptionStatus: tenant.subscription_status as string | null,
     trialEndsAt: tenant.trial_ends_at as string | null,
     currentPeriodEnd,
+    cancelAtPeriodEnd,
     stripeCustomerId: tenant.stripe_customer_id as string | null,
     stripeSubscriptionId: tenant.stripe_subscription_id as string | null,
     stripePriceId: tenant.stripe_price_id as string | null
