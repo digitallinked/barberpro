@@ -18,11 +18,21 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: APP_NAME,
   description: APP_DESCRIPTION,
-  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL)
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
+  },
+  icons: {
+    apple: "/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
-  viewportFit: "cover"
+  viewportFit: "cover",
+  themeColor: "#D4AF37",
 };
 
 type RootLayoutProps = {

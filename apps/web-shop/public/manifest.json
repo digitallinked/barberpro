@@ -1,22 +1,24 @@
 {
-  "name": "BarberPro Queue Board",
-  "short_name": "Queue Board",
-  "description": "Live queue display for barbershops powered by BarberPro",
-  "start_url": "/queue-board",
-  "display": "fullscreen",
-  "orientation": "landscape",
+  "name": "BarberPro",
+  "short_name": "BarberPro",
+  "description": "Barber shop management dashboard — appointments, staff, POS and more",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
   "background_color": "#080808",
   "theme_color": "#D4AF37",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
