@@ -1,6 +1,7 @@
 "use server";
 
 import type Stripe from "stripe";
+import { headers } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
@@ -48,6 +49,15 @@ export async function createCheckoutSession(
 
   let customerId = tenant.stripe_customer_id as string | null;
 
+  if (customerId) {
+    try {
+      await stripe.customers.retrieve(customerId);
+    } catch {
+      customerId = null;
+      await supabase.from("tenants").update({ stripe_customer_id: null }).eq("id", tenant.id);
+    }
+  }
+
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email ?? tenant.email ?? undefined,
@@ -63,7 +73,10 @@ export async function createCheckoutSession(
   }
 
   const selectedPlan = STRIPE_PLANS[plan];
-  const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const headersList = await headers();
+  const host = headersList.get("host") ?? new URL(env.NEXT_PUBLIC_APP_URL).host;
+  const proto = headersList.get("x-forwarded-proto") ?? "https";
+  const appUrl = `${proto}://${host}`;
   const intent = options?.intent ?? "onboarding";
 
   // Only apply trial in Stripe if the tenant hasn't already used their DB trial

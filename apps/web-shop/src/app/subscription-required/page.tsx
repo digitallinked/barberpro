@@ -39,15 +39,19 @@ function SubscriptionRequiredContent() {
   async function handleSubscribe() {
     setError(null);
     setIsLoading(true);
-    const result = await createCheckoutSession(selectedPlanKey, { intent: "recovery" });
-    setIsLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    if (result.url) {
-      window.location.href = result.url;
+    try {
+      const result = await createCheckoutSession(selectedPlanKey, { intent: "recovery" });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      if (result.url) {
+        window.location.href = result.url;
+      }
+    } catch {
+      setError("Something went wrong. Please try again or contact support.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
