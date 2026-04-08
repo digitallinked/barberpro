@@ -37,6 +37,22 @@ export const env = parseEnv(envSchema, {
   CRON_SECRET: process.env.CRON_SECRET,
 });
 
+/**
+ * Base URL for metadata (icons, OG). Must match the deployed origin.
+ * `NEXT_PUBLIC_APP_URL` defaults to localhost in the parsed env schema; on Vercel
+ * without that var set, resolving metadata against localhost breaks `<link rel="icon">`.
+ */
+export function getMetadataBase(): URL {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL;
+  if (explicit) {
+    return new URL(explicit);
+  }
+  if (process.env.VERCEL_URL) {
+    return new URL(`https://${process.env.VERCEL_URL}`);
+  }
+  return new URL("http://localhost:3000");
+}
+
 export function hasSupabaseEnv() {
   return Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
