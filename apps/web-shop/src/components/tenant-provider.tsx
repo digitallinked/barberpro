@@ -34,23 +34,35 @@ export function TenantProvider({
 }) {
   const isOwner = value.userRole === "owner";
 
-  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(() => {
-    if (!isOwner) return value.branchId;
-    if (typeof window === "undefined") return null;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    const exists = value.branches.some((b) => b.id === stored);
-    return exists ? stored : null;
-  });
+  // Always start with null so server and client render identically (no hydration mismatch).
+  // For owners we restore from localStorage after mount in a useEffect.
+  // For non-owners we set to their assigned branch_id after mount as well.
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!isOwner) return;
+    if (!isOwner) {
+      setSelectedBranchId(value.branchId);
+      setHydrated(true);
+      return;
+    }
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored && value.branches.some((b) => b.id === stored)) {
+      setSelectedBranchId(stored);
+    }
+    setHydrated(true);
+  // Run once on mount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isOwner || !hydrated) return;
     if (selectedBranchId === null) {
       localStorage.removeItem(STORAGE_KEY);
     } else {
       localStorage.setItem(STORAGE_KEY, selectedBranchId);
     }
-  }, [isOwner, selectedBranchId]);
+  }, [isOwner, hydrated, selectedBranchId]);
 
   const setActiveBranch = useCallback(
     (branchId: string | null) => {
