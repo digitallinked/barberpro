@@ -337,7 +337,7 @@ export default function ReportsPage() {
     const breakdown = Object.entries(bucket)
       .map(([date, v]) => ({ date, ...v }))
       .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(byMonth ? 24 : 31);
+      .slice(0, byMonth ? 24 : 31);
 
     const breakdownGranularity: "day" | "month" = byMonth ? "month" : "day";
 
@@ -1426,37 +1426,73 @@ ${body}
             </div>
             {revenueStats.breakdown.length === 0 ? (
               <div className="px-5 py-12 text-center text-sm text-gray-500">No data for this period</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      <th className="p-4 text-left">
-                        {revenueStats.breakdownGranularity === "month" ? "Month" : "Date"}
-                      </th>
-                      <th className="p-4 text-left">Transactions</th>
-                      <th className="p-4 text-left">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {revenueStats.breakdown.map((row) => (
-                      <tr key={row.date} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
-                        <td className="p-4 font-medium text-white">
-                          {revenueStats.breakdownGranularity === "month"
-                            ? new Date(`${row.date}-01T12:00:00`).toLocaleString("en-MY", {
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : formatDate(`${row.date}T12:00:00`)}
-                        </td>
-                        <td className="p-4 text-gray-300">{row.count}</td>
-                        <td className="p-4 font-bold text-[#D4AF37]">{formatAmount(row.total)}</td>
+            ) : (() => {
+              const maxTotal = Math.max(...revenueStats.breakdown.map((r) => r.total), 1);
+              const grandTotal = revenueStats.breakdown.reduce((s, r) => s + r.total, 0);
+              const grandCount = revenueStats.breakdown.reduce((s, r) => s + r.count, 0);
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        <th className="p-4 text-left">
+                          {revenueStats.breakdownGranularity === "month" ? "Month" : "Date"}
+                        </th>
+                        <th className="p-4 text-right">Tx</th>
+                        <th className="p-4 text-right">Avg / tx</th>
+                        <th className="p-4 text-right">Revenue</th>
+                        <th className="w-32 px-4 text-left text-gray-600">Share</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {revenueStats.breakdown.map((row) => {
+                        const barPct = maxTotal > 0 ? (row.total / maxTotal) * 100 : 0;
+                        const avg = row.count > 0 ? row.total / row.count : 0;
+                        return (
+                          <tr key={row.date} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
+                            <td className="p-4 font-medium text-white">
+                              {revenueStats.breakdownGranularity === "month"
+                                ? new Date(`${row.date}-01T12:00:00`).toLocaleString("en-MY", {
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : formatDate(`${row.date}T12:00:00`)}
+                            </td>
+                            <td className="p-4 text-right tabular-nums text-gray-300">{row.count}</td>
+                            <td className="p-4 text-right tabular-nums text-gray-400">{formatAmount(avg)}</td>
+                            <td className="p-4 text-right font-bold tabular-nums text-[#D4AF37]">{formatAmount(row.total)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+                                  <div
+                                    className="h-full rounded-full bg-[#D4AF37]/60"
+                                    style={{ width: `${barPct}%` }}
+                                  />
+                                </div>
+                                <span className="min-w-[32px] text-right text-[10px] tabular-nums text-gray-600">
+                                  {grandTotal > 0 ? ((row.total / grandTotal) * 100).toFixed(0) : "0"}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-white/10 bg-black/20 text-xs font-semibold text-gray-400">
+                        <td className="p-4">Total</td>
+                        <td className="p-4 text-right tabular-nums text-gray-300">{grandCount}</td>
+                        <td className="p-4 text-right tabular-nums text-gray-400">
+                          {formatAmount(grandCount > 0 ? grandTotal / grandCount : 0)}
+                        </td>
+                        <td className="p-4 text-right tabular-nums text-[#D4AF37]">{formatAmount(grandTotal)}</td>
+                        <td className="px-4" />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              );
+            })()}
           </Card>
         </div>
       )}
