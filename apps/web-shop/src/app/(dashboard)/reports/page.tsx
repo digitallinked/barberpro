@@ -21,7 +21,6 @@ import { useT } from "@/lib/i18n/language-context";
 import {
   useTransactions,
   useStaffMembers,
-  useCustomers,
   useCustomerStats,
   useInventoryItems,
   useInventoryStats,
@@ -226,7 +225,6 @@ export default function ReportsPage() {
   const { data: payrollPlData } = useAllPayrollEntries(plCalendarYear);
   const { data: payrollTaxYearData } = useAllPayrollEntries(taxYear);
   const { data: staffData, isLoading: staffLoading } = useStaffMembers();
-  const { data: customersData, isLoading: customersLoading } = useCustomers();
   const { data: customerStatsData } = useCustomerStats();
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
   const { data: inventoryStatsData } = useInventoryStats();
@@ -259,7 +257,6 @@ export default function ReportsPage() {
 
   const transactions = transactionsData?.data ?? [];
   const staffMembers = staffData?.data ?? [];
-  const customers = customersData?.data ?? [];
   const customerStats = customerStatsData?.data ?? { total: 0, newThisMonth: 0 };
   const inventoryItems = inventoryData?.data ?? [];
   const inventoryStats = inventoryStatsData?.data ?? { totalItems: 0, lowStock: 0 };
@@ -844,10 +841,10 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
         const rows = customerSpend
           .map(
             (c) =>
-              `<tr><td>${escAttr(c.name)}</td><td>${escAttr(c.phone)}</td><td class="n">${c.visits}</td><td class="n">${escAttr(formatAmount(c.spend))}</td><td>${escAttr(c.lastAt.split("T")[0] ?? "")}</td></tr>`
+              `<tr><td>${escAttr(c.name)}</td><td class="n">${c.visits}</td><td class="n">${escAttr(formatAmount(c.spend))}</td><td>${escAttr(c.lastAt.split("T")[0] ?? "")}</td></tr>`
           )
           .join("");
-        return `<p><strong>Range:</strong> ${rangeLabel}</p>${h("Customer spend (with transactions)")}<table><tr><th>Name</th><th>Phone</th><th class="n">Visits</th><th class="n">Spend</th><th>Last visit</th></tr>${rows}</table>`;
+        return `<p><strong>Range:</strong> ${rangeLabel}</p>${h("Customer spend (with transactions)")}<table><tr><th>Name</th><th class="n">Visits</th><th class="n">Spend</th><th>Last visit</th></tr>${rows}</table>`;
       }
       case "inventory": {
         const list = lowStockItems.length > 0 ? lowStockItems : inventoryItems.slice(0, 100);
@@ -970,10 +967,9 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
       case "customers":
         downloadCsv(
           name,
-          ["Name", "Phone", "Visits", "Spend_RM", "Last_visit"],
+          ["Name", "Visits", "Spend_RM", "Last_visit"],
           customerSpend.map((c) => [
             c.name,
-            c.phone,
             c.visits,
             c.spend.toFixed(2),
             c.lastAt.split("T")[0] ?? "",
@@ -1078,7 +1074,6 @@ ${body}
   const isLoading =
     transactionsLoading ||
     staffLoading ||
-    customersLoading ||
     inventoryLoading ||
     expensesLoading;
 
@@ -1670,7 +1665,6 @@ ${body}
                   <thead>
                     <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
                       <th className="p-4 text-left">Name</th>
-                      <th className="p-4 text-left">Phone</th>
                       <th className="p-4 text-right">Visits</th>
                       <th className="p-4 text-right">Spend</th>
                       <th className="p-4 text-left">Last visit</th>
@@ -1680,41 +1674,9 @@ ${body}
                     {customerSpend.map((c) => (
                       <tr key={c.id} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
                         <td className="p-4 font-medium text-white">{c.name}</td>
-                        <td className="p-4 text-gray-300">{c.phone || "—"}</td>
                         <td className="p-4 text-right text-gray-300">{c.visits}</td>
                         <td className="p-4 text-right font-semibold text-[#D4AF37]">{formatAmount(c.spend)}</td>
                         <td className="p-4 text-gray-500">{formatDate(c.lastAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-          <Card>
-            <div className="border-b border-white/5 px-5 py-4">
-              <h3 className="font-bold text-white">Recently joined</h3>
-            </div>
-            {customers.length === 0 ? (
-              <div className="px-5 py-12 text-center text-sm text-gray-500">No customers yet</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      <th className="p-4 text-left">Name</th>
-                      <th className="p-4 text-left">Phone</th>
-                      <th className="p-4 text-left">Email</th>
-                      <th className="p-4 text-left">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.slice(0, 20).map((c) => (
-                      <tr key={c.id} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
-                        <td className="p-4 font-medium text-white">{c.full_name}</td>
-                        <td className="p-4 text-gray-300">{c.phone ?? "—"}</td>
-                        <td className="p-4 text-gray-300">{c.email ?? "—"}</td>
-                        <td className="p-4 text-gray-500">{formatDate(c.created_at + "T12:00:00")}</td>
                       </tr>
                     ))}
                   </tbody>
