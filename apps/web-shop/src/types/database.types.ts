@@ -440,6 +440,7 @@ export type Database = {
           name: string
           operating_hours: Json
           phone: string | null
+          slug: string
           tenant_id: string
           updated_at: string
         }
@@ -460,6 +461,7 @@ export type Database = {
           name: string
           operating_hours?: Json
           phone?: string | null
+          slug?: string
           tenant_id: string
           updated_at?: string
         }
@@ -480,6 +482,7 @@ export type Database = {
           name?: string
           operating_hours?: Json
           phone?: string | null
+          slug?: string
           tenant_id?: string
           updated_at?: string
         }

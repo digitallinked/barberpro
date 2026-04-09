@@ -26,52 +26,64 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       redirect("/login");
     }
 
-    const { data: tenant } = await supabase
-      .from("tenants")
-      .select("onboarding_completed, subscription_status, trial_ends_at, stripe_subscription_id")
-      .eq("owner_auth_id", user!.id)
-      .maybeSingle();
-
-    if (!tenant?.onboarding_completed) {
-      const step = tenant ? "payment" : "onboarding";
-      redirect(`/register?step=${step}`);
-    }
-
-    // Expire DB-only trials that have passed their end date
-    const tenantAny = tenant as Record<string, unknown>;
-    const trialEndsAt = tenantAny.trial_ends_at as string | null;
-    const stripeSubId = tenantAny.stripe_subscription_id as string | null;
-    const isDbOnlyTrialing =
-      tenant.subscription_status === "trialing" &&
-      !stripeSubId &&
-      trialEndsAt &&
-      new Date(trialEndsAt) < new Date();
-
-    if (isDbOnlyTrialing) {
-      // Trial has expired — mark as canceled and redirect to paywall
-      await supabase
-        .from("tenants")
-        .update({ subscription_status: "canceled" })
-        .eq("owner_auth_id", user.id);
-      redirect("/subscription-required?reason=trial_expired");
-    }
-
-    if (
-      tenant?.subscription_status &&
-      BLOCKED_STATUSES.includes(tenant.subscription_status)
-    ) {
-      redirect("/subscription-required");
-    }
-
+    // Resolve tenant context first — works for both owners and staff
     const tenantCtx = await getCurrentTenant();
     if (!tenantCtx) {
       redirect("/login");
     }
 
+    const isOwner = tenantCtx.userRole === "owner";
+
+    // Owner-specific onboarding and subscription checks
+    if (isOwner) {
+      const { data: tenant } = await supabase
+        .from("tenants")
+        .select("onboarding_completed, subscription_status, trial_ends_at, stripe_subscription_id")
+        .eq("owner_auth_id", user.id)
+        .maybeSingle();
+
+      if (!tenant?.onboarding_completed) {
+        const step = tenant ? "payment" : "onboarding";
+        redirect(`/register?step=${step}`);
+      }
+
+      const tenantAny = tenant as Record<string, unknown>;
+      const trialEndsAt = tenantAny.trial_ends_at as string | null;
+      const stripeSubId = tenantAny.stripe_subscription_id as string | null;
+      const isDbOnlyTrialing =
+        tenant.subscription_status === "trialing" &&
+        !stripeSubId &&
+        trialEndsAt &&
+        new Date(trialEndsAt) < new Date();
+
+      if (isDbOnlyTrialing) {
+        await supabase
+          .from("tenants")
+          .update({ subscription_status: "canceled" })
+          .eq("owner_auth_id", user.id);
+        redirect("/subscription-required?reason=trial_expired");
+      }
+
+      if (
+        tenant?.subscription_status &&
+        BLOCKED_STATUSES.includes(tenant.subscription_status)
+      ) {
+        redirect("/subscription-required");
+      }
+    } else {
+      // Staff: only block if the tenant's subscription is fully blocked
+      if (
+        tenantCtx.subscriptionStatus &&
+        BLOCKED_STATUSES.includes(tenantCtx.subscriptionStatus)
+      ) {
+        redirect("/subscription-required");
+      }
+    }
+
     return (
       <LanguageProvider initialLanguage={tenantCtx.preferredLanguage}>
         <TenantProvider value={tenantCtx}>
-          {tenantCtx.subscriptionStatus === "trialing" && tenantCtx.trialEndsAt && !tenantCtx.stripeSubscriptionId && (
+          {isOwner && tenantCtx.subscriptionStatus === "trialing" && tenantCtx.trialEndsAt && !tenantCtx.stripeSubscriptionId && (
             <TrialBanner
               trialEndsAt={tenantCtx.trialEndsAt}
               stripeSubscriptionId={tenantCtx.stripeSubscriptionId}

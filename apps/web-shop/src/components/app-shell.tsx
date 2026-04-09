@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Banknote,
   BarChart3,
   Bell,
   CalendarCheck2,
+  Check,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
@@ -27,57 +28,67 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { RouteGuard } from "@/components/route-guard";
 import { useTenant } from "@/components/tenant-provider";
 import {
   WalkInQueueModalProvider,
 } from "@/components/walk-in-queue-modal-context";
 import { useT } from "@/lib/i18n/language-context";
+import { canAccessPage } from "@/lib/permissions";
 
-type NavItem = { labelKey: string; href: string; icon: React.ElementType };
+type NavItem = { labelKey: string; href: string; icon: React.ElementType; pageKey: string };
 
-function useNavItems() {
+function useNavItems(role: string) {
   const t = useT();
 
-  const NAV_OPERATIONS: NavItem[] = [
-    { labelKey: t.nav.dashboard, href: "/dashboard", icon: Home },
-    { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList },
-    { labelKey: t.nav.appointments, href: "/appointments", icon: CalendarCheck2 },
-    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard },
+  const allOps: NavItem[] = [
+    { labelKey: t.nav.dashboard, href: "/dashboard", icon: Home, pageKey: "dashboard" },
+    { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList, pageKey: "queue" },
+    { labelKey: t.nav.appointments, href: "/appointments", icon: CalendarCheck2, pageKey: "appointments" },
+    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard, pageKey: "pos" },
   ];
 
-  const NAV_CUSTOMERS: NavItem[] = [
-    { labelKey: t.nav.customers, href: "/customers", icon: Contact2 },
-    { labelKey: t.nav.services, href: "/services", icon: Scissors },
+  const allCustomers: NavItem[] = [
+    { labelKey: t.nav.customers, href: "/customers", icon: Contact2, pageKey: "customers" },
+    { labelKey: t.nav.services, href: "/services", icon: Scissors, pageKey: "services" },
   ];
 
-  const NAV_TEAM: NavItem[] = [
-    { labelKey: t.nav.staff, href: "/staff", icon: Users },
-    { labelKey: t.nav.payroll, href: "/payroll", icon: CircleDollarSign },
-    { labelKey: t.nav.commissions, href: "/commissions", icon: TrendingUp },
+  const allTeam: NavItem[] = [
+    { labelKey: t.nav.staff, href: "/staff", icon: Users, pageKey: "staff" },
+    { labelKey: t.nav.payroll, href: "/payroll", icon: CircleDollarSign, pageKey: "payroll" },
+    { labelKey: t.nav.commissions, href: "/commissions", icon: TrendingUp, pageKey: "commissions" },
   ];
 
-  const NAV_BUSINESS: NavItem[] = [
-    { labelKey: t.nav.inventory, href: "/inventory", icon: Package },
-    { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet },
-    { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone },
-    { labelKey: t.nav.reports, href: "/reports", icon: BarChart3 },
-    { labelKey: t.nav.branches, href: "/branches", icon: Store },
-    { labelKey: t.nav.settings, href: "/settings", icon: Settings },
+  const allBusiness: NavItem[] = [
+    { labelKey: t.nav.inventory, href: "/inventory", icon: Package, pageKey: "inventory" },
+    { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet, pageKey: "expenses" },
+    { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone, pageKey: "promotions" },
+    { labelKey: t.nav.reports, href: "/reports", icon: BarChart3, pageKey: "reports" },
+    { labelKey: t.nav.branches, href: "/branches", icon: Store, pageKey: "branches" },
+    { labelKey: t.nav.settings, href: "/settings", icon: Settings, pageKey: "settings" },
   ];
 
-  const NAV_WORKSPACE: NavItem[] = [
-    { labelKey: t.nav.billing, href: "/billing", icon: Banknote },
+  const allWorkspace: NavItem[] = [
+    { labelKey: t.nav.billing, href: "/billing", icon: Banknote, pageKey: "billing" },
   ];
+
+  const filter = (items: NavItem[]) => items.filter((i) => canAccessPage(role, i.pageKey));
+
+  const NAV_OPERATIONS = filter(allOps);
+  const NAV_CUSTOMERS = filter(allCustomers);
+  const NAV_TEAM = filter(allTeam);
+  const NAV_BUSINESS = filter(allBusiness);
+  const NAV_WORKSPACE = filter(allWorkspace);
 
   const NAV_MOBILE: NavItem[] = [
-    { labelKey: t.nav.home, href: "/dashboard", icon: Home },
-    { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList },
-    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard },
-    { labelKey: t.nav.appts, href: "/appointments", icon: CalendarCheck2 },
-  ];
+    { labelKey: t.nav.home, href: "/dashboard", icon: Home, pageKey: "dashboard" },
+    { labelKey: t.nav.queue, href: "/queue", icon: ClipboardList, pageKey: "queue" },
+    { labelKey: t.nav.pos, href: "/pos", icon: CreditCard, pageKey: "pos" },
+    { labelKey: t.nav.appts, href: "/appointments", icon: CalendarCheck2, pageKey: "appointments" },
+  ].filter((i) => canAccessPage(role, i.pageKey));
 
   return { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE, NAV_MOBILE };
 }
@@ -134,6 +145,7 @@ function NavGroup({
   onNav?: () => void;
   collapsed?: boolean;
 }) {
+  if (items.length === 0) return null;
   return (
     <div className="mt-4 first:mt-0">
       {collapsed ? (
@@ -176,7 +188,7 @@ function SidebarContent({
   onToggleCollapse?: () => void;
 }) {
   const t = useT();
-  const { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE } = useNavItems();
+  const { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE } = useNavItems(userRole);
 
   const initials = userName
     .split(" ")
@@ -204,6 +216,15 @@ function SidebarContent({
           </div>
         )}
       </div>
+
+      {!collapsed && (
+        <div className="flex items-center gap-2 border-b border-white/5 px-4 py-2.5">
+          <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4AF37]" />
+          <p className="truncate text-[11px] font-medium text-gray-400">
+            {branchName}
+          </p>
+        </div>
+      )}
 
       <nav className={`flex-1 overflow-y-auto py-4 ${collapsed ? "px-1" : "px-3"}`}>
         <NavGroup
@@ -328,13 +349,15 @@ function MobileBottomNav({
   pathname,
   onOpenMenu,
   menuOpen,
+  userRole,
 }: {
   pathname: string;
   onOpenMenu: () => void;
   menuOpen: boolean;
+  userRole: string;
 }) {
   const t = useT();
-  const { NAV_MOBILE } = useNavItems();
+  const { NAV_MOBILE } = useNavItems(userRole);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden" aria-label="Primary">
@@ -403,11 +426,18 @@ function AppShellInner({ children }: AppShellProps) {
     });
   };
 
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const branchDropdownRef = useRef<HTMLDivElement>(null);
+
   let userName = "User";
   let userRole = "owner";
   let branchName = "Main Branch";
-  let branches: { id: string; name: string; is_hq: boolean }[] = [];
+  let branches: { id: string; name: string; slug: string; is_hq: boolean }[] = [];
   let subscriptionStatus: string | null = null;
+  let activeBranchId: string | null = null;
+  let activeBranchName: string | null = null;
+  let isAllBranches = false;
+  let setActiveBranch: (id: string | null) => void = () => {};
 
   try {
     const tenant = useTenant();
@@ -416,9 +446,25 @@ function AppShellInner({ children }: AppShellProps) {
     branchName = tenant.branchName ?? "No Branch";
     branches = tenant.branches;
     subscriptionStatus = tenant.subscriptionStatus ?? null;
+    activeBranchId = tenant.activeBranchId;
+    activeBranchName = tenant.activeBranchName;
+    isAllBranches = tenant.isAllBranches;
+    setActiveBranch = tenant.setActiveBranch;
   } catch {
     // TenantProvider not available (e.g. dev mode without Supabase)
   }
+
+  const displayBranchName = isAllBranches ? t.branches.allBranches : (activeBranchName ?? branchName);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(e.target as Node)) {
+        setBranchDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const isPaymentPastDue = subscriptionStatus === "past_due" || subscriptionStatus === "unpaid";
 
@@ -433,7 +479,7 @@ function AppShellInner({ children }: AppShellProps) {
           pathname={pathname}
           userName={userName}
           userRole={userRole}
-          branchName={branchName}
+          branchName={displayBranchName}
           collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
         />
@@ -461,7 +507,7 @@ function AppShellInner({ children }: AppShellProps) {
               onNav={() => setOpen(false)}
               userName={userName}
               userRole={userRole}
-              branchName={branchName}
+              branchName={displayBranchName}
             />
           </aside>
         </div>
@@ -470,15 +516,64 @@ function AppShellInner({ children }: AppShellProps) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-white/5 bg-[#1a1a1a]/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40"
-            >
-              <span className="font-medium">{branchName}</span>
-              {branches.length > 1 && (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              )}
-            </button>
+            {userRole === "owner" ? (
+              <div className="relative" ref={branchDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => branches.length > 0 && setBranchDropdownOpen((v) => !v)}
+                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-3 py-2 text-sm text-white transition hover:border-[#D4AF37]/40"
+                >
+                  <Store className="h-4 w-4 text-[#D4AF37]" />
+                  <span className="max-w-[180px] truncate font-medium">{displayBranchName}</span>
+                  {branches.length > 0 && (
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${branchDropdownOpen ? "rotate-180" : ""}`} />
+                  )}
+                </button>
+                {branchDropdownOpen && branches.length > 0 && (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl shadow-black/40">
+                    <div className="p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setActiveBranch(null); setBranchDropdownOpen(false); }}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${isAllBranches ? "bg-[#D4AF37]/10 text-white" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
+                      >
+                        <Store className="h-4 w-4 shrink-0" />
+                        <span className="flex-1 truncate text-left">{t.branches.allBranches}</span>
+                        {isAllBranches && <Check className="h-3.5 w-3.5 text-[#D4AF37]" />}
+                      </button>
+                      <div className="my-1 border-t border-white/5" />
+                      {branches.map((b) => {
+                        const isActive = b.id === activeBranchId;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => { setActiveBranch(b.id); setBranchDropdownOpen(false); }}
+                            className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${isActive ? "bg-[#D4AF37]/10 text-white" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
+                          >
+                            <Store className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 truncate text-left">{b.name}</span>
+                            {b.is_hq && <span className="rounded-full bg-[#D4AF37]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#D4AF37]">HQ</span>}
+                            {isActive && <Check className="h-3.5 w-3.5 text-[#D4AF37]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t border-white/5 p-1.5">
+                      <Link href="/branches" onClick={() => setBranchDropdownOpen(false)}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-500 transition hover:bg-white/5 hover:text-white">
+                        {t.branches.manageBranches}
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#111111] px-3 py-2 text-sm text-white">
+                <Store className="h-4 w-4 text-[#D4AF37]" />
+                <span className="max-w-[180px] truncate font-medium">{displayBranchName}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -510,13 +605,14 @@ function AppShellInner({ children }: AppShellProps) {
         )}
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#111111] px-4 py-6 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
-          {children}
+          <RouteGuard>{children}</RouteGuard>
         </main>
 
         <MobileBottomNav
           pathname={pathname}
           menuOpen={open}
           onOpenMenu={() => setOpen(true)}
+          userRole={userRole}
         />
 
       </div>

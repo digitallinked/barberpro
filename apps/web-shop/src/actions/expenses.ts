@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthContext } from "./_helpers";
+import { getAuthContext, getAuthContextWithBranch } from "./_helpers";
 
 export async function createExpense(formData: FormData) {
   try {
-    const { supabase, tenantId, appUserId } = await getAuthContext();
+    const { supabase, tenantId, appUserId, effectiveBranchId } = await getAuthContextWithBranch();
 
     const category = formData.get("category") as string;
     const vendor = (formData.get("vendor") as string) || null;
@@ -14,7 +14,7 @@ export async function createExpense(formData: FormData) {
     const payment_method = formData.get("payment_method") as string;
     const expense_date = formData.get("expense_date") as string;
     const notes = (formData.get("notes") as string) || null;
-    const branch_id = (formData.get("branch_id") as string) || null;
+    const branch_id = (formData.get("branch_id") as string) || effectiveBranchId || null;
 
     if (!category || !payment_method || !expense_date) {
       return { success: false, error: "Category, payment method, and expense date are required" };

@@ -22,9 +22,10 @@ export type StaffMember = {
 
 export async function getStaffMembers(
   client: Client,
-  tenantId: string
+  tenantId: string,
+  branchId?: string | null,
 ): Promise<{ data: StaffMember[] | null; error: Error | null }> {
-  const { data, error } = await client
+  let query = client
     .from("staff_profiles")
     .select(
       `
@@ -48,6 +49,12 @@ export async function getStaffMembers(
     )
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
+
+  if (branchId) {
+    query = query.eq("app_users.branch_id", branchId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return { data: null, error: new Error(error.message) };

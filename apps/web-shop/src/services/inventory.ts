@@ -8,14 +8,20 @@ type SupplierRow = Tables<"suppliers">;
 
 export async function getInventoryItems(
   client: Client,
-  tenantId: string
+  tenantId: string,
+  branchId?: string | null,
 ): Promise<{ data: InventoryItemRow[] | null; error: Error | null }> {
-  const { data, error } = await client
+  let query = client
     .from("inventory_items")
     .select("id, name, sku, item_type, stock_qty, reorder_level, unit_cost, sell_price, is_active, branch_id, supplier_id, tenant_id, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .order("name", { ascending: true });
 
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
+  }
+
+  const { data, error } = await query;
   return { data, error: error ? new Error(error.message) : null };
 }
 

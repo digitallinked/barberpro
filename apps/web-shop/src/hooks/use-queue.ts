@@ -4,16 +4,18 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
+import { useEffectiveBranchId } from "./use-effective-branch";
 import { getQueueTickets, getQueueStats, getQueueTicketsForBranch } from "@/services/queue";
 import { getSeats } from "@/actions/seats";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export function useQueueTickets() {
   const supabase = useSupabase();
-  const { tenantId, branchId } = useTenant();
+  const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId();
 
   return useQuery({
-    queryKey: ["queue-tickets", tenantId, branchId],
+    queryKey: ["queue-tickets", tenantId, branchId ?? "all"],
     queryFn: () => getQueueTickets(supabase, tenantId, branchId!),
     enabled: !!branchId,
     refetchInterval: 10_000,
@@ -22,10 +24,11 @@ export function useQueueTickets() {
 
 export function useQueueStats() {
   const supabase = useSupabase();
-  const { tenantId, branchId } = useTenant();
+  const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId();
 
   return useQuery({
-    queryKey: ["queue-stats", tenantId, branchId],
+    queryKey: ["queue-stats", tenantId, branchId ?? "all"],
     queryFn: () => getQueueStats(supabase, tenantId, branchId!),
     enabled: !!branchId,
     refetchInterval: 10_000,
@@ -33,10 +36,10 @@ export function useQueueStats() {
 }
 
 export function useSeats() {
-  const { branchId } = useTenant();
+  const branchId = useEffectiveBranchId();
 
   return useQuery({
-    queryKey: ["branch-seats", branchId],
+    queryKey: ["branch-seats", branchId ?? "all"],
     queryFn: () => getSeats(branchId),
     enabled: !!branchId,
     refetchInterval: 15_000,

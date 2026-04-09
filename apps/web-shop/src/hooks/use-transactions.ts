@@ -3,35 +3,39 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
+import { useEffectiveBranchId } from "./use-effective-branch";
 import { getTransactions, getDashboardStats, getDailyRevenue } from "@/services/transactions";
 import type { Period } from "@/services/transactions";
 
-export function useTransactions(limit?: number) {
+export function useTransactions(limit?: number, explicitBranchId?: string | null) {
   const supabase = useSupabase();
-  const { tenantId, branchId } = useTenant();
+  const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId(explicitBranchId);
 
   return useQuery({
-    queryKey: ["transactions", tenantId, branchId, limit],
-    queryFn: () => getTransactions(supabase, tenantId, branchId ?? undefined, limit),
+    queryKey: ["transactions", tenantId, branchId ?? "all", limit],
+    queryFn: () => getTransactions(supabase, tenantId, branchId, limit),
   });
 }
 
-export function useDashboardStats(period: Period = "today") {
+export function useDashboardStats(period: Period = "today", explicitBranchId?: string | null) {
   const supabase = useSupabase();
-  const { tenantId, branchId } = useTenant();
+  const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId(explicitBranchId);
 
   return useQuery({
-    queryKey: ["dashboard-stats", tenantId, branchId, period],
-    queryFn: () => getDashboardStats(supabase, tenantId, branchId ?? undefined, period),
+    queryKey: ["dashboard-stats", tenantId, branchId ?? "all", period],
+    queryFn: () => getDashboardStats(supabase, tenantId, branchId, period),
   });
 }
 
-export function useDailyRevenue(period: Period = "today") {
+export function useDailyRevenue(period: Period = "today", explicitBranchId?: string | null) {
   const supabase = useSupabase();
-  const { tenantId, branchId } = useTenant();
+  const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId(explicitBranchId);
 
   return useQuery({
-    queryKey: ["daily-revenue", tenantId, branchId, period],
-    queryFn: () => getDailyRevenue(supabase, tenantId, branchId ?? undefined, period),
+    queryKey: ["daily-revenue", tenantId, branchId ?? "all", period],
+    queryFn: () => getDailyRevenue(supabase, tenantId, branchId, period),
   });
 }

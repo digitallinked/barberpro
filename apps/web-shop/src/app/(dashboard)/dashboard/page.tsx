@@ -96,17 +96,17 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const [period, setPeriod] = useState<Period>("today");
   const [showWelcome, setShowWelcome] = useState(false);
-  const { userName, branchName } = useTenant();
+  const { userName, userRole, activeBranchName, isAllBranches } = useTenant();
 
   useEffect(() => {
     if (searchParams.get("welcome") === "true") {
       setShowWelcome(true);
-      // Remove the param from URL without re-rendering
       const url = new URL(window.location.href);
       url.searchParams.delete("welcome");
       router.replace(url.pathname + (url.search || ""), { scroll: false });
     }
   }, [searchParams, router]);
+
   const { data: statsData, isLoading: statsLoading } = useDashboardStats(period);
   const { data: chartData } = useDailyRevenue(period);
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
@@ -224,10 +224,19 @@ export default function DashboardPage() {
           <h2 className="text-xl font-bold text-white sm:text-2xl">
             {greeting}, {userName ?? "User"}
           </h2>
-          <p className="mt-1 text-sm text-gray-400">
-            {t.dashboard.situationAt}{" "}
-            <span className="font-medium text-[#D4AF37]">{branchName ?? "kedai"}</span>{" "}
-            {periodLabel}.
+          <p className="mt-1 flex items-center gap-2 text-sm text-gray-400">
+            <span>
+              {t.dashboard.situationAt}{" "}
+              <span className="font-medium text-[#D4AF37]">
+                {isAllBranches ? t.branches.allBranches : (activeBranchName ?? "kedai")}
+              </span>{" "}
+              {periodLabel}.
+            </span>
+            {userRole !== "owner" && (
+              <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold capitalize text-gray-500">
+                {userRole}
+              </span>
+            )}
           </p>
         </div>
         {/* Period selector — full-width pill on mobile */}

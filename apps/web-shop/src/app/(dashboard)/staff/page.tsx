@@ -5,21 +5,27 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   CalendarClock,
+  CheckCircle2,
   Eye,
+  Loader2,
   Lock,
+  Mail,
   MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Star,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useStaffMembers, useBranches, useStaffAttendance } from "@/hooks";
 import { createStaffMember } from "@/actions/staff";
+import { inviteStaffMember, revokeStaffAccess, resendStaffInvite } from "@/actions/staff-invite";
 import { recordAttendance } from "@/actions/attendance";
 import { useT } from "@/lib/i18n/language-context";
 import { useTenant } from "@/components/tenant-provider";
+import { isOwnerOrManager } from "@/lib/permissions";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -82,7 +88,7 @@ const STARTER_STAFF_LIMIT = 5;
 export default function StaffPage() {
   const t = useT();
   const queryClient = useQueryClient();
-  const { tenantPlan } = useTenant();
+  const { tenantPlan, userRole } = useTenant();
   const { data: staffResult, isLoading: staffLoading } = useStaffMembers();
   const { data: branchesResult } = useBranches();
 
@@ -97,8 +103,12 @@ export default function StaffPage() {
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [pending, setPending] = useState(false);
+  const [invitePending, setInvitePending] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
 
   const { data: attendanceWrap, isFetching: attLoading } = useStaffAttendance(attFrom, attTo);
   const attendanceRows = attendanceWrap?.data ?? [];
@@ -130,6 +140,25 @@ export default function StaffPage() {
     if (result.success) {
       setShowAddModal(false);
       queryClient.invalidateQueries({ queryKey: ["staff"] });
+    }
+  }
+
+  async function handleInviteSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setInviteError(null);
+    setInvitePending(true);
+    const fd = new FormData(e.currentTarget);
+    const result = await inviteStaffMember(fd);
+    setInvitePending(false);
+    if (result.success) {
+      setInviteSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ["staff"] });
+      setTimeout(() => {
+        setShowInviteModal(false);
+        setInviteSuccess(false);
+      }, 2000);
+    } else {
+      setInviteError(result.error ?? "Failed to send invite");
     }
   }
 
@@ -176,6 +205,16 @@ export default function StaffPage() {
               className="w-full rounded-lg border border-white/10 bg-[#1a1a1a] py-2 pl-9 pr-4 text-sm text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]/40 sm:w-52"
             />
           </div>
+          {isOwnerOrManager(userRole) && (
+            <button
+              type="button"
+              onClick={() => setShowInviteModal(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#D4AF37]/40 px-4 py-2 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/10 sm:w-auto"
+            >
+              <Mail className="h-4 w-4" />
+              Invite Staff
+            </button>
+          )}
           <button
             type="button"
             onClick={() => atStaffLimit ? setShowUpgrade(true) : setShowAddModal(true)}
@@ -598,6 +637,79 @@ export default function StaffPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Staff Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/5 p-6">
+              <div>
+                <h3 className="text-lg font-bold text-white">Invite Staff Member</h3>
+                <p className="mt-1 text-sm text-gray-400">Send a login invite to their email</p>
+              </div>
+              <button type="button" onClick={() => { setShowInviteModal(false); setInviteError(null); setInviteSuccess(false); }} className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {inviteSuccess ? (
+              <div className="p-6 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-400" />
+                </div>
+                <h4 className="text-lg font-bold text-white">Invite Sent!</h4>
+                <p className="mt-2 text-sm text-gray-400">The staff member will receive an email with a link to set up their account.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleInviteSubmit} className="space-y-4 p-6">
+                {inviteError && (
+                  <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{inviteError}</div>
+                )}
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Full Name <span className="text-red-400">*</span></label>
+                  <input name="full_name" required className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="e.g. Ahmad Ali" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Email <span className="text-red-400">*</span></label>
+                  <input name="email" type="email" required className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]" placeholder="staff@example.com" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">Role <span className="text-red-400">*</span></label>
+                    <select name="role" required className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]">
+                      <option value="">Select role...</option>
+                      <option value="manager">Manager</option>
+                      <option value="barber">Barber</option>
+                      <option value="cashier">Cashier</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">Branch <span className="text-red-400">*</span></label>
+                    <select name="branch_id" required className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]">
+                      <option value="">Select branch...</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-white/5 bg-black/20 px-4 py-3">
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    The staff member will receive an email invite to create their account. They will only see pages and data relevant to their role and assigned branch.
+                  </p>
+                </div>
+                <div className="flex gap-3 pt-2 border-t border-white/5">
+                  <button type="button" onClick={() => { setShowInviteModal(false); setInviteError(null); }} className="flex-1 rounded-lg border border-white/10 py-2.5 text-sm font-medium text-gray-400 transition hover:bg-white/5">Cancel</button>
+                  <button type="submit" disabled={invitePending} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50">
+                    {invitePending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    {invitePending ? "Sending..." : "Send Invite"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

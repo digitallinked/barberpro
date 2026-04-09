@@ -20,7 +20,8 @@ export type TenantContext = {
   userRole: string;
   branchId: string | null;
   branchName: string | null;
-  branches: { id: string; name: string; is_hq: boolean }[];
+  branchSlug: string | null;
+  branches: { id: string; name: string; slug: string; is_hq: boolean }[];
 };
 
 export async function getCurrentTenant(): Promise<TenantContext | null> {
@@ -58,7 +59,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 
   const { data: branches } = await supabase
     .from("branches")
-    .select("id, name, is_hq")
+    .select("id, name, slug, is_hq")
     .eq("tenant_id", tenant.id)
     .eq("is_active", true)
     .order("is_hq", { ascending: false });
@@ -87,6 +88,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
     userRole: appUser.role,
     branchId: activeBranch?.id ?? null,
     branchName: activeBranch?.name ?? null,
-    branches: branchList,
+    branchSlug: activeBranch?.slug ?? null,
+    branches: branchList.map((b) => ({ id: b.id, name: b.name, slug: b.slug, is_hq: b.is_hq })),
   };
 }

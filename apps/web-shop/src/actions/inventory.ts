@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAuthContext } from "./_helpers";
+import { getAuthContext, getAuthContextWithBranch } from "./_helpers";
 
 export async function createInventoryItem(formData: FormData) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
+    const { supabase, tenantId, effectiveBranchId } = await getAuthContextWithBranch();
 
     const name = formData.get("name") as string;
     const sku = (formData.get("sku") as string) || null;
@@ -16,7 +16,7 @@ export async function createInventoryItem(formData: FormData) {
     const stock_qty = Number(formData.get("stock_qty")) || 0;
     const reorder_level = Number(formData.get("reorder_level")) || 0;
     const supplier_id = (formData.get("supplier_id") as string) || null;
-    const branch_id = (formData.get("branch_id") as string) || null;
+    const branch_id = (formData.get("branch_id") as string) || effectiveBranchId || null;
 
     if (!name || !item_type) {
       return { success: false, error: "Name and item type are required" };
@@ -46,7 +46,7 @@ export async function createInventoryItem(formData: FormData) {
 
 export async function updateInventoryItem(id: string, formData: FormData) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
+    const { supabase, tenantId } = await getAuthContextWithBranch();
 
     const name = formData.get("name") as string;
     const sku = (formData.get("sku") as string) || null;

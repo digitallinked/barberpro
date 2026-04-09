@@ -14,6 +14,8 @@ const TENANT_CACHE_MAX_AGE = 60; // seconds — refresh from DB every 60s
 type TenantCachePayload = {
   onboardingCompleted: boolean;
   subscriptionStatus: string | null;
+  role: string | null;
+  isStaff: boolean;
   ts: number;
 };
 
@@ -36,17 +38,46 @@ async function fetchTenantState(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<TenantCachePayload | null> {
-  const { data: tenant } = await supabase
+  // 1. Try owner lookup first (fast path for shop owners)
+  const { data: ownedTenant } = await supabase
     .from("tenants")
     .select("onboarding_completed, subscription_status")
     .eq("owner_auth_id", userId)
     .maybeSingle();
 
-  if (!tenant) return null;
+  if (ownedTenant) {
+    return {
+      onboardingCompleted: ownedTenant.onboarding_completed === true,
+      subscriptionStatus: ownedTenant.subscription_status,
+      role: "owner",
+      isStaff: false,
+      ts: Date.now(),
+    };
+  }
+
+  // 2. Fall back to app_users lookup (staff members)
+  const { data: appUser } = await supabase
+    .from("app_users")
+    .select("role, tenant_id")
+    .eq("auth_user_id", userId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!appUser?.tenant_id) return null;
+
+  const { data: staffTenant } = await supabase
+    .from("tenants")
+    .select("onboarding_completed, subscription_status")
+    .eq("id", appUser.tenant_id)
+    .single();
+
+  if (!staffTenant) return null;
 
   return {
-    onboardingCompleted: tenant.onboarding_completed === true,
-    subscriptionStatus: tenant.subscription_status,
+    onboardingCompleted: staffTenant.onboarding_completed === true,
+    subscriptionStatus: staffTenant.subscription_status,
+    role: appUser.role,
+    isStaff: true,
     ts: Date.now(),
   };
 }
@@ -162,20 +193,33 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isDashboardRoute) {
-    if (!tenantState || !tenantState.onboardingCompleted) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/register";
-      url.searchParams.set("step", tenantState ? "payment" : "onboarding");
-      return NextResponse.redirect(url);
-    }
+    // Staff members skip onboarding/subscription checks — those are the owner's responsibility
+    if (tenantState?.isStaff) {
+      if (
+        tenantState.subscriptionStatus &&
+        BLOCKED_STATUSES.includes(tenantState.subscriptionStatus)
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/subscription-required";
+        return NextResponse.redirect(url);
+      }
+      // Staff with an active tenant can proceed
+    } else {
+      if (!tenantState || !tenantState.onboardingCompleted) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/register";
+        url.searchParams.set("step", tenantState ? "payment" : "onboarding");
+        return NextResponse.redirect(url);
+      }
 
-    if (
-      tenantState.subscriptionStatus &&
-      BLOCKED_STATUSES.includes(tenantState.subscriptionStatus)
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/subscription-required";
-      return NextResponse.redirect(url);
+      if (
+        tenantState.subscriptionStatus &&
+        BLOCKED_STATUSES.includes(tenantState.subscriptionStatus)
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/subscription-required";
+        return NextResponse.redirect(url);
+      }
     }
   }
 

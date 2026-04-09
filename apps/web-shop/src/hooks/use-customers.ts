@@ -3,15 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
+import { useEffectiveBranchId } from "./use-effective-branch";
 import { getCustomers, getCustomerStats } from "@/services/customers";
 
-export function useCustomers() {
+export function useCustomers(explicitBranchId?: string | null) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId(explicitBranchId);
 
   return useQuery({
-    queryKey: ["customers", tenantId],
-    queryFn: () => getCustomers(supabase, tenantId),
+    queryKey: ["customers", tenantId, branchId ?? "all"],
+    queryFn: () => getCustomers(supabase, tenantId, branchId),
   });
 }
 

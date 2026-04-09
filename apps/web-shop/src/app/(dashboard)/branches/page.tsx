@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
+import { ArrowRight, Check, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 
 import { useBranches } from "@/hooks";
@@ -15,8 +16,10 @@ import { PlacesAutocomplete } from "@/components/places-autocomplete";
 export default function BranchesPage() {
   const t = useT();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { data, isLoading, error } = useBranches();
   const tenant = useTenant();
+  const { activeBranchId, setActiveBranch } = tenant;
 
   const [showModal, setShowModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -109,6 +112,8 @@ export default function BranchesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {branches.map((b) => {
             const logoUrl = b.logo_url;
+            const slug = (b as Record<string, unknown>).slug ?? b.id;
+            const isActive = b.id === activeBranchId;
             const modeLabel = b.accepts_online_bookings && b.accepts_walkin_queue ? "Bookings & Walk-ins"
               : b.accepts_online_bookings ? "Appointments only"
               : b.accepts_walkin_queue ? "Walk-in only"
@@ -117,10 +122,11 @@ export default function BranchesPage() {
               : !b.accepts_online_bookings && !b.accepts_walkin_queue ? "bg-red-500/10 text-red-400"
               : "bg-amber-500/10 text-amber-400";
             return (
-              <Link
+              <div
                 key={b.id}
-                href={`/branches/${b.id}`}
-                className="group rounded-xl border border-white/5 bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl hover:shadow-black/20"
+                className={`group rounded-xl border bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20 ${
+                  isActive ? "border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/5" : "border-white/5 hover:border-[#D4AF37]/20"
+                }`}
               >
                 <div className="flex items-start gap-3 mb-4">
                   {logoUrl ? (
@@ -142,6 +148,11 @@ export default function BranchesPage() {
                       <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${b.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                         {b.is_active ? "Open" : "Closed"}
                       </span>
+                      {isActive && (
+                        <span className="rounded-full bg-[#D4AF37]/15 px-1.5 py-0.5 text-[10px] font-bold text-[#D4AF37]">
+                          Active
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-sm font-bold text-white truncate">{b.name}</h3>
                     <p className="font-mono text-[11px] text-gray-500">{b.code}</p>
@@ -163,9 +174,34 @@ export default function BranchesPage() {
 
                 <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${modeBadgeColor}`}>{modeLabel}</span>
-                  <span className="text-[11px] text-gray-600 group-hover:text-[#D4AF37] transition">View details →</span>
                 </div>
-              </Link>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <Link
+                    href={`/branches/${slug}`}
+                    className="flex-1 rounded-lg border border-white/10 py-2 text-center text-xs font-medium text-gray-300 transition hover:bg-white/5 hover:text-white"
+                  >
+                    {t.branches.tabOverview}
+                  </Link>
+                  {isActive ? (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37]/10 px-3 py-2 text-xs font-bold text-[#D4AF37]">
+                      <Check className="h-3.5 w-3.5" />
+                      Active
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBranch(b.id);
+                        router.push("/dashboard");
+                      }}
+                      className="rounded-lg bg-[#D4AF37]/10 px-3 py-2 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
+                    >
+                      {t.branches.setAsActive}
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

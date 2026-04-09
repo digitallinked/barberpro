@@ -6,7 +6,7 @@ type BranchRow = Tables<"branches">;
 export type BranchImage = Tables<"branch_images">;
 
 const BRANCH_FIELDS =
-  "id, name, code, address, phone, email, is_active, is_hq, logo_url, operating_hours, tenant_id, created_at, updated_at, checkin_token, accepts_online_bookings, accepts_walkin_queue, latitude, longitude";
+  "id, name, slug, code, address, phone, email, is_active, is_hq, logo_url, operating_hours, tenant_id, created_at, updated_at, checkin_token, accepts_online_bookings, accepts_walkin_queue, latitude, longitude";
 
 export async function getBranches(
   client: Client,
@@ -30,6 +30,22 @@ export async function getBranch(
     .from("branches")
     .select(BRANCH_FIELDS)
     .eq("id", id)
+    .single();
+
+  return { data, error: error ? new Error(error.message) : null };
+}
+
+export async function getBranchBySlug(
+  client: Client,
+  tenantId: string,
+  slug: string
+): Promise<{ data: BranchRow | null; error: Error | null }> {
+  const { data, error } = await client
+    .from("branches")
+    .select(BRANCH_FIELDS)
+    .eq("tenant_id", tenantId)
+    .eq("slug", slug)
+    .eq("is_active", true)
     .single();
 
   return { data, error: error ? new Error(error.message) : null };

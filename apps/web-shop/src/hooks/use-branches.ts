@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
-import { getBranches, getBranch, getBranchImages } from "@/services/branches";
+import { getBranches, getBranch, getBranchBySlug, getBranchImages } from "@/services/branches";
 
 export function useBranches() {
   const supabase = useSupabase();
@@ -22,6 +22,17 @@ export function useBranch(id: string | undefined) {
     queryKey: ["branch", id],
     queryFn: () => getBranch(supabase, id!),
     enabled: !!id,
+  });
+}
+
+export function useBranchBySlug(slug: string | undefined) {
+  const supabase = useSupabase();
+  const { tenantId } = useTenant();
+
+  return useQuery({
+    queryKey: ["branch-by-slug", tenantId, slug],
+    queryFn: () => getBranchBySlug(supabase, tenantId, slug!),
+    enabled: !!slug,
   });
 }
 

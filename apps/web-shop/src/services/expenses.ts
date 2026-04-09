@@ -6,15 +6,21 @@ type ExpenseRow = Tables<"expenses">;
 
 export async function getExpenses(
   client: Client,
-  tenantId: string
+  tenantId: string,
+  branchId?: string | null,
 ): Promise<{ data: ExpenseRow[] | null; error: Error | null }> {
-  const { data, error } = await client
+  let query = client
     .from("expenses")
     .select("id, amount, category, expense_date, payment_method, status, vendor, branch_id, supplier_id, notes, created_by, tenant_id, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .order("expense_date", { ascending: false })
     .order("created_at", { ascending: false });
 
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
+  }
+
+  const { data, error } = await query;
   return {
     data: data as ExpenseRow[] | null,
     error: error ? new Error(error.message) : null,

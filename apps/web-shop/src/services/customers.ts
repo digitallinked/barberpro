@@ -6,14 +6,20 @@ type CustomerRow = Tables<"customers">;
 
 export async function getCustomers(
   client: Client,
-  tenantId: string
+  tenantId: string,
+  branchId?: string | null,
 ): Promise<{ data: CustomerRow[] | null; error: Error | null }> {
-  const { data, error } = await client
+  let query = client
     .from("customers")
     .select("id, full_name, phone, email, date_of_birth, loyalty_points, notes, branch_id, preferred_barber_id, tenant_id, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
+  if (branchId) {
+    query = query.eq("branch_id", branchId);
+  }
+
+  const { data, error } = await query;
   return { data, error: error ? new Error(error.message) : null };
 }
 
