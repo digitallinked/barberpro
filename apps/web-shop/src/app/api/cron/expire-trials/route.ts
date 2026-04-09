@@ -33,7 +33,7 @@ function daysUntil(iso: string): number {
 }
 
 function billingUrl(): string {
-  return `${(env.NEXT_PUBLIC_APP_URL ?? "https://shop.barberpro.my").replace(/\/$/, "")}/settings/billing`;
+  return `${(env.NEXT_PUBLIC_APP_URL ?? "https://shop.barberpro.my").replace(/\/$/, "")}/billing`;
 }
 
 // ─── Route ───────────────────────────────────────────────────────────────────

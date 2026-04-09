@@ -92,7 +92,7 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
   async function openPortal() {
     setError(null);
     setLoading("portal");
-    const res = await createBillingPortalSession("/settings/billing");
+    const res = await createBillingPortalSession("/billing");
     setLoading(null);
     if (res.error) { setError(res.error); return; }
     if (res.url) window.location.href = res.url;

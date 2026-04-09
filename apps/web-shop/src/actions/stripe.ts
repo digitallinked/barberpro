@@ -106,8 +106,8 @@ export async function createCheckoutSession(
   let cancelUrl = `${appUrl}/register?step=payment&canceled=true`;
 
   if (intent === "billing") {
-    successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}&next=${encodeURIComponent("/settings/billing")}`;
-    cancelUrl = `${appUrl}/settings/billing?checkout=canceled`;
+    successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}&next=${encodeURIComponent("/billing")}`;
+    cancelUrl = `${appUrl}/billing?checkout=canceled`;
   } else if (intent === "recovery") {
     successUrl = `${appUrl}/auth/stripe-success?session_id={CHECKOUT_SESSION_ID}&next=${encodeURIComponent("/dashboard?welcome=true")}`;
     cancelUrl = `${appUrl}/subscription-required?checkout=canceled`;

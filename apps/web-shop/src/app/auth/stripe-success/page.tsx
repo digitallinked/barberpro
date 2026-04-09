@@ -24,8 +24,8 @@ export default async function StripeSuccessPage({ searchParams }: StripeSuccessP
 
   if (result.error) {
     const billingNext = safeInternalPath(next, "/dashboard");
-    if (billingNext.startsWith("/settings/billing")) {
-      redirect(`/settings/billing?checkout=error&message=${encodeURIComponent(result.error)}`);
+    if (billingNext.startsWith("/billing")) {
+      redirect(`/billing?checkout=error&message=${encodeURIComponent(result.error)}`);
     }
     redirect(`/register?step=payment&error=${encodeURIComponent(result.error)}`);
   }

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import { BillingSettingsClient } from "@/app/(dashboard)/settings/billing/billing-settings-client";
+import { BillingSettingsClient } from "@/app/(dashboard)/billing/billing-settings-client";
 import { loadShopBillingSnapshot } from "@/lib/billing-snapshot";
 import { hasStripeEnv } from "@/lib/env";
 
-export default async function BillingSettingsPage() {
+export default async function BillingPage() {
   const snapshot = await loadShopBillingSnapshot();
 
   if (!snapshot) {

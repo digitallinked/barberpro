@@ -51,7 +51,7 @@ function inferPlanLabel(sub: Stripe.Subscription): string {
 }
 
 function billingUrl(): string {
-  return `${(env.NEXT_PUBLIC_APP_URL ?? "https://shop.barberpro.my").replace(/\/$/, "")}/settings/billing`;
+  return `${(env.NEXT_PUBLIC_APP_URL ?? "https://shop.barberpro.my").replace(/\/$/, "")}/billing`;
 }
 
 interface SubscriberEmailInfo {

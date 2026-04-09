@@ -61,7 +61,7 @@ export function TrialBanner({ trialEndsAt, stripeSubscriptionId }: Props) {
         )}
       </span>
       <Link
-        href="/settings/billing"
+        href="/billing"
         className={`shrink-0 inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80 ${bgClass}`}
       >
         <CreditCard className="h-3 w-3" />

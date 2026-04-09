@@ -67,7 +67,7 @@ function useNavItems() {
   ];
 
   const NAV_WORKSPACE: NavItem[] = [
-    { labelKey: t.nav.billing, href: "/settings/billing", icon: Banknote },
+    { labelKey: t.nav.billing, href: "/billing", icon: Banknote },
   ];
 
   const NAV_MOBILE: NavItem[] = [
@@ -83,7 +83,7 @@ function useNavItems() {
 function isNavActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   // Match child routes (e.g. /staff/123 → Staff is active), but guard
-  // against /settings/billing incorrectly activating /settings.
+  // against /billing incorrectly activating /settings.
   return href !== "/" && pathname.startsWith(href + "/");
 }
 
@@ -433,7 +433,7 @@ function AppShellInner({ children }: AppShellProps) {
               </p>
             </div>
             <Link
-              href="/settings/billing"
+              href="/billing"
               className="shrink-0 rounded-md bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/30"
             >
               Update billing

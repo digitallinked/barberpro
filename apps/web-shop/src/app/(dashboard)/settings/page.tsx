@@ -78,7 +78,7 @@ export default function SettingsPage() {
   const NAV_ITEMS = [
     { id: "profile", label: t.settings.businessProfile, icon: Building2 },
     { id: "tax",     label: "Tax & Compliance (MY)",    icon: Scale },
-    { id: "billing", label: t.settings.subscriptionBilling, icon: CreditCard, href: "/settings/billing" as const },
+    { id: "billing", label: t.settings.subscriptionBilling, icon: CreditCard, href: "/billing" as const },
   ];
 
   const [activeSection, setActiveSection] = useState("profile");

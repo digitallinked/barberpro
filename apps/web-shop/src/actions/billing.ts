@@ -42,7 +42,7 @@ export async function createBillingPortalSession(returnPath?: string) {
   const path =
     returnPath && returnPath.startsWith("/") && !returnPath.startsWith("//")
       ? returnPath
-      : "/settings/billing";
+      : "/billing";
   const returnUrl = `${appUrl}${path}`;
 
   const stripe = getStripe();
