@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Scissors } from "lucide-react";
 import { getQueueColor, queueCustomerHeroClass } from "@barberpro/types";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useQueuePositionPoll } from "@/lib/use-queue-position-poll";
 
 type QueueStatus = {
   status: string;
@@ -41,7 +42,7 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
     [info.now_serving]
   );
 
-  async function fetchPosition() {
+  const fetchPosition = useCallback(async () => {
     try {
       const res = await fetch(
         `/api/queue-position?ticket_id=${encodeURIComponent(ticketId)}&branch_id=${encodeURIComponent(branchId)}`
@@ -55,10 +56,10 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
     } finally {
       setLoading(false);
     }
-  }
+  }, [ticketId, branchId]);
 
   useEffect(() => {
-    fetchPosition();
+    void fetchPosition();
 
     const supabase = createBrowserSupabaseClient();
 
@@ -81,8 +82,17 @@ export function QueueStatusView({ ticketId, branchId, queueNumber, branchName }:
     return () => {
       void supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticketId, branchId]);
+  }, [ticketId, branchId, fetchPosition]);
+
+  const queueTerminal =
+    info.status === "completed" || info.status === "cancelled" || info.status === "no_show";
+
+  useQueuePositionPoll(fetchPosition, {
+    enabled:
+      !loading &&
+      !queueTerminal &&
+      (info.status === "waiting" || info.status === "in_service"),
+  });
 
   const isCalled = info.status === "in_service";
   const isCompleted = info.status === "completed";

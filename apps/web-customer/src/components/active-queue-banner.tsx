@@ -7,6 +7,7 @@ import { getQueueColor } from "@barberpro/types";
 
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { clearActiveQueue, getActiveQueue, type ActiveQueueTicket } from "@/lib/active-queue";
+import { useQueuePositionPoll } from "@/lib/use-queue-position-poll";
 
 type QueueInfo = {
   status: string;
@@ -192,6 +193,19 @@ export function ActiveQueueBanner() {
       void supabase.removeChannel(channel);
     };
   }, [fetchStatus]);
+
+  const queueTerminal =
+    info?.status === "completed" ||
+    info?.status === "cancelled" ||
+    info?.status === "no_show";
+
+  const pollFetch = useCallback(() => {
+    if (ticket) void fetchStatus(ticket);
+  }, [ticket, fetchStatus]);
+
+  useQueuePositionPoll(pollFetch, {
+    enabled: Boolean(ticket) && !queueTerminal,
+  });
 
   if (!ticket) return null;
 

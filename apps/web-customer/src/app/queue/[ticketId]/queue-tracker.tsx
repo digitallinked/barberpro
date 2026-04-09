@@ -6,6 +6,7 @@ import { getQueueColor, queueCustomerHeroClass } from "@barberpro/types";
 
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { setActiveQueue } from "@/lib/active-queue";
+import { useQueuePositionPoll } from "@/lib/use-queue-position-poll";
 
 type Props = {
   ticketId: string;
@@ -126,6 +127,10 @@ export function QueueTracker({ ticketId, queueNumber, initialStatus, branchId, b
       void supabase.removeChannel(channel);
     };
   }, [ticketId, branchId, fetchInfo]);
+
+  useQueuePositionPoll(fetchInfo, {
+    enabled: status === "waiting" || status === "in_service",
+  });
 
   const isWaiting = status === "waiting";
   const isServing = status === "in_service";
