@@ -14,7 +14,6 @@ import {
   Contact2,
   CreditCard,
   Home,
-  LogOut,
   Megaphone,
   Menu,
   Package,
@@ -33,7 +32,6 @@ import { useTenant } from "@/components/tenant-provider";
 import {
   WalkInQueueModalProvider,
 } from "@/components/walk-in-queue-modal-context";
-import { signOut } from "@/actions/auth";
 import { useT } from "@/lib/i18n/language-context";
 
 type NavItem = { labelKey: string; href: string; icon: React.ElementType };
@@ -64,12 +62,12 @@ function useNavItems() {
     { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet },
     { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone },
     { labelKey: t.nav.reports, href: "/reports", icon: BarChart3 },
+    { labelKey: t.nav.branches, href: "/branches", icon: Store },
+    { labelKey: t.nav.settings, href: "/settings", icon: Settings },
   ];
 
   const NAV_WORKSPACE: NavItem[] = [
-    { labelKey: t.nav.branches, href: "/branches", icon: Store },
     { labelKey: t.nav.billing, href: "/settings/billing", icon: Banknote },
-    { labelKey: t.nav.settings, href: "/settings", icon: Settings },
   ];
 
   const NAV_MOBILE: NavItem[] = [
@@ -221,8 +219,18 @@ function SidebarContent({
       </nav>
 
       <div className="border-t border-white/5 p-3">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37]/40 bg-[#D4AF37]/20 text-sm font-bold text-[#D4AF37]">
+        <Link
+          href="/profile"
+          onClick={onNav}
+          className={`flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-white/[0.04] ${
+            pathname === "/profile" ? "bg-[#D4AF37]/10" : ""
+          }`}
+        >
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition ${
+            pathname === "/profile"
+              ? "border-[#D4AF37] bg-[#D4AF37]/20 text-[#D4AF37]"
+              : "border-[#D4AF37]/40 bg-[#D4AF37]/20 text-[#D4AF37]"
+          }`}>
             {initials}
           </div>
           <div className="min-w-0 flex-1">
@@ -231,15 +239,7 @@ function SidebarContent({
               {roleLabel} &bull; {branchName}
             </p>
           </div>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="shrink-0 text-gray-400 transition hover:text-white"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </form>
-        </div>
+        </Link>
       </div>
     </div>
   );

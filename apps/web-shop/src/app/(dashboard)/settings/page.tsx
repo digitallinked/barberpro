@@ -2,8 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, CreditCard, Globe, Image as ImageIcon, Loader2, Save, Scale, Search, Shield, Upload, X } from "lucide-react";
+import { Building2, CreditCard, Image as ImageIcon, Loader2, Save, Scale, Search, Upload, X } from "lucide-react";
 import Link from "next/link";
+
+import { useTenant } from "@/components/tenant-provider";
+import { useTenantProfile } from "@/hooks";
+import { useSupabase } from "@/hooks";
+import { updateTenantProfile } from "@/actions/settings";
+import { SHOP_MEDIA_MAX_FILE_BYTES, SHOP_MEDIA_MAX_FILE_LABEL, shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
+import { saveTenantLogo, removeTenantLogo } from "@/actions/shop-media";
+import { useT } from "@/lib/i18n/language-context";
 
 const SST_SETTINGS_KEY = "barberpro:sst";
 
@@ -25,15 +33,6 @@ function loadSstSettings(): SstSettings {
 function saveSstSettings(s: SstSettings) {
   try { localStorage.setItem(SST_SETTINGS_KEY, JSON.stringify(s)); } catch { /* ignore */ }
 }
-import { useTenant } from "@/components/tenant-provider";
-import { useTenantProfile } from "@/hooks";
-import { useSupabase } from "@/hooks";
-import { updateTenantProfile, changePassword, updatePreferredLanguage } from "@/actions/settings";
-import { SHOP_MEDIA_MAX_FILE_BYTES, SHOP_MEDIA_MAX_FILE_LABEL, shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
-
-import { saveTenantLogo, removeTenantLogo } from "@/actions/shop-media";
-import { useLanguage, useT } from "@/lib/i18n/language-context";
-import type { Language } from "@/lib/i18n/translations";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -75,14 +74,11 @@ export default function SettingsPage() {
   const supabase = useSupabase();
   const { data: profileResult } = useTenantProfile();
   const t = useT();
-  const { language, setLanguage } = useLanguage();
 
   const NAV_ITEMS = [
-    { id: "profile",    label: t.settings.businessProfile,     icon: Building2 },
-    { id: "security",   label: t.settings.security,            icon: Shield },
-    { id: "preferences",label: t.settings.preferences,         icon: Globe },
-    { id: "tax",        label: "Tax & Compliance (MY)",        icon: Scale },
-    { id: "billing",    label: t.settings.subscriptionBilling, icon: CreditCard, href: "/settings/billing" as const },
+    { id: "profile", label: t.settings.businessProfile, icon: Building2 },
+    { id: "tax",     label: "Tax & Compliance (MY)",    icon: Scale },
+    { id: "billing", label: t.settings.subscriptionBilling, icon: CreditCard, href: "/settings/billing" as const },
   ];
 
   const [activeSection, setActiveSection] = useState("profile");
@@ -90,8 +86,6 @@ export default function SettingsPage() {
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
-  const [selectedLang, setSelectedLang] = useState<Language>(language);
-  const [prefPending, setPrefPending] = useState(false);
   const [sstSettings, setSstSettings] = useState<SstSettings>({ registered: false, sstNumber: "", registeredSince: "", sstRateOverride: "8" });
   const [sstSaved, setSstSaved] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -115,22 +109,6 @@ export default function SettingsPage() {
       setFormSuccess(t.settings.profileUpdated);
     } else {
       setFormError(result.error ?? "Failed to update profile");
-    }
-  }
-
-  async function handlePasswordSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setFormError(null);
-    setFormSuccess(null);
-    setPending(true);
-    const fd = new FormData(e.currentTarget);
-    const result = await changePassword(fd);
-    setPending(false);
-    if (result.success) {
-      setFormSuccess(t.settings.passwordChanged);
-      (e.target as HTMLFormElement).reset();
-    } else {
-      setFormError(result.error ?? "Failed to change password");
     }
   }
 
@@ -161,20 +139,6 @@ export default function SettingsPage() {
     setLogoUploading(false);
     if (!result.success) { setLogoError(result.error ?? "Failed to remove logo"); return; }
     queryClient.invalidateQueries({ queryKey: ["tenant-profile"] });
-  }
-
-  async function handlePreferencesSave() {
-    setFormError(null);
-    setFormSuccess(null);
-    setPrefPending(true);
-    const result = await updatePreferredLanguage(selectedLang);
-    setPrefPending(false);
-    if (result.success) {
-      setLanguage(selectedLang);
-      setFormSuccess(t.settings.preferencesSaved);
-    } else {
-      setFormError(result.error ?? "Failed to save preferences");
-    }
   }
 
   return (
@@ -381,54 +345,6 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {activeSection === "security" && (
-            <Card className="p-6">
-              <div className="mb-6">
-                <h3 className="mb-1 text-xl font-bold text-white">{t.settings.securityTitle}</h3>
-                <p className="text-sm text-gray-400">{t.settings.securitySubtitle}</p>
-              </div>
-
-              <form onSubmit={handlePasswordSubmit} className="max-w-md space-y-5">
-                {formError && (
-                  <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
-                )}
-                {formSuccess && (
-                  <div className="rounded-lg bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">{formSuccess}</div>
-                )}
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">{t.settings.newPassword}</label>
-                  <input
-                    name="new_password"
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder={t.settings.atLeast6Chars}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">{t.settings.confirmPassword}</label>
-                  <input
-                    name="confirm_password"
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder={t.settings.confirmNewPassword}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/20"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="flex items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4" /> {t.common.changePassword}
-                </button>
-              </form>
-            </Card>
-          )}
-
           {activeSection === "tax" && (
             <Card className="p-6">
               <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -542,89 +458,6 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {activeSection === "preferences" && (
-            <Card className="p-6">
-              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="mb-1 text-xl font-bold text-white">{t.settings.preferencesTitle}</h3>
-                  <p className="text-sm text-gray-400">{t.settings.preferencesSubtitle}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handlePreferencesSave()}
-                  disabled={prefPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50 sm:w-auto"
-                >
-                  <Save className="h-4 w-4" /> {t.settings.savePreferences}
-                </button>
-              </div>
-
-              {formError && (
-                <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{formError}</div>
-              )}
-              {formSuccess && (
-                <div className="mb-4 rounded-lg bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">{formSuccess}</div>
-              )}
-
-              <div className="max-w-md space-y-6">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                    <Globe className="mr-1.5 inline h-4 w-4" />
-                    {t.settings.languageLabel}
-                  </label>
-                  <p className="mb-3 text-xs text-gray-500">{t.settings.languageHint}</p>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLang("ms")}
-                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition ${
-                        selectedLang === "ms"
-                          ? "border-[#D4AF37] bg-[#D4AF37]/10"
-                          : "border-white/10 bg-[#111] hover:border-[#D4AF37]/40"
-                      }`}
-                    >
-                      <span className="text-2xl">🇲🇾</span>
-                      <div className="text-center">
-                        <p className={`text-sm font-bold ${selectedLang === "ms" ? "text-[#D4AF37]" : "text-white"}`}>
-                          {t.settings.languageBM}
-                        </p>
-                        <p className="text-[11px] text-gray-500">BM · Lalai</p>
-                      </div>
-                      {selectedLang === "ms" && (
-                        <span className="rounded-full bg-[#D4AF37] px-2.5 py-0.5 text-[10px] font-bold text-[#111]">
-                          ✓ Dipilih
-                        </span>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLang("en")}
-                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition ${
-                        selectedLang === "en"
-                          ? "border-[#D4AF37] bg-[#D4AF37]/10"
-                          : "border-white/10 bg-[#111] hover:border-[#D4AF37]/40"
-                      }`}
-                    >
-                      <span className="text-2xl">🇬🇧</span>
-                      <div className="text-center">
-                        <p className={`text-sm font-bold ${selectedLang === "en" ? "text-[#D4AF37]" : "text-white"}`}>
-                          {t.settings.languageEN}
-                        </p>
-                        <p className="text-[11px] text-gray-500">EN · Default</p>
-                      </div>
-                      {selectedLang === "en" && (
-                        <span className="rounded-full bg-[#D4AF37] px-2.5 py-0.5 text-[10px] font-bold text-[#111]">
-                          ✓ Selected
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </div>
