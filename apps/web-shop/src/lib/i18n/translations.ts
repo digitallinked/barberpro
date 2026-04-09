@@ -65,8 +65,6 @@ export const translations = {
       statsComingSoon: "Statistik akan datang",
       hq: "HQ",
       branch: "Cawangan",
-      receivePayment: "Terima Bayaran",
-      newWalkIn: "Tetamu Baru",
       dashboard: "Papan Pemuka",
     },
     // ── Dashboard ────────────────────────────────────────────────────
@@ -647,8 +645,6 @@ export const translations = {
       statsComingSoon: "Stats coming soon",
       hq: "HQ",
       branch: "Branch",
-      receivePayment: "Receive payment",
-      newWalkIn: "New Walk-in",
       dashboard: "Dashboard",
     },
     // ── Dashboard ────────────────────────────────────────────────────

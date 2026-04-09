@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Banknote,
@@ -18,7 +18,6 @@ import {
   Megaphone,
   Menu,
   Package,
-  Plus,
   Scissors,
   Settings,
   Store,
@@ -30,11 +29,9 @@ import {
 import { type ReactNode, useState } from "react";
 
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
-import { QuickPaymentSheet } from "@/components/quick-payment-sheet";
 import { useTenant } from "@/components/tenant-provider";
 import {
   WalkInQueueModalProvider,
-  useWalkInQueueModal,
 } from "@/components/walk-in-queue-modal-context";
 import { signOut } from "@/actions/auth";
 import { useT } from "@/lib/i18n/language-context";
@@ -342,10 +339,7 @@ export function AppShell({ children }: AppShellProps) {
 function AppShellInner({ children }: AppShellProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [quickPayOpen, setQuickPayOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
-  const { requestOpenNewWalkIn } = useWalkInQueueModal();
 
   let userName = "User";
   let userRole = "owner";
@@ -365,13 +359,6 @@ function AppShellInner({ children }: AppShellProps) {
   }
 
   const isPaymentPastDue = subscriptionStatus === "past_due" || subscriptionStatus === "unpaid";
-
-  const onNewWalkIn = () => {
-    requestOpenNewWalkIn();
-    if (pathname !== "/queue") {
-      router.push("/queue");
-    }
-  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#111111]">
@@ -429,25 +416,9 @@ function AppShellInner({ children }: AppShellProps) {
           <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={() => setQuickPayOpen(true)}
-              className="hidden items-center gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2 text-sm font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20 lg:inline-flex"
-            >
-              <Banknote className="h-4 w-4" />
-              {t.common.receivePayment}
-            </button>
-            <button
-              type="button"
               className="relative rounded-md p-2 text-gray-400 transition hover:text-white"
             >
               <Bell className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={onNewWalkIn}
-              className="hidden items-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111111] shadow-lg shadow-[#D4AF37]/20 transition hover:brightness-110 lg:inline-flex"
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              {t.common.newWalkIn}
             </button>
           </div>
         </header>
@@ -480,7 +451,6 @@ function AppShellInner({ children }: AppShellProps) {
           onOpenMenu={() => setOpen(true)}
         />
 
-        <QuickPaymentSheet open={quickPayOpen} onOpenChange={setQuickPayOpen} />
       </div>
 
       <PwaInstallBanner />
