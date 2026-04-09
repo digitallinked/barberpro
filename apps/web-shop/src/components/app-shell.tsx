@@ -9,6 +9,8 @@ import {
   Bell,
   CalendarCheck2,
   ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   CircleDollarSign,
   ClipboardList,
   Contact2,
@@ -25,7 +27,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { useTenant } from "@/components/tenant-provider";
@@ -91,10 +93,12 @@ function NavLink({
   item,
   pathname,
   onClick,
+  collapsed,
 }: {
   item: NavItem;
   pathname: string;
   onClick?: () => void;
+  collapsed?: boolean;
 }) {
   const Icon = item.icon;
   const active = isNavActive(pathname, item.href);
@@ -102,14 +106,17 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-all ${
+      title={collapsed ? item.labelKey : undefined}
+      className={`flex items-center rounded-md text-sm font-medium transition-all ${
+        collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"
+      } ${
         active
-          ? "border-l-[3px] border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/15 to-transparent text-[#D4AF37]"
-          : "border-l-[3px] border-transparent text-gray-400 hover:bg-white/[0.03] hover:text-white"
+          ? `bg-gradient-to-r from-[#D4AF37]/15 to-transparent text-[#D4AF37] ${collapsed ? "" : "border-l-[3px] border-[#D4AF37]"}`
+          : `text-gray-400 hover:bg-white/[0.03] hover:text-white ${collapsed ? "" : "border-l-[3px] border-transparent"}`
       }`}
     >
-      <Icon className="h-4 w-4 shrink-0" />
-      {item.labelKey}
+      <Icon className={`h-4 w-4 shrink-0 ${collapsed && active ? "text-[#D4AF37]" : ""}`} />
+      {!collapsed && item.labelKey}
     </Link>
   );
 }
@@ -119,17 +126,23 @@ function NavGroup({
   items,
   pathname,
   onNav,
+  collapsed,
 }: {
   label: string;
   items: NavItem[];
   pathname: string;
   onNav?: () => void;
+  collapsed?: boolean;
 }) {
   return (
-    <div className="mt-5 first:mt-0">
-      <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-        {label}
-      </p>
+    <div className="mt-4 first:mt-0">
+      {collapsed ? (
+        <div className="mb-2 mx-2 border-t border-white/5" />
+      ) : (
+        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          {label}
+        </p>
+      )}
       <div className="space-y-0.5">
         {items.map((item) => (
           <NavLink
@@ -137,6 +150,7 @@ function NavGroup({
             item={item}
             pathname={pathname}
             onClick={onNav}
+            collapsed={collapsed}
           />
         ))}
       </div>
@@ -150,12 +164,16 @@ function SidebarContent({
   userName,
   userRole,
   branchName,
+  collapsed,
+  onToggleCollapse,
 }: {
   pathname: string;
   onNav?: () => void;
   userName: string;
   userRole: string;
   branchName: string;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   const t = useT();
   const { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE } = useNavItems();
@@ -171,60 +189,88 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2.5 border-b border-white/5 px-4 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#D4AF37]/20">
+      <div className={`flex items-center border-b border-white/5 px-4 py-5 ${collapsed ? "justify-center" : "gap-2.5"}`}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#D4AF37]/20">
           <Scissors className="h-4 w-4 text-[#D4AF37]" />
         </div>
-        <div>
-          <p className="text-sm font-bold leading-none text-white">
-            BarberPro<span className="text-[#D4AF37]">.my</span>
-          </p>
-          <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-            {roleLabel} {t.common.dashboard}
-          </p>
-        </div>
+        {!collapsed && (
+          <div>
+            <p className="text-sm font-bold leading-none text-white">
+              BarberPro<span className="text-[#D4AF37]">.my</span>
+            </p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              {roleLabel} {t.common.dashboard}
+            </p>
+          </div>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className={`flex-1 overflow-y-auto py-4 ${collapsed ? "px-1" : "px-3"}`}>
         <NavGroup
           label={t.nav.operations}
           items={NAV_OPERATIONS}
           pathname={pathname}
           onNav={onNav}
+          collapsed={collapsed}
         />
         <NavGroup
           label={t.nav.customers}
           items={NAV_CUSTOMERS}
           pathname={pathname}
           onNav={onNav}
+          collapsed={collapsed}
         />
         <NavGroup
           label={t.nav.team}
           items={NAV_TEAM}
           pathname={pathname}
           onNav={onNav}
+          collapsed={collapsed}
         />
         <NavGroup
           label={t.nav.business}
           items={NAV_BUSINESS}
           pathname={pathname}
           onNav={onNav}
+          collapsed={collapsed}
         />
         <NavGroup
           label={t.nav.workspace}
           items={NAV_WORKSPACE}
           pathname={pathname}
           onNav={onNav}
+          collapsed={collapsed}
         />
       </nav>
+
+      {onToggleCollapse && (
+        <div className="border-t border-white/5 px-3 py-2">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={`flex w-full items-center rounded-md px-2 py-2 text-xs text-gray-500 transition hover:bg-white/[0.04] hover:text-gray-300 ${collapsed ? "justify-center" : "gap-2"}`}
+          >
+            {collapsed ? (
+              <ChevronsRight className="h-4 w-4 shrink-0" />
+            ) : (
+              <>
+                <ChevronsLeft className="h-4 w-4 shrink-0" />
+                <span>Collapse</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       <div className="border-t border-white/5 p-3">
         <Link
           href="/profile"
           onClick={onNav}
-          className={`flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-white/[0.04] ${
+          title={collapsed ? `${userName} • ${roleLabel} • ${branchName}` : undefined}
+          className={`flex items-center rounded-lg px-2 py-2 transition hover:bg-white/[0.04] ${
             pathname === "/profile" ? "bg-[#D4AF37]/10" : ""
-          }`}
+          } ${collapsed ? "justify-center" : "gap-3"}`}
         >
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition ${
             pathname === "/profile"
@@ -233,12 +279,14 @@ function SidebarContent({
           }`}>
             {initials}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{userName}</p>
-            <p className="truncate text-xs text-gray-500">
-              {roleLabel} &bull; {branchName}
-            </p>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-white">{userName}</p>
+              <p className="truncate text-xs text-gray-500">
+                {roleLabel} &bull; {branchName}
+              </p>
+            </div>
+          )}
         </Link>
       </div>
     </div>
@@ -339,7 +387,21 @@ export function AppShell({ children }: AppShellProps) {
 function AppShellInner({ children }: AppShellProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const stored = localStorage.getItem("sidebar-collapsed");
+    if (stored === "true") setCollapsed(true);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
+  };
 
   let userName = "User";
   let userRole = "owner";
@@ -362,12 +424,18 @@ function AppShellInner({ children }: AppShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#111111]">
-      <aside className="hidden w-64 shrink-0 border-r border-white/5 bg-[#1a1a1a] lg:block">
+      <aside
+        className={`hidden shrink-0 border-r border-white/5 bg-[#1a1a1a] transition-all duration-200 lg:block ${
+          collapsed ? "w-[60px]" : "w-64"
+        }`}
+      >
         <SidebarContent
           pathname={pathname}
           userName={userName}
           userRole={userRole}
           branchName={branchName}
+          collapsed={collapsed}
+          onToggleCollapse={toggleCollapsed}
         />
       </aside>
 
