@@ -3,10 +3,15 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
+import { isOwnerOrManager } from "@/lib/permissions";
 
 export async function createStaffMember(formData: FormData) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
+    const { supabase, tenantId, appUser } = await getAuthContext();
+
+    if (!isOwnerOrManager(appUser.role)) {
+      return { success: false, error: "Only owners and managers can add staff" };
+    }
 
     const full_name = formData.get("full_name") as string;
     const email = (formData.get("email") as string) || null;
@@ -21,7 +26,7 @@ export async function createStaffMember(formData: FormData) {
       return { success: false, error: "Full name and role are required" };
     }
 
-    const { data: appUser, error: appUserError } = await supabase
+    const { data: newUser, error: newUserError } = await supabase
       .from("app_users")
       .insert({
         full_name,
@@ -35,12 +40,12 @@ export async function createStaffMember(formData: FormData) {
       .select("id")
       .single();
 
-    if (appUserError) return { success: false, error: appUserError.message };
-    if (!appUser) return { success: false, error: "Failed to create staff user" };
+    if (newUserError) return { success: false, error: newUserError.message };
+    if (!newUser) return { success: false, error: "Failed to create staff user" };
 
     const { error: profileError } = await supabase.from("staff_profiles").insert({
       tenant_id: tenantId,
-      user_id: appUser.id,
+      user_id: newUser.id,
       employment_type,
       base_salary,
       employee_code: employee_code || null,
@@ -57,7 +62,11 @@ export async function createStaffMember(formData: FormData) {
 
 export async function updateStaffMember(id: string, formData: FormData) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
+    const { supabase, tenantId, appUser } = await getAuthContext();
+
+    if (!isOwnerOrManager(appUser.role)) {
+      return { success: false, error: "Only owners and managers can edit staff" };
+    }
 
     const full_name = formData.get("full_name") as string;
     const email = (formData.get("email") as string) || null;
@@ -116,9 +125,36 @@ export async function updateStaffMember(id: string, formData: FormData) {
   }
 }
 
+export async function reactivateStaffMember(id: string) {
+  try {
+    const { supabase, tenantId, appUser } = await getAuthContext();
+
+    if (!isOwnerOrManager(appUser.role)) {
+      return { success: false, error: "Only owners and managers can reactivate staff" };
+    }
+
+    const { error } = await supabase
+      .from("app_users")
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/staff");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 export async function deleteStaffMember(id: string) {
   try {
-    const { supabase, tenantId } = await getAuthContext();
+    const { supabase, tenantId, appUser } = await getAuthContext();
+
+    if (!isOwnerOrManager(appUser.role)) {
+      return { success: false, error: "Only owners and managers can deactivate staff" };
+    }
 
     const { error } = await supabase
       .from("app_users")

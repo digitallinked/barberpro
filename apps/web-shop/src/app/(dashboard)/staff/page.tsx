@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useStaffMembers, useBranches, useStaffAttendance } from "@/hooks";
-import { createStaffMember } from "@/actions/staff";
+import type { StaffMember } from "@/services/staff";
+import { createStaffMember, updateStaffMember, deleteStaffMember, reactivateStaffMember } from "@/actions/staff";
 import { inviteStaffMember, revokeStaffAccess, resendStaffInvite } from "@/actions/staff-invite";
 import { recordAttendance } from "@/actions/attendance";
 import { useT } from "@/lib/i18n/language-context";
@@ -110,6 +111,24 @@ export default function StaffPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
 
+  const [editStaff, setEditStaff] = useState<StaffMember | null>(null);
+  const [editPending, setEditPending] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!actionMenuId) return;
+    function handleClick(e: MouseEvent) {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setActionMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [actionMenuId]);
+
   const { data: attendanceWrap, isFetching: attLoading } = useStaffAttendance(attFrom, attTo);
   const attendanceRows = attendanceWrap?.data ?? [];
 
@@ -180,6 +199,45 @@ export default function StaffPage() {
     } else {
       setAttBanner(result.error ?? "Failed to save");
     }
+  }
+
+  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editStaff) return;
+    setEditPending(true);
+    setEditError(null);
+    const fd = new FormData(e.currentTarget);
+    const result = await updateStaffMember(editStaff.id, fd);
+    setEditPending(false);
+    if (result.success) {
+      setEditStaff(null);
+      queryClient.invalidateQueries({ queryKey: ["staff"] });
+    } else {
+      setEditError(result.error ?? "Failed to update");
+    }
+  }
+
+  async function handleDeactivate(staffId: string) {
+    setActionPending(true);
+    const result = await deleteStaffMember(staffId);
+    setActionPending(false);
+    setActionMenuId(null);
+    if (result.success) queryClient.invalidateQueries({ queryKey: ["staff"] });
+  }
+
+  async function handleReactivate(staffId: string) {
+    setActionPending(true);
+    const result = await reactivateStaffMember(staffId);
+    setActionPending(false);
+    setActionMenuId(null);
+    if (result.success) queryClient.invalidateQueries({ queryKey: ["staff"] });
+  }
+
+  async function handleResendInvite(staffId: string) {
+    setActionPending(true);
+    await resendStaffInvite(staffId);
+    setActionPending(false);
+    setActionMenuId(null);
   }
 
   const sortedAttendance = [...attendanceRows].sort((a, b) => {
@@ -477,12 +535,62 @@ export default function StaffPage() {
                     <Eye className="h-3.5 w-3.5" /> View Profile
                   </Link>
                   <div className="flex justify-center gap-2 sm:shrink-0">
-                    <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button type="button" className="rounded-lg border border-white/10 p-2 text-gray-500 hover:text-white">
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
+                    {isOwnerOrManager(userRole) && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditStaff(s); setEditError(null); }}
+                        className="rounded-lg border border-white/10 p-2 text-gray-500 transition hover:bg-white/5 hover:text-white"
+                        title="Edit staff"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {isOwnerOrManager(userRole) && (
+                      <div className="relative" ref={actionMenuId === s.id ? actionMenuRef : undefined}>
+                        <button
+                          type="button"
+                          onClick={() => setActionMenuId(actionMenuId === s.id ? null : s.id)}
+                          className="rounded-lg border border-white/10 p-2 text-gray-500 transition hover:bg-white/5 hover:text-white"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                        {actionMenuId === s.id && (
+                          <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl shadow-black/40">
+                            <div className="p-1">
+                              {s.is_active ? (
+                                <button
+                                  type="button"
+                                  disabled={actionPending}
+                                  onClick={() => handleDeactivate(s.id)}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+                                >
+                                  <X className="h-3.5 w-3.5" /> Deactivate
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={actionPending}
+                                  onClick={() => handleReactivate(s.id)}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-400 transition hover:bg-emerald-500/10 disabled:opacity-50"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Reactivate
+                                </button>
+                              )}
+                              {!s.is_active || (
+                                <button
+                                  type="button"
+                                  disabled={actionPending}
+                                  onClick={() => handleResendInvite(s.id)}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                                >
+                                  <Mail className="h-3.5 w-3.5" /> Resend Invite
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -710,6 +818,132 @@ export default function StaffPage() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+      {/* Edit Staff Modal */}
+      {editStaff && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/5 p-6">
+              <div>
+                <h3 className="text-lg font-bold text-white">Edit Staff</h3>
+                <p className="mt-1 text-sm text-gray-400">Update role, branch and details</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditStaff(null)}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="space-y-4 p-6">
+              {editError && (
+                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{editError}</div>
+              )}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-400">{t.staff.fullName} <span className="text-red-400">*</span></label>
+                <input
+                  name="full_name"
+                  required
+                  defaultValue={editStaff.full_name}
+                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Email</label>
+                  <input
+                    name="email"
+                    type="email"
+                    defaultValue={editStaff.email ?? ""}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Phone</label>
+                  <input
+                    name="phone"
+                    defaultValue={editStaff.phone ?? ""}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">{t.staff.role} <span className="text-red-400">*</span></label>
+                  <select
+                    name="role"
+                    required
+                    defaultValue={editStaff.role}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="manager">Manager</option>
+                    <option value="barber">Barber</option>
+                    <option value="senior_barber">Senior Barber</option>
+                    <option value="junior_barber">Junior Barber</option>
+                    <option value="cashier">Cashier</option>
+                    <option value="staff">Staff</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">{t.staff.branch} <span className="text-red-400">*</span></label>
+                  <select
+                    name="branch_id"
+                    defaultValue={editStaff.branch_id ?? ""}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">— No branch —</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Employment Type</label>
+                  <select
+                    name="employment_type"
+                    defaultValue={editStaff.employment_type}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="full_time">Full Time</option>
+                    <option value="part_time">Part Time</option>
+                    <option value="contract">Contract</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Base Salary (RM)</label>
+                  <input
+                    name="base_salary"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    defaultValue={editStaff.base_salary}
+                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 border-t border-white/5 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditStaff(null)}
+                  className="flex-1 rounded-lg border border-white/10 py-2.5 text-sm font-medium text-gray-400 transition hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editPending}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
+                >
+                  {editPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                  {editPending ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
