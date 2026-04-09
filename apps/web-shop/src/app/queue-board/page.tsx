@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Scissors, Star, Users } from "lucide-react";
+import { Clock, Scissors, Users } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
@@ -295,27 +295,6 @@ function QueueBoardContent() {
                 <p className="text-sm text-gray-700">Queue is clear</p>
               </div>
             )}
-          </div>
-
-          {/* VIP Promo */}
-          <div className="rounded-xl border border-[#D4AF37]/12 bg-gradient-to-r from-[#D4AF37]/[0.07] to-transparent px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-sm font-bold text-white">
-                  <Star className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]" />
-                  Become a VIP Member Today!
-                </p>
-                <p className="mt-0.5 text-[11px] text-gray-600">
-                  20% off all services + priority booking
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-[9px] uppercase tracking-wider text-gray-700">From</p>
-                <p className="text-xl font-black text-[#D4AF37]">
-                  RM 99<span className="text-xs font-medium text-gray-600">/mo</span>
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
