@@ -32,15 +32,24 @@ export default async function QueuePage() {
   let shops: ShopForQueue[] = [];
 
   if (user) {
-    const userEmail = user.email ?? "";
+    const { data: customerAccount } = await (supabase as any)
+      .from("customer_accounts")
+      .select("email")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
 
-    // Resolve CRM customer IDs
-    const [{ data: crmByEmail }, { data: crmByAccountRaw }] = await Promise.all([
-      admin.from("customers").select("id").eq("phone", userEmail),
+    const userEmail =
+      ((customerAccount as { email?: string } | null)?.email) ?? user.email ?? "";
+
+    const [crmByEmailResult, crmByAccountRaw] = await Promise.all([
+      userEmail
+        ? admin.from("customers").select("id").eq("phone", userEmail)
+        : Promise.resolve({ data: null as { id: string }[] | null }),
       (admin as any).from("customer_accounts").select("customer_id").eq("auth_user_id", user.id),
     ]);
 
-    const crmByAccount = crmByAccountRaw as Array<{ customer_id: string | null }> | null;
+    const crmByEmail = crmByEmailResult.data;
+    const crmByAccount = crmByAccountRaw.data as Array<{ customer_id: string | null }> | null;
     const crmIds = Array.from(
       new Set([
         ...(crmByEmail ?? []).map((c: { id: string }) => c.id),
@@ -50,15 +59,36 @@ export default async function QueuePage() {
       ])
     );
 
-    if (crmIds.length > 0) {
-      const { data } = await admin
-        .from("queue_tickets")
-        .select("id, queue_number, status, created_at, notes, branches(name, tenants(name, slug))")
-        .in("customer_id", crmIds)
-        .order("created_at", { ascending: false })
-        .limit(50) as { data: QueueTicket[] | null };
-      queueTickets = data ?? [];
+    const selectQueue =
+      "id, queue_number, status, created_at, notes, branches(name, tenants(name, slug))";
+
+    const [byCrm, byPhone] = await Promise.all([
+      crmIds.length > 0
+        ? admin
+            .from("queue_tickets")
+            .select(selectQueue)
+            .in("customer_id", crmIds)
+            .order("created_at", { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: null }),
+      userEmail
+        ? (admin as any)
+            .from("queue_tickets")
+            .select(selectQueue)
+            .eq("customer_phone", userEmail)
+            .order("created_at", { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const merged = new Map<string, QueueTicket>();
+    for (const row of [...(byCrm.data ?? []), ...(byPhone.data ?? [])]) {
+      const t = row as QueueTicket;
+      merged.set(t.id, t);
     }
+    queueTickets = Array.from(merged.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }
 
   // Always load shops for the join flow (works for both logged-in and guest)

@@ -214,6 +214,20 @@ export const translations = {
       cancelAppt: "Batal",
       with: "dengan",
       service: "Perkhidmatan",
+      queueScreen: {
+        subtitleLoggedIn: "Tiket giliran aktif dan lepas anda",
+        subtitleGuest: "Pemantau giliran walk-in",
+        joinQueue: "Sertai giliran",
+        findJoinWalkIn: "Cari & sertai giliran walk-in",
+        guestScanHint:
+          "Imbas kod QR di kedai gunting untuk sertai giliran, atau log masuk untuk jejak tiket di sini.",
+        orScanQr: "atau imbas QR di kedai",
+        noHistoryYet: "Tiada sejarah giliran lagi",
+        noHistoryDesc: "Sertai giliran walk-in di mana-mana kedai gunting BarberPro",
+        findJoinQueueCta: "Cari & sertai giliran",
+        walkInTicket: "Tiket walk-in",
+        track: "Pantau",
+      },
     },
     shops: {
       title: "Cari Kedai Gunting",
@@ -559,6 +573,20 @@ export const translations = {
       cancelAppt: "Cancel",
       with: "with",
       service: "Service",
+      queueScreen: {
+        subtitleLoggedIn: "Your active and past queue tickets",
+        subtitleGuest: "Walk-in queue tracker",
+        joinQueue: "Join a queue",
+        findJoinWalkIn: "Find & join a walk-in queue",
+        guestScanHint:
+          "Scan a QR code at a barbershop to join the queue, or sign in to track your tickets here.",
+        orScanQr: "or scan a QR at the shop",
+        noHistoryYet: "No queue history yet",
+        noHistoryDesc: "Join a walk-in queue at any BarberPro barbershop",
+        findJoinQueueCta: "Find & join a queue",
+        walkInTicket: "Walk-in ticket",
+        track: "Track",
+      },
     },
     shops: {
       title: "Find a Barbershop",

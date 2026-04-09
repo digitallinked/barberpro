@@ -9,9 +9,30 @@ export type ActiveQueueTicket = {
 const STORAGE_KEY = "barberpro:active-queue";
 const TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
 
+/** Same-tab + cross-tab listeners (storage event) */
+const CHANGE_EVENT = "barberpro:active-queue-changed";
+
+function notifyActiveQueueChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+/** Subscribe to localStorage active-queue changes (set, clear, other tabs). */
+export function subscribeActiveQueue(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = () => onChange();
+  window.addEventListener(CHANGE_EVENT, handler);
+  window.addEventListener("storage", handler);
+  return () => {
+    window.removeEventListener(CHANGE_EVENT, handler);
+    window.removeEventListener("storage", handler);
+  };
+}
+
 export function setActiveQueue(ticket: ActiveQueueTicket): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ticket));
+    notifyActiveQueueChanged();
   } catch {
     // Ignore storage errors (private browsing, quota exceeded, etc.)
   }
@@ -35,6 +56,7 @@ export function getActiveQueue(): ActiveQueueTicket | null {
 export function clearActiveQueue(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    notifyActiveQueueChanged();
   } catch {
     // Ignore
   }
