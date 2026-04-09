@@ -25,6 +25,7 @@ import { getQueueColor } from "@barberpro/types";
 import {
   getActiveQueue,
   subscribeActiveQueue,
+  pruneExpiredActiveQueue,
   type ActiveQueueTicket,
 } from "@/lib/active-queue";
 import { joinQueueAsCustomerAction } from "@/app/bookings/actions";
@@ -402,6 +403,10 @@ export function QueuePanel({ queueTickets, shops, isLoggedIn }: Props) {
     getActiveQueue,
     () => null
   );
+
+  useEffect(() => {
+    pruneExpiredActiveQueue();
+  }, []);
 
   const activeTickets = queueTickets.filter((t) =>
     ["waiting", "in_service"].includes(t.status)

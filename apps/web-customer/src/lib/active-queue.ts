@@ -38,18 +38,36 @@ export function setActiveQueue(ticket: ActiveQueueTicket): void {
   }
 }
 
+/**
+ * Pure snapshot — no side effects.
+ * Safe to call as the snapshot fn inside useSyncExternalStore.
+ */
 export function getActiveQueue(): ActiveQueueTicket | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const ticket = JSON.parse(raw) as ActiveQueueTicket;
-    if (Date.now() - ticket.storedAt > TTL_MS) {
-      clearActiveQueue();
-      return null;
-    }
+    // Expired — treat as absent but do NOT call clearActiveQueue here
+    // (that would be a side effect inside a snapshot → React infinite loop)
+    if (Date.now() - ticket.storedAt > TTL_MS) return null;
     return ticket;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Call this from effects / event handlers to lazily prune an expired entry.
+ * Never call this from render or from inside useSyncExternalStore snapshot.
+ */
+export function pruneExpiredActiveQueue(): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const ticket = JSON.parse(raw) as ActiveQueueTicket;
+    if (Date.now() - ticket.storedAt > TTL_MS) clearActiveQueue();
+  } catch {
+    // ignore
   }
 }
 
