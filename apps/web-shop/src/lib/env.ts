@@ -3,6 +3,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  /** Public customer app origin (e.g. barberpro.my). Used for walk-in QR /check-in links. Falls back to NEXT_PUBLIC_APP_URL when unset. */
+  NEXT_PUBLIC_CUSTOMER_APP_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
@@ -21,6 +23,7 @@ const envSchema = z.object({
 
 export const env = parseEnv(envSchema, {
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  NEXT_PUBLIC_CUSTOMER_APP_URL: process.env.NEXT_PUBLIC_CUSTOMER_APP_URL,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -42,6 +45,16 @@ export const env = parseEnv(envSchema, {
  * `NEXT_PUBLIC_APP_URL` defaults to localhost in the parsed env schema; on Vercel
  * without that var set, resolving metadata against localhost breaks `<link rel="icon">`.
  */
+/**
+ * Base URL for customer-facing absolute links (walk-in QR codes → /check-in/...).
+ * Production must set NEXT_PUBLIC_CUSTOMER_APP_URL to the web-customer deployment;
+ * otherwise links incorrectly point at the shop dashboard host.
+ */
+export function getCustomerPublicBaseUrl(): string {
+  const raw = env.NEXT_PUBLIC_CUSTOMER_APP_URL ?? env.NEXT_PUBLIC_APP_URL;
+  return raw.replace(/\/$/, "");
+}
+
 export function getMetadataBase(): URL {
   const explicit = process.env.NEXT_PUBLIC_APP_URL;
   if (explicit) {

@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { paymentMethodForDb } from "@/lib/payment-method";
-import { env } from "@/lib/env";
+import { getCustomerPublicBaseUrl } from "@/lib/env";
 import { shopCalendarDateString } from "@/lib/shop-day";
 import { SST_RATE } from "@/lib/malaysian-tax";
 
@@ -460,8 +460,8 @@ export async function getQueueCheckinUrl(requestedBranchId?: string | null) {
       if (upError) return { success: false, error: upError.message };
     }
 
-    const baseUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const url = `${baseUrl.replace(/\/$/, "")}/check-in/${token}`;
+    const baseUrl = getCustomerPublicBaseUrl();
+    const url = `${baseUrl}/check-in/${token}`;
     return { success: true as const, url };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -490,8 +490,8 @@ export async function rotateQueueCheckinToken(requestedBranchId?: string | null)
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/queue");
-    const baseUrl = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const url = `${baseUrl.replace(/\/$/, "")}/check-in/${token}`;
+    const baseUrl = getCustomerPublicBaseUrl();
+    const url = `${baseUrl}/check-in/${token}`;
     return { success: true as const, url };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
