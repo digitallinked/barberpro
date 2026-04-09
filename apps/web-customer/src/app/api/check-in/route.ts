@@ -7,8 +7,55 @@ import { shopCalendarDateString } from "@/lib/shop-day";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
 function isUniqueViolation(err: { code?: string; message?: string }): boolean {
   return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
+}
+
+/**
+ * For logged-in users, `customers.phone` stores their account email so queue/bookings line up.
+ * We must resolve the email-keyed row first; otherwise we match a different guest row by mobile
+ * and updating it to the email violates customers_tenant_id_phone_key.
+ */
+async function findExistingCustomerForCheckin(
+  admin: AdminClient,
+  tenantId: string,
+  authEmail: string | null,
+  trimmedPhone: string,
+  canonicalPhone: string
+): Promise<{ id: string; matchedAccountEmail: boolean } | null> {
+  if (authEmail) {
+    const { data: emailRow } = await admin
+      .from("customers")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("phone", authEmail)
+      .maybeSingle();
+    if (emailRow) return { id: emailRow.id, matchedAccountEmail: true };
+  }
+  for (const variant of malaysiaPhoneLookupVariants(trimmedPhone)) {
+    const { data: row } = await admin
+      .from("customers")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("phone", variant)
+      .maybeSingle();
+    if (row) return { id: row.id, matchedAccountEmail: false };
+  }
+  const { data: byCanonical } = await admin
+    .from("customers")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("phone", canonicalPhone)
+    .maybeSingle();
+  if (byCanonical) {
+    return {
+      id: byCanonical.id,
+      matchedAccountEmail: Boolean(authEmail && canonicalPhone === authEmail),
+    };
+  }
+  return null;
 }
 
 const memberServiceSchema = z.object({
@@ -98,35 +145,38 @@ export async function POST(request: Request) {
     }
     customerId = inserted.id;
   } else {
-    let existingId: string | null = null;
-    for (const variant of malaysiaPhoneLookupVariants(trimmedPhone)) {
-      const { data: row } = await admin
-        .from("customers")
-        .select("id")
-        .eq("tenant_id", branch.tenant_id)
-        .eq("phone", variant)
-        .maybeSingle();
-      if (row) {
-        existingId = row.id;
-        break;
-      }
-    }
+    const existing = await findExistingCustomerForCheckin(
+      admin,
+      branch.tenant_id,
+      authUserEmail,
+      trimmedPhone,
+      storePhone
+    );
 
-    if (existingId) {
-      const { error: upErr } = await admin
-        .from("customers")
-        .update({
-          full_name,
-          branch_id: branch.id,
-          phone: storePhone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingId);
+    if (existing) {
+      const updatePayload: {
+        full_name: string;
+        branch_id: string;
+        updated_at: string;
+        phone?: string;
+      } = {
+        full_name,
+        branch_id: branch.id,
+        updated_at: new Date().toISOString(),
+      };
+      // Guests: always set canonical phone. Logged-in: only change phone when merging a mobile-only row into the account email.
+      if (!authUserEmail) {
+        updatePayload.phone = storePhone;
+      } else if (!existing.matchedAccountEmail) {
+        updatePayload.phone = storePhone;
+      }
+
+      const { error: upErr } = await admin.from("customers").update(updatePayload).eq("id", existing.id);
 
       if (upErr) {
         return NextResponse.json({ error: upErr.message }, { status: 500 });
       }
-      customerId = existingId;
+      customerId = existing.id;
     } else {
       const { data: inserted, error: custError } = await admin
         .from("customers")
@@ -143,32 +193,36 @@ export async function POST(request: Request) {
       if (inserted) {
         customerId = inserted.id;
       } else if (custError && isUniqueViolation(custError)) {
-        let racedId: string | null = null;
-        for (const variant of malaysiaPhoneLookupVariants(trimmedPhone)) {
-          const { data: row } = await admin
-            .from("customers")
-            .select("id")
-            .eq("tenant_id", branch.tenant_id)
-            .eq("phone", variant)
-            .maybeSingle();
-          if (row) {
-            racedId = row.id;
-            break;
-          }
-        }
-        if (!racedId) {
+        const raced = await findExistingCustomerForCheckin(
+          admin,
+          branch.tenant_id,
+          authUserEmail,
+          trimmedPhone,
+          storePhone
+        );
+        if (!raced) {
           return NextResponse.json({ error: custError.message }, { status: 500 });
         }
-        await admin
-          .from("customers")
-          .update({
-            full_name,
-            branch_id: branch.id,
-            phone: storePhone,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", racedId);
-        customerId = racedId;
+        const updatePayload: {
+          full_name: string;
+          branch_id: string;
+          updated_at: string;
+          phone?: string;
+        } = {
+          full_name,
+          branch_id: branch.id,
+          updated_at: new Date().toISOString(),
+        };
+        if (!authUserEmail) {
+          updatePayload.phone = storePhone;
+        } else if (!raced.matchedAccountEmail) {
+          updatePayload.phone = storePhone;
+        }
+        const { error: upRace } = await admin.from("customers").update(updatePayload).eq("id", raced.id);
+        if (upRace) {
+          return NextResponse.json({ error: upRace.message }, { status: 500 });
+        }
+        customerId = raced.id;
       } else {
         return NextResponse.json({ error: custError?.message ?? "Could not save your details" }, { status: 500 });
       }
