@@ -139,6 +139,17 @@ function buildPayslipInnerHtml(params: {
     maritalStatus: marital,
     numDependents: dependents,
   });
+
+  // Employee statutory deductions (what's deducted from their pay)
+  const epfDeduct   = sd?.epf_enabled   !== false ? stat.epf.employeeContribution   : 0;
+  const socsoDeduct = sd?.socso_enabled !== false ? stat.socso.employeeContribution : 0;
+  const eisDeduct   = stat.eis.employeeContribution;
+  const pcbDeduct   = stat.pcb.monthlyPcb;
+  const totalStatutory = epfDeduct + socsoDeduct + eisDeduct + pcbDeduct;
+
+  // Net take-home = gross − statutory employee deductions − other recorded deductions − advances
+  const netPay = gross - totalStatutory - entry.deductions - entry.advances;
+
   const daysLabel =
     entry.days_worked != null && entry.total_working_days != null
       ? `${entry.days_worked} / ${entry.total_working_days} days worked`
@@ -256,40 +267,49 @@ function buildPayslipInnerHtml(params: {
     ${row("Gross Pay", formatRMStat(gross), true)}
   </table>
 
-  <!-- DEDUCTIONS & NET PAY -->
+  <!-- DEDUCTIONS: statutory + other + advances, all in one table -->
   <table>
-    ${sectionHeader("Deductions & Advances")}
-    ${entry.deductions !== 0 ? row("Total Deductions", `(${formatRMStat(entry.deductions)})`) : subtleRow("Total Deductions", "(RM 0.00)")}
-    ${entry.advances !== 0 ? row("Salary Advance", `(${formatRMStat(entry.advances)})`) : subtleRow("Salary Advance", "(RM 0.00)")}
+    ${sectionHeader("Deductions")}
+    <tr><td colspan="2" style="padding:3px 8px 6px;font-size:9.5px;color:#aaa;font-style:italic">
+      Statutory figures are estimates. Verify actual amounts with KWSP i‑Akaun, PERKESO Online, and LHDN e‑Data PCB.
+    </td></tr>
+
+    ${epfDeduct > 0
+      ? row(`EPF / KWSP — Employee (11%)${sd?.epf_number ? ` &nbsp;<span style="font-weight:400;font-size:11px;color:#888">No. ${esc(sd.epf_number)}</span>` : ""}`, `(${formatRMStat(epfDeduct)}) *`)
+      : subtleRow("EPF / KWSP", "Not applicable")}
+
+    ${socsoDeduct > 0
+      ? row(`SOCSO / PERKESO — Employee${sd?.socso_number ? ` &nbsp;<span style="font-weight:400;font-size:11px;color:#888">No. ${esc(sd.socso_number)}</span>` : ""}`, `(${formatRMStat(socsoDeduct)}) *`)
+      : subtleRow("SOCSO / PERKESO", "Not applicable")}
+
+    ${row(`EIS / SIP — Employee (0.2%)${sd?.eis_number ? ` &nbsp;<span style="font-weight:400;font-size:11px;color:#888">No. ${esc(sd.eis_number)}</span>` : ""}`, `(${formatRMStat(eisDeduct)}) *`)}
+
+    ${row(`PCB / MTD — Income Tax Est.${sd?.tax_ref_number ? ` &nbsp;<span style="font-weight:400;font-size:11px;color:#888">${esc(sd.tax_ref_number)}</span>` : ""}`, `(${formatRMStat(pcbDeduct)}) *`)}
+
+    ${entry.deductions !== 0
+      ? row("Other Deductions", `(${formatRMStat(entry.deductions)})`)
+      : subtleRow("Other Deductions", "(RM 0.00)")}
+
+    ${entry.advances !== 0
+      ? row("Salary Advance", `(${formatRMStat(entry.advances)})`)
+      : subtleRow("Salary Advance", "(RM 0.00)")}
+
+    ${dividerRow}
+    ${row("Total Deductions", `(${formatRMStat(totalStatutory + entry.deductions + entry.advances)})`, true)}
   </table>
 
-  <!-- NET PAY — prominent row immediately after deductions -->
+  <!-- NET PAY = Gross − all deductions -->
   <table class="net-pay-table">
     <tr class="net-pay-row">
-      <td>NET PAY (GAJI BERSIH)</td>
-      <td>${formatRMStat(entry.net_payout)}</td>
+      <td>NET PAY (GAJI BERSIH) *</td>
+      <td>${formatRMStat(netPay)}</td>
     </tr>
   </table>
-
-  <!-- STATUTORY ESTIMATES — clearly labelled as reference only -->
-  <div class="ref-section">
-    <div class="ref-section-title">Statutory Contributions — Estimated Reference Only (KWSP / PERKESO / SIP / PCB)</div>
-    <table>
-      ${sd?.epf_enabled !== false
-        ? subtleRow(`EPF / KWSP — Employee (11%)${sd?.epf_number ? ` · No. ${esc(sd.epf_number)}` : ""}`, `~ (${formatRMStat(stat.epf.employeeContribution)})`)
-        : subtleRow("EPF / KWSP", "Not applicable")}
-      ${sd?.socso_enabled !== false
-        ? subtleRow(`SOCSO / PERKESO — Employee${sd?.socso_number ? ` · No. ${esc(sd.socso_number)}` : ""}`, `~ (${formatRMStat(stat.socso.employeeContribution)})`)
-        : subtleRow("SOCSO / PERKESO", "Not applicable")}
-      ${subtleRow(`EIS / SIP (0.2%)${sd?.eis_number ? ` · No. ${esc(sd.eis_number)}` : ""}`, `~ (${formatRMStat(stat.eis.employeeContribution)})`)}
-      ${subtleRow(`PCB / MTD Income Tax${sd?.tax_ref_number ? ` · ${esc(sd.tax_ref_number)}` : ""}`, `~ (${formatRMStat(stat.pcb.monthlyPcb)})`)}
-      <tr><td colspan="2" style="padding:4px 8px;font-size:9.5px;color:#bbb">
-        ~ Estimates based on gross pay, age ${age}, ${marital.replace(/_/g," ")}, ${dependents} dependent${dependents !== 1 ? "s" : ""}.
-        Verify actual amounts with KWSP i‑Akaun, PERKESO Online, and LHDN e‑Data PCB before filing.
-        If statutory deductions have already been included in the Deductions field above, disregard these estimates.
-      </td></tr>
-    </table>
-  </div>
+  <p style="font-size:9.5px;color:#999;margin-bottom:18px;margin-top:-14px">
+    * Statutory deductions (EPF, SOCSO, EIS, PCB) are <em>estimates</em> based on gross pay, age&nbsp;${age},
+    ${marital.replace(/_/g, " ")}, ${dependents}&nbsp;dependent${dependents !== 1 ? "s" : ""}.
+    Actual net pay may differ. Always verify with official portals before transfer.
+  </p>
 
   ${
     ((entry.service_revenue ?? 0) + (entry.product_revenue ?? 0)) > 0
@@ -318,10 +338,10 @@ function buildPayslipInnerHtml(params: {
   </div>
 
   <div class="disclaimer">
-    <strong>Important Notice:</strong> Statutory contribution figures (EPF, SOCSO, EIS, PCB) shown in the reference section are <em>estimates only</em>
-    and are not deducted from the Net Pay above unless they are separately recorded under Deductions.
-    Actual statutory obligations must be verified against LHDN tables, EA Form (C.P.8A), KWSP i‑Akaun, and PERKESO Online before submission.
-    This document is for payroll record purposes only and does not constitute legal or tax advice.
+    <strong>Important Notice:</strong> EPF, SOCSO, EIS, and PCB figures are <em>estimates</em> calculated using a simplified formula.
+    Actual statutory amounts must be confirmed via KWSP i‑Akaun, PERKESO Online, and LHDN e‑Data PCB before remittance.
+    Employer contributions (EPF employer share, SOCSO employer share) are not shown on this payslip and are payable separately by the employer.
+    This document is for payroll record purposes only and does not constitute legal or tax advice. Refer to your EA Form (C.P.8A) for annual tax filing.
   </div>
 
   <div class="footer">
