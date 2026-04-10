@@ -447,6 +447,7 @@ export default function PayrollPage() {
   const [editingEntry, setEditingEntry] = useState<PayrollEntryWithStaff | null>(null);
   const [payslipEntry, setPayslipEntry] = useState<PayrollEntryWithStaff | null>(null);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
+  const [showCostSummary, setShowCostSummary] = useState(false);
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [statutoryHint, setStatutoryHint] = useState<string | null>(null);
@@ -518,6 +519,46 @@ export default function PayrollPage() {
 
   const grossTotal = totals.base + totals.serviceComm + totals.productComm + totals.bonuses;
   const avgDaysWorked = entries.length > 0 ? totals.daysWorked / entries.length : 0;
+
+  // Per-entry cost breakdown using actual staff age/flags for accurate statutory
+  const costRows = entries.map((e) => {
+    const gross = e.base_salary + e.service_commission + e.product_commission + e.bonuses;
+    const dob = e.staff?.date_of_birth;
+    let age = 30;
+    if (dob) {
+      const born = new Date(dob);
+      const today = new Date();
+      age = today.getFullYear() - born.getFullYear();
+      if (today.getMonth() < born.getMonth() || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) age--;
+    }
+    const stat = calculateStatutoryDeductions(gross, age, { maritalStatus: (e.staff?.marital_status as MaritalStatus | null) ?? "single", numDependents: e.staff?.num_dependents ?? 0 });
+    const empEpf    = e.staff?.epf_enabled   !== false ? stat.epf.employeeContribution   : 0;
+    const empSocso  = e.staff?.socso_enabled !== false ? stat.socso.employeeContribution : 0;
+    const empEis    = stat.eis.employeeContribution;
+    const empPcb    = stat.pcb.monthlyPcb;
+    const totalEmpStat = empEpf + empSocso + empEis + empPcb;
+    const netTakeHome  = gross - totalEmpStat - e.deductions - e.advances;
+    const erEpf    = e.staff?.epf_enabled   !== false ? stat.epf.employerContribution   : 0;
+    const erSocso  = e.staff?.socso_enabled !== false ? stat.socso.employerContribution : 0;
+    const erEis    = stat.eis.employerContribution;
+    const totalErContrib = erEpf + erSocso + erEis;
+    const totalCost = gross + totalErContrib;
+    return { name: e.staff?.full_name ?? "—", gross, totalEmpStat, netTakeHome, erEpf, erSocso, erEis, totalErContrib, totalCost };
+  });
+
+  const costTotals = costRows.reduce(
+    (a, r) => ({
+      gross: a.gross + r.gross,
+      totalEmpStat: a.totalEmpStat + r.totalEmpStat,
+      netTakeHome: a.netTakeHome + r.netTakeHome,
+      erEpf: a.erEpf + r.erEpf,
+      erSocso: a.erSocso + r.erSocso,
+      erEis: a.erEis + r.erEis,
+      totalErContrib: a.totalErContrib + r.totalErContrib,
+      totalCost: a.totalCost + r.totalCost,
+    }),
+    { gross: 0, totalEmpStat: 0, netTakeHome: 0, erEpf: 0, erSocso: 0, erEis: 0, totalErContrib: 0, totalCost: 0 }
+  );
 
   const topEarners = [...entries]
     .sort((a, b) => b.net_payout - a.net_payout)
@@ -904,6 +945,114 @@ export default function PayrollPage() {
         </div>
       )}
 
+      {/* Staff Cost Summary (P&L) */}
+      {selectedPeriodId && entries.length > 0 && (
+        <div className="rounded-xl border border-white/5 bg-[#1a1a1a]">
+          <button
+            type="button"
+            onClick={() => setShowCostSummary((v) => !v)}
+            className="flex w-full items-center justify-between px-5 py-3.5 text-left transition hover:bg-white/[0.02]"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/10">
+                <CircleDollarSign className="h-3.5 w-3.5 text-orange-400" />
+              </span>
+              <div>
+                <span className="text-sm font-semibold text-white">Staff Cost Summary (P&L)</span>
+                <span className="ml-3 text-xs text-gray-500">
+                  Total employment cost: <span className="font-semibold text-orange-400 tabular-nums">{formatRM(costTotals.totalCost)}</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {selectedPeriod?.status === "paid" && (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  <CheckCircle2 className="h-3 w-3" /> Recorded in Expenses
+                </span>
+              )}
+              {showCostSummary ? <ChevronUp className="h-4 w-4 text-gray-500" /> : <ChevronDown className="h-4 w-4 text-gray-500" />}
+            </div>
+          </button>
+
+          {showCostSummary && (
+            <div className="border-t border-white/5 px-5 pb-5 pt-4">
+              <p className="mb-4 text-[11px] text-gray-500">
+                All statutory figures are estimates based on each employee&apos;s gross pay and profile data.
+                Verify actual amounts with KWSP i-Akaun, PERKESO Online, and LHDN e-Data PCB before remittance.
+                {selectedPeriod?.status === "paid"
+                  ? " Salary and employer contribution expenses have been auto-recorded in the Expenses ledger."
+                  : " Salary and employer contribution expenses will be auto-recorded in the Expenses ledger when this period is marked as Paid."}
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="pb-2 text-left font-medium text-gray-500">Staff</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-gray-500">Gross Pay</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-gray-500">Employee Stat. *</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-gray-500">Net Take-Home *</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-orange-400/70">EPF Employer</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-orange-400/70">SOCSO Employer</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-orange-400/70">EIS Employer</th>
+                      <th className="pb-2 pr-3 text-right font-medium text-orange-400/70">Total Employer *</th>
+                      <th className="pb-2 text-right font-bold text-white/70">Total Cost *</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {costRows.map((r) => (
+                      <tr key={r.name} className="border-b border-white/5">
+                        <td className="py-2 pr-4 font-medium text-white">{r.name}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-gray-300">{formatRM(r.gross)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-red-400">({formatRM(r.totalEmpStat)})</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-emerald-400">{formatRM(r.netTakeHome)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-orange-300">{formatRM(r.erEpf)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-orange-300">{formatRM(r.erSocso)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums text-orange-300">{formatRM(r.erEis)}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums font-semibold text-orange-400">{formatRM(r.totalErContrib)}</td>
+                        <td className="py-2 text-right tabular-nums font-bold text-white">{formatRM(r.totalCost)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-white/20">
+                      <td className="py-2.5 pr-4 text-xs font-bold text-white">TOTAL ({entries.length} staff)</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-gray-200">{formatRM(costTotals.gross)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-red-400">({formatRM(costTotals.totalEmpStat)})</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-emerald-400">{formatRM(costTotals.netTakeHome)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-orange-300">{formatRM(costTotals.erEpf)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-orange-300">{formatRM(costTotals.erSocso)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-orange-300">{formatRM(costTotals.erEis)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums font-bold text-orange-400">{formatRM(costTotals.totalErContrib)}</td>
+                      <td className="py-2.5 text-right tabular-nums text-base font-bold text-orange-400">{formatRM(costTotals.totalCost)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-white/[0.03] p-3">
+                  <p className="text-[10px] text-gray-500">Total Gross Salaries</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-white">{formatRM(costTotals.gross)}</p>
+                </div>
+                <div className="rounded-lg bg-white/[0.03] p-3">
+                  <p className="text-[10px] text-gray-500">Est. Net Pay to Staff</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-400">{formatRM(costTotals.netTakeHome)}</p>
+                </div>
+                <div className="rounded-lg bg-orange-500/5 border border-orange-500/10 p-3">
+                  <p className="text-[10px] text-orange-400/70">Employer Contributions *</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-orange-400">{formatRM(costTotals.totalErContrib)}</p>
+                </div>
+                <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-3">
+                  <p className="text-[10px] text-orange-300/70">Total Employment Cost *</p>
+                  <p className="mt-0.5 text-sm font-bold tabular-nums text-orange-300">{formatRM(costTotals.totalCost)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main content */}
       {selectedPeriodId && (
         <div className="grid gap-6 xl:grid-cols-4">
@@ -1226,20 +1375,25 @@ export default function PayrollPage() {
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-400">{t.payroll.epfEmployer}</span>
-                    <span className="tabular-nums text-white">{formatRM(totals.employerEpf)}</span>
+                    <span className="tabular-nums text-white">{formatRM(costTotals.erEpf)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">{t.payroll.socsoEmployer}</span>
-                    <span className="tabular-nums text-white">{formatRM(totals.employerSocso)}</span>
+                    <span className="tabular-nums text-white">{formatRM(costTotals.erSocso)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">{t.payroll.eisEmployer}</span>
-                    <span className="tabular-nums text-white">{formatRM(totals.employerEis)}</span>
+                    <span className="tabular-nums text-white">{formatRM(costTotals.erEis)}</span>
                   </div>
                   <div className="flex justify-between border-t border-white/5 pt-2 font-semibold">
                     <span className="text-white">{t.payroll.totalEmployerCost}</span>
-                    <span className="tabular-nums text-orange-400">{formatRM(totals.totalEmployerCost)}</span>
+                    <span className="tabular-nums text-orange-400">{formatRM(costTotals.totalCost)}</span>
                   </div>
+                </div>
+                <div className={`mt-3 rounded-lg px-3 py-2 text-[10px] ${selectedPeriod?.status === "paid" ? "bg-emerald-500/10 text-emerald-400" : "bg-white/[0.03] text-gray-500"}`}>
+                  {selectedPeriod?.status === "paid"
+                    ? "✓ Salary & employer contribution expenses auto-recorded in Expenses ledger."
+                    : "Salary & employer contribution expenses will be auto-recorded when this period is marked as Paid."}
                 </div>
               </div>
             )}

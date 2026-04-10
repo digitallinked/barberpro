@@ -7,6 +7,7 @@ import {
   calculateStaffCommission,
   getAttendanceSummaryForPeriod,
 } from "@/lib/payroll-calculator";
+import { calculateStatutoryDeductions } from "@/lib/malaysian-tax";
 
 export async function createPayrollPeriod(formData: FormData) {
   try {
@@ -60,11 +61,123 @@ export async function updatePayrollPeriodStatus(id: string, status: string) {
 
     if (error) return { success: false, error: error.message };
 
+    // When a period is marked as paid, auto-record two expense lines:
+    // 1. Total gross salaries (category: salary)
+    // 2. Total employer statutory contributions (category: employer_statutory)
+    if (status === "paid") {
+      await recordPayrollExpenses(supabase, tenantId, appUserId, id);
+    }
+
     revalidatePath("/payroll");
+    revalidatePath("/expenses");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }
+}
+
+async function recordPayrollExpenses(
+  supabase: Awaited<ReturnType<typeof getAuthContext>>["supabase"],
+  tenantId: string,
+  appUserId: string,
+  periodId: string
+) {
+  // Fetch the period details
+  const { data: period } = await supabase
+    .from("payroll_periods")
+    .select("id, name, period_start, period_end, branch_id")
+    .eq("id", periodId)
+    .eq("tenant_id", tenantId)
+    .single();
+
+  if (!period) return;
+
+  // Fetch all entries with staff profile for statutory calculations
+  const { data: entries } = await supabase
+    .from("payroll_entries")
+    .select(`
+      id, base_salary, service_commission, product_commission, bonuses,
+      staff_id,
+      staff_profiles!payroll_entries_staff_id_fkey (
+        date_of_birth, epf_enabled, socso_enabled, full_name
+      )
+    `)
+    .eq("payroll_period_id", periodId)
+    .eq("tenant_id", tenantId);
+
+  if (!entries || entries.length === 0) return;
+
+  // Skip if expenses already recorded for this period to avoid duplicates
+  const { data: existing } = await supabase
+    .from("expenses")
+    .select("id")
+    .eq("payroll_period_id", periodId)
+    .eq("tenant_id", tenantId)
+    .limit(1);
+
+  if (existing && existing.length > 0) return;
+
+  let totalGross = 0;
+  let totalEpfEmployer = 0;
+  let totalSocsoEmployer = 0;
+  let totalEisEmployer = 0;
+
+  for (const entry of entries) {
+    const gross = entry.base_salary + entry.service_commission + entry.product_commission + entry.bonuses;
+    totalGross += gross;
+
+    const profile = Array.isArray(entry.staff_profiles) ? entry.staff_profiles[0] : entry.staff_profiles;
+    const dob = (profile as Record<string, unknown> | null)?.date_of_birth as string | null;
+    const epfEnabled = (profile as Record<string, unknown> | null)?.epf_enabled as boolean | null;
+    const socsoEnabled = (profile as Record<string, unknown> | null)?.socso_enabled as boolean | null;
+
+    let age = 30;
+    if (dob) {
+      const born = new Date(dob);
+      const today = new Date();
+      age = today.getFullYear() - born.getFullYear();
+      if (today.getMonth() < born.getMonth() || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) age--;
+    }
+
+    const stat = calculateStatutoryDeductions(gross, age);
+    if (epfEnabled !== false) totalEpfEmployer += stat.epf.employerContribution;
+    if (socsoEnabled !== false) totalSocsoEmployer += stat.socso.employerContribution;
+    totalEisEmployer += stat.eis.employerContribution;
+  }
+
+  const totalEmployerStatutory = Math.round((totalEpfEmployer + totalSocsoEmployer + totalEisEmployer) * 100) / 100;
+  const expenseDate = period.period_end; // Record against pay period end date
+
+  const expensesToInsert = [
+    {
+      tenant_id: tenantId,
+      branch_id: period.branch_id ?? null,
+      payroll_period_id: periodId,
+      category: "salary",
+      vendor: null as string | null,
+      amount: Math.round(totalGross * 100) / 100,
+      payment_method: "bank_transfer",
+      expense_date: expenseDate,
+      status: "paid",
+      notes: `Gross salaries — ${period.name} (${entries.length} staff). Includes base salary, commissions, and bonuses. Net pay to employees is after statutory and other deductions.`,
+      created_by: appUserId,
+    },
+    ...(totalEmployerStatutory > 0 ? [{
+      tenant_id: tenantId,
+      branch_id: period.branch_id ?? null,
+      payroll_period_id: periodId,
+      category: "employer_statutory",
+      vendor: null as string | null,
+      amount: totalEmployerStatutory,
+      payment_method: "bank_transfer",
+      expense_date: expenseDate,
+      status: "paid",
+      notes: `Employer statutory contributions — ${period.name}. EPF employer: RM ${totalEpfEmployer.toFixed(2)}, SOCSO: RM ${totalSocsoEmployer.toFixed(2)}, EIS: RM ${totalEisEmployer.toFixed(2)}. Figures are estimates; verify with KWSP/PERKESO portals.`,
+      created_by: appUserId,
+    }] : []),
+  ];
+
+  await supabase.from("expenses").insert(expensesToInsert);
 }
 
 export async function createPayrollEntry(formData: FormData) {
