@@ -543,8 +543,9 @@ export default function PayrollPage() {
     const erEis    = stat.eis.employerContribution;
     const totalErContrib = erEpf + erSocso + erEis;
     const totalCost = gross + totalErContrib;
-    return { name: e.staff?.full_name ?? "—", gross, totalEmpStat, netTakeHome, erEpf, erSocso, erEis, totalErContrib, totalCost };
+    return { id: e.id, name: e.staff?.full_name ?? "—", gross, totalEmpStat, netTakeHome, erEpf, erSocso, erEis, totalErContrib, totalCost };
   });
+  const costMap = new Map(costRows.map((r) => [r.id, r]));
 
   const costTotals = costRows.reduce(
     (a, r) => ({
@@ -561,12 +562,12 @@ export default function PayrollPage() {
   );
 
   const topEarners = [...entries]
-    .sort((a, b) => b.net_payout - a.net_payout)
+    .sort((a, b) => (costMap.get(b.id)?.netTakeHome ?? b.net_payout) - (costMap.get(a.id)?.netTakeHome ?? a.net_payout))
     .slice(0, 3)
     .map((e, i) => ({
       name: e.staff?.full_name ?? "Unknown",
       init: getInitials(e.staff?.full_name ?? "?"),
-      amount: formatRM(e.net_payout),
+      amount: formatRM(costMap.get(e.id)?.netTakeHome ?? e.net_payout),
       rank: i + 1,
     }));
 
@@ -834,7 +835,7 @@ export default function PayrollPage() {
     { label: t.payroll.totalBase, value: formatRM(totals.base), color: "text-white", icon: Banknote, iconBg: "bg-gray-500/10", iconColor: "text-gray-400" },
     { label: t.payroll.totalCommissions, value: formatRM(totals.serviceComm + totals.productComm), color: "text-emerald-400", icon: TrendingUp, iconBg: "bg-emerald-500/10", iconColor: "text-emerald-400" },
     { label: t.payroll.totalBonuses, value: formatRM(totals.bonuses), color: "text-[#D4AF37]", icon: CircleDollarSign, iconBg: "bg-[#D4AF37]/10", iconColor: "text-[#D4AF37]" },
-    { label: t.payroll.totalDeductions, value: `- ${formatRM(totals.deductions)}`, color: "text-red-400", icon: FileText, iconBg: "bg-red-500/10", iconColor: "text-red-400" },
+    { label: t.payroll.totalDeductions, value: `- ${formatRM(costTotals.totalEmpStat + totals.deductions)} *`, color: "text-red-400", icon: FileText, iconBg: "bg-red-500/10", iconColor: "text-red-400" },
   ];
 
   return (
@@ -923,9 +924,9 @@ export default function PayrollPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#D4AF37]/70">
               {t.payroll.netPayoutLabel}
             </p>
-            <h3 className="mt-1 text-2xl font-bold tabular-nums text-white">{formatRM(totals.net)}</h3>
+            <h3 className="mt-1 text-2xl font-bold tabular-nums text-white">{formatRM(costTotals.netTakeHome)}</h3>
             <p className="mt-1 text-xs text-gray-500">
-              {entries.length} {t.payroll.entriesWord} · gross {formatRM(grossTotal)}
+              {entries.length} {t.payroll.entriesWord} · gross {formatRM(grossTotal)} · est.*
             </p>
           </div>
           {summaryCards.map((c) => {
@@ -1148,8 +1149,8 @@ export default function PayrollPage() {
                       <th className="px-3 py-3 text-right">{t.payroll.colSvcComm}</th>
                       <th className="px-3 py-3 text-right">{t.payroll.colProdComm}</th>
                       <th className="px-3 py-3 text-right">{t.payroll.colBonus}</th>
-                      <th className="px-3 py-3 text-right">{t.payroll.colDeduct}</th>
-                      <th className="px-3 py-3 text-right font-semibold">{t.payroll.colNet}</th>
+                      <th className="px-3 py-3 text-right">{t.payroll.colDeduct} *</th>
+                      <th className="px-3 py-3 text-right font-semibold">{t.payroll.colNet} *</th>
                       <th className="w-24 px-3 py-3 text-right" />
                     </tr>
                   </thead>
@@ -1169,8 +1170,9 @@ export default function PayrollPage() {
                     ) : (
                       entries.map((e) => {
                         const gross = e.base_salary + e.service_commission + e.product_commission + e.bonuses;
-                        const stat = calculateStatutoryDeductions(gross);
-                        const diff = Math.round((e.deductions - stat.totalEmployeeDeductions) * 100) / 100;
+                        const cr = costMap.get(e.id);
+                        const estNetPay = cr?.netTakeHome ?? e.net_payout;
+                        const estTotalDeduct = cr ? cr.totalEmpStat + e.deductions + e.advances : e.deductions + e.advances;
                         const daysLabel =
                           e.days_worked != null && e.total_working_days != null
                             ? `${e.days_worked}/${e.total_working_days}`
@@ -1210,17 +1212,13 @@ export default function PayrollPage() {
                               <td className="px-3 py-3 text-right tabular-nums text-blue-400">{formatRM(e.product_commission)}</td>
                               <td className="px-3 py-3 text-right tabular-nums text-[#D4AF37]">{formatRM(e.bonuses)}</td>
                               <td className="px-3 py-3 text-right">
-                                <span className="tabular-nums text-red-400">-{formatRM(e.deductions)}</span>
-                                {Math.abs(diff) > 0.5 && (
-                                  <span
-                                    className={`ml-1 text-[9px] font-semibold ${diff > 0 ? "text-orange-400" : "text-sky-400"}`}
-                                    title={diff > 0 ? "Above statutory" : "Below statutory"}
-                                  >
-                                    {diff > 0 ? "▲" : "▼"}
-                                  </span>
-                                )}
+                                <span className="tabular-nums text-red-400">-{formatRM(estTotalDeduct)}</span>
+                                <span className="ml-0.5 text-[9px] text-gray-600" title="Includes statutory estimates">*</span>
                               </td>
-                              <td className="px-3 py-3 text-right font-bold tabular-nums text-white">{formatRM(e.net_payout)}</td>
+                              <td className="px-3 py-3 text-right font-bold tabular-nums text-white">
+                                {formatRM(estNetPay)}
+                                <span className="ml-0.5 text-[9px] font-normal text-gray-600" title="Estimated after statutory deductions">*</span>
+                              </td>
                               <td className="px-3 py-3 text-right">
                                 <div className="flex justify-end gap-1">
                                   <button
@@ -1661,6 +1659,10 @@ export default function PayrollPage() {
         const _marital = (e.staff?.marital_status as MaritalStatus | null) ?? "single";
         const _deps = e.staff?.num_dependents ?? 0;
         const stat = calculateStatutoryDeductions(gross, _age, { maritalStatus: _marital, numDependents: _deps });
+        const _epfDeduct   = e.staff?.epf_enabled   !== false ? stat.epf.employeeContribution   : 0;
+        const _socsoDeduct = e.staff?.socso_enabled !== false ? stat.socso.employeeContribution : 0;
+        const _totalEmpStat = _epfDeduct + _socsoDeduct + stat.eis.employeeContribution + stat.pcb.monthlyPcb;
+        const _estNetTakeHome = gross - _totalEmpStat - e.deductions - e.advances;
         const diff = Math.round((e.deductions - stat.totalEmployeeDeductions) * 100) / 100;
         const periodLabel = `${formatDate(selectedPeriod.period_start)} – ${formatDate(selectedPeriod.period_end)}`;
         const rev = (e.service_revenue ?? 0) + (e.product_revenue ?? 0);
@@ -1704,8 +1706,8 @@ export default function PayrollPage() {
                 {/* Net payout hero */}
                 <div className="rounded-xl border border-[#D4AF37]/20 bg-gradient-to-br from-[#D4AF37]/10 via-transparent to-transparent px-5 py-4 flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#D4AF37]/70">Net Payout</p>
-                    <p className="mt-1 text-3xl font-bold tabular-nums text-white">{formatRM(e.net_payout)}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#D4AF37]/70">Est. Net Take-Home *</p>
+                    <p className="mt-1 text-3xl font-bold tabular-nums text-white">{formatRM(_estNetTakeHome)}</p>
                     <p className="mt-1 text-xs text-gray-500">{daysLabel} · {e.services_count ?? 0} services · {e.customers_served ?? 0} customers</p>
                   </div>
                   <div className="text-right">
@@ -1805,8 +1807,12 @@ export default function PayrollPage() {
                       <span className="tabular-nums text-orange-300">- {formatRM(e.advances)}</span>
                     </div>
                     <div className="flex items-center justify-between bg-white/[0.03] px-4 py-3 text-base font-bold">
-                      <span className="text-white">Net payout</span>
-                      <span className="tabular-nums text-[#D4AF37]">{formatRM(e.net_payout)}</span>
+                      <span className="text-white">Stored Net Payout <span className="text-xs font-normal text-gray-500">(excl. statutory)</span></span>
+                      <span className="tabular-nums text-gray-400">{formatRM(e.net_payout)}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-[#D4AF37]/10 px-4 py-3 text-base font-bold">
+                      <span className="text-[#D4AF37]">Est. Net Take-Home *</span>
+                      <span className="tabular-nums text-[#D4AF37]">{formatRM(_estNetTakeHome)}</span>
                     </div>
                   </div>
                 </div>
