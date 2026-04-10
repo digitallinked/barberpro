@@ -472,8 +472,8 @@ export default function PayrollPage() {
     if (result.success && "generated" in result) {
       queryClient.invalidateQueries({ queryKey: ["payroll-entries"] });
       const parts: string[] = [`Generated ${result.generated} new entries.`];
-      if ("alreadyHad" in result && result.alreadyHad > 0) {
-        parts.push(`${result.alreadyHad} staff already had an entry (skipped).`);
+      if ("alreadyHad" in result && (result.alreadyHad ?? 0) > 0) {
+        parts.push(`${result.alreadyHad ?? 0} staff already had an entry (skipped).`);
       }
       setBanner(parts.join(" "));
     } else if (!result.success) {
