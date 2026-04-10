@@ -10,11 +10,14 @@ import {
   Pencil,
   Plus,
   Search,
-  TrendingUp
+  TrendingUp,
+  X,
 } from "lucide-react";
 import { useInventoryItems, useInventoryStats, useSuppliers } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
 import { createInventoryItem, updateInventoryItem, adjustStock } from "@/actions/inventory";
+import { createExpense } from "@/actions/expenses";
+import { useSupabase } from "@/hooks/use-supabase";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,8 +71,12 @@ export default function InventoryPage() {
     supplier_id: string | null;
   };
 
+  const supabase = useSupabase();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [adjustItem, setAdjustItem] = useState<{ id: string; name: string } | null>(null);
+  const [adjustItem, setAdjustItem] = useState<{ id: string; name: string; unit_cost: number } | null>(null);
+  const [adjustDirection, setAdjustDirection] = useState<"in" | "out">("in");
+  const [adjustQty, setAdjustQty] = useState(1);
+  const [recordExpense, setRecordExpense] = useState(true);
   const [editItem, setEditItem] = useState<EditableItem | null>(null);
   const [pending, setPending] = useState(false);
   const [adjustPending, setAdjustPending] = useState(false);
@@ -121,6 +128,9 @@ export default function InventoryPage() {
     const quantity = Number(fd.get("quantity") ?? 0);
     const direction = fd.get("direction") as "in" | "out";
     const reason = (fd.get("reason") as string) || "Manual adjustment";
+    const vendor = (fd.get("vendor") as string) || null;
+    const unitCostOverride = Number(fd.get("unit_cost_override") ?? 0) || adjustItem.unit_cost;
+    const shouldRecordExpense = direction === "in" && recordExpense;
 
     const movementType = direction === "in" ? "adjustment_in" : "adjustment_out";
     const qty = Math.abs(quantity);
@@ -131,15 +141,33 @@ export default function InventoryPage() {
     }
 
     const result = await adjustStock(adjustItem.id, qty, movementType, reason);
-    setAdjustPending(false);
-    if (result.success) {
-      setAdjustItem(null);
-      form.reset();
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-stats"] });
-    } else {
+    if (!result.success) {
+      setAdjustPending(false);
       alert(result.error);
+      return;
     }
+
+    if (shouldRecordExpense && unitCostOverride > 0) {
+      const expFd = new FormData();
+      expFd.set("category", "Inventory Purchase");
+      expFd.set("vendor", vendor ?? adjustItem.name);
+      expFd.set("amount", String(unitCostOverride * qty));
+      expFd.set("payment_method", (fd.get("payment_method") as string) || "cash");
+      expFd.set("expense_date", new Date().toISOString().slice(0, 10));
+      expFd.set("notes", `Restocked ${qty}× ${adjustItem.name}. ${reason}`);
+      await createExpense(expFd);
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-stats"] });
+    }
+
+    setAdjustPending(false);
+    setAdjustItem(null);
+    setRecordExpense(true);
+    setAdjustDirection("in");
+    setAdjustQty(1);
+    form.reset();
+    queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    queryClient.invalidateQueries({ queryKey: ["inventory-stats"] });
   }
 
   async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -286,7 +314,7 @@ export default function InventoryPage() {
                   <div className="flex items-center gap-1 pt-0.5">
                     <button
                       type="button"
-                      onClick={() => setAdjustItem({ id: item.id, name: item.name })}
+                      onClick={() => { setAdjustItem({ id: item.id, name: item.name, unit_cost: item.unit_cost ?? 0 }); setAdjustDirection("in"); setAdjustQty(1); setRecordExpense(true); }}
                       className="rounded px-2 py-0.5 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10"
                     >
                       Adjust Stock
@@ -379,7 +407,7 @@ export default function InventoryPage() {
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => setAdjustItem({ id: item.id, name: item.name })}
+                            onClick={() => { setAdjustItem({ id: item.id, name: item.name, unit_cost: item.unit_cost ?? 0 }); setAdjustDirection("in"); setAdjustQty(1); setRecordExpense(true); }}
                             className="rounded px-2 py-0.5 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/10"
                           >
                             Adjust Stock
@@ -523,54 +551,122 @@ export default function InventoryPage() {
       )}
 
       {adjustItem && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center">
-          <div className="my-auto w-full max-w-sm rounded-xl border border-white/10 bg-[#1a1a1a] p-6">
-            <h3 className="text-lg font-bold text-white">Adjust Stock — {adjustItem.name}</h3>
-            <form onSubmit={handleAdjustSubmit} className="mt-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:items-center">
+          <div className="my-auto w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Direction</label>
-                <select
-                  name="direction"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                >
-                  <option value="in">Add stock (+)</option>
-                  <option value="out">Remove stock (-)</option>
-                </select>
+                <h3 className="font-bold text-white">Adjust Stock</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{adjustItem.name}</p>
               </div>
+              <button type="button" onClick={() => setAdjustItem(null)} className="rounded-lg p-1.5 text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAdjustSubmit} className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-[#111] p-1">
+                {(["in", "out"] as const).map((dir) => (
+                  <button
+                    key={dir}
+                    type="button"
+                    onClick={() => { setAdjustDirection(dir); if (dir === "out") setRecordExpense(false); }}
+                    className={`rounded-md py-2 text-sm font-semibold transition-colors ${adjustDirection === dir ? dir === "in" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400" : "text-gray-500 hover:text-white"}`}
+                  >
+                    {dir === "in" ? "+ Add Stock" : "- Remove Stock"}
+                  </button>
+                ))}
+              </div>
+              <input type="hidden" name="direction" value={adjustDirection} />
+
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-400">Quantity *</label>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Quantity <span className="text-[#D4AF37]">*</span></label>
                 <input
                   name="quantity"
                   type="number"
                   min="1"
                   required
+                  value={adjustQty}
+                  onChange={(e) => setAdjustQty(Number(e.target.value))}
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  placeholder="0"
                 />
               </div>
+
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-400">Reason</label>
                 <input
                   name="reason"
+                  defaultValue={adjustDirection === "in" ? "Restock" : ""}
                   className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  placeholder="e.g. Restock, Damaged"
+                  placeholder="e.g. Restock, Damaged, Shrinkage"
                 />
               </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setAdjustItem(null)}
-                  className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-gray-400 hover:text-white"
-                >
+
+              {adjustDirection === "in" && (
+                <div className="rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-4 space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recordExpense}
+                      onChange={(e) => setRecordExpense(e.target.checked)}
+                      className="h-4 w-4 rounded border-white/20 accent-[#D4AF37]"
+                    />
+                    <span className="text-sm font-semibold text-[#D4AF37]">Record purchase as expense</span>
+                  </label>
+                  {recordExpense && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-400">Unit Cost (RM)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">RM</span>
+                          <input
+                            name="unit_cost_override"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            defaultValue={adjustItem.unit_cost || ""}
+                            className="w-full rounded-lg border border-white/10 bg-[#111] pl-9 pr-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        {adjustItem.unit_cost > 0 && (
+                          <p className="mt-1 text-[11px] text-gray-600">
+                            Total: RM {(adjustItem.unit_cost * adjustQty).toFixed(2)} ({adjustQty}× RM {adjustItem.unit_cost.toFixed(2)})
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-400">Vendor / Supplier</label>
+                        <input
+                          name="vendor"
+                          className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                          placeholder="Supplier name"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-400">Payment Method</label>
+                        <select
+                          name="payment_method"
+                          className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]"
+                        >
+                          <option value="cash">Cash</option>
+                          <option value="bank_transfer">Bank Transfer</option>
+                          <option value="card">Card</option>
+                          <option value="e_wallet">E-Wallet</option>
+                        </select>
+                      </div>
+                      <p className="text-[10px] text-gray-600 leading-relaxed">
+                        This will create an "Inventory Purchase" expense entry (pending approval) in the Expenses module.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => setAdjustItem(null)} className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:border-white/20 transition-colors">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={adjustPending}
-                  className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2 text-sm font-bold text-[#111] disabled:opacity-50"
-                >
-                  {adjustPending ? "Saving…" : "Adjust"}
+                <button type="submit" disabled={adjustPending} className="flex-1 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110 disabled:opacity-50 transition-all">
+                  {adjustPending ? "Saving…" : "Adjust Stock"}
                 </button>
               </div>
             </form>

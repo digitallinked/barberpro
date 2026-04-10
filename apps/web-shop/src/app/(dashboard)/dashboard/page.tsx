@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
+  AlertCircle,
   AlertTriangle,
   BarChart2,
   BookOpen,
@@ -11,6 +12,8 @@ import {
   CreditCard,
   PlusCircle,
   ShoppingCart,
+  TrendingDown,
+  TrendingUp,
   Timer,
   Users,
   X
@@ -335,6 +338,65 @@ export default function DashboardPage() {
           </Link>
         </Card>
       </div>
+
+      {/* ── Financial Snapshot (this month) ── */}
+      {(() => {
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthExpenses = expenses
+          .filter((e) => {
+            const raw = e.expense_date ?? e.created_at;
+            if (!raw) return false;
+            const d = new Date(raw.includes("T") ? raw : `${raw}T12:00:00`);
+            return d >= monthStart;
+          });
+        const approvedExpenses = monthExpenses.filter((e) => e.status === "approved").reduce((s, e) => s + (e.amount ?? 0), 0);
+        const pendingCount = monthExpenses.filter((e) => (e.status ?? "pending") === "pending").length;
+        const thisMonthRevenue = stats?.todayRevenue ?? 0;
+        const netEstimate = thisMonthRevenue - approvedExpenses;
+
+        return (
+          <div className="space-y-3">
+            {pendingCount > 0 && (
+              <Link
+                href="/expenses"
+                className="flex items-center gap-3 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 hover:border-yellow-500/30 transition-colors"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" />
+                <p className="flex-1 text-sm text-yellow-400">
+                  <span className="font-semibold">{pendingCount} expense{pendingCount !== 1 ? "s" : ""}</span> awaiting approval — approve to include in P&L
+                </p>
+                <span className="text-xs text-yellow-400/60">Review →</span>
+              </Link>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Revenue (this month)</p>
+                </div>
+                <p className="text-lg font-bold text-emerald-400">{formatAmount(thisMonthRevenue)}</p>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingDown className="h-3.5 w-3.5 text-red-400" />
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Approved Expenses</p>
+                </div>
+                <p className="text-lg font-bold text-red-400">{formatAmount(approvedExpenses)}</p>
+                {pendingCount > 0 && <p className="text-[10px] text-yellow-600 mt-0.5">{pendingCount} pending</p>}
+              </Card>
+              <Card className={`p-4 ${netEstimate >= 0 ? "border-emerald-500/10" : "border-red-500/10"}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart2 className="h-3.5 w-3.5 text-[#D4AF37]" />
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Net Estimate</p>
+                </div>
+                <p className={`text-lg font-bold ${netEstimate >= 0 ? "text-emerald-400" : "text-red-400"}`}>{formatAmount(netEstimate)}</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">excl. payroll</p>
+              </Card>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Main grid ── */}
       <div className="grid gap-6 lg:grid-cols-3">

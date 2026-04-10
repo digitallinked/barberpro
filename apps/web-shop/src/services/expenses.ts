@@ -11,7 +11,7 @@ export async function getExpenses(
 ): Promise<{ data: ExpenseRow[] | null; error: Error | null }> {
   let query = client
     .from("expenses")
-    .select("id, amount, category, expense_date, payment_method, status, vendor, branch_id, supplier_id, notes, created_by, tenant_id, created_at, updated_at")
+    .select("id, amount, category, expense_date, payment_method, status, vendor, branch_id, supplier_id, notes, receipt_url, created_by, tenant_id, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .order("expense_date", { ascending: false })
     .order("created_at", { ascending: false });

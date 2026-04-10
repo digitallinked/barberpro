@@ -633,6 +633,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: string
+          receipt_url: string | null
           status: string
           supplier_id: string | null
           tenant_id: string
@@ -649,6 +650,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method: string
+          receipt_url?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id: string
@@ -665,6 +667,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string
+          receipt_url?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id?: string
