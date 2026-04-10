@@ -30,6 +30,7 @@ import {
   useBranches,
   useStaffCommission,
   useStaffAttendanceSummary,
+  useTenantProfile,
 } from "@/hooks";
 import { useT } from "@/lib/i18n/language-context";
 import {
@@ -96,8 +97,20 @@ type StaffDetails = {
   employee_code?: string | null;
 } | null;
 
+type EmployerDetails = {
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postcode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  registrationNumber?: string | null;
+  logoUrl?: string | null;
+};
+
 function buildPayslipInnerHtml(params: {
-  employerName: string;
+  employer: EmployerDetails;
   periodLabel: string;
   periodStart: string;
   periodEnd: string;
@@ -115,7 +128,7 @@ function buildPayslipInnerHtml(params: {
   marital: MaritalStatus;
   dependents: number;
 }): string {
-  const { employerName, periodLabel, periodStart, periodEnd, staffName, staffDetails, entry, age, marital, dependents } = params;
+  const { employer, periodLabel, periodStart, periodEnd, staffName, staffDetails, entry, age, marital, dependents } = params;
   const sd = staffDetails;
   const gross =
     entry.base_salary +
@@ -126,158 +139,196 @@ function buildPayslipInnerHtml(params: {
     maritalStatus: marital,
     numDependents: dependents,
   });
-  const diff = Math.round((entry.deductions - stat.totalEmployeeDeductions) * 100) / 100;
   const daysLabel =
     entry.days_worked != null && entry.total_working_days != null
       ? `${entry.days_worked} / ${entry.total_working_days} days worked`
       : "—";
-  const refNo = `BP-${periodStart.replace(/-/g, "")}-${staffName.replace(/\s+/g, "").slice(0, 4).toUpperCase()}`;
+  const refNo = `${periodStart.replace(/-/g, "")}-${staffName.replace(/\s+/g, "").slice(0, 4).toUpperCase()}`;
 
-  const row = (label: string, value: string, bold = false, indent = false) =>
-    `<tr><td style="${indent ? "padding-left:20px;" : ""}color:#555">${bold ? `<strong>${label}</strong>` : label}</td><td class="n">${bold ? `<strong>${value}</strong>` : value}</td></tr>`;
+  // Build employer address block
+  const empAddrParts = [
+    employer.address,
+    employer.postcode && employer.city ? `${employer.postcode} ${employer.city}` : (employer.city || employer.postcode),
+    employer.state,
+  ].filter(Boolean);
 
-  const separator = `<tr><td colspan="2" style="padding:0;border-bottom:2px solid #222;"></td></tr>`;
-  const sectionHeader = (title: string) =>
-    `<tr><td colspan="2" style="padding:10px 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;border-bottom:1px solid #ddd">${title}</td></tr>`;
+  // Build employee address
+  const empAddrLine = [
+    sd?.address_line1, sd?.address_line2,
+    sd?.postcode && sd?.city ? `${sd.postcode} ${sd.city}` : (sd?.city || sd?.postcode),
+    sd?.state,
+  ].filter(Boolean).join(", ");
+
+  const row = (label: string, value: string, bold = false) =>
+    `<tr><td style="color:#444;padding:7px 8px;border-bottom:1px solid #eee">${bold ? `<strong>${label}</strong>` : label}</td><td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding:7px 8px;border-bottom:1px solid #eee">${bold ? `<strong>${value}</strong>` : value}</td></tr>`;
+
+  const subtleRow = (label: string, value: string) =>
+    `<tr><td style="color:#888;padding:6px 8px;border-bottom:1px solid #f5f5f5;font-size:12px">${label}</td><td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding:6px 8px;border-bottom:1px solid #f5f5f5;font-size:12px;color:#666">${value}</td></tr>`;
+
+  const dividerRow = `<tr><td colspan="2" style="padding:0;border-bottom:2px solid #ddd"></td></tr>`;
+
+  const sectionHeader = (title: string, note = "") =>
+    `<tr><td colspan="2" style="padding:12px 8px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#999;border-bottom:2px solid #111">${title}${note ? `<span style="font-weight:400;text-transform:none;letter-spacing:0;margin-left:8px;color:#bbb">${note}</span>` : ""}</td></tr>`;
 
   return `
 <style>
-  @page { size: A4; margin: 20mm; }
-  * { box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; padding: 0; margin: 0; color: #111; background: #fff; }
-  .page { max-width: 680px; margin: 0 auto; padding: 32px; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid #111; }
-  .employer { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
-  .employer-sub { font-size: 11px; color: #777; margin-top: 3px; }
-  .payslip-label { text-align: right; }
-  .payslip-label h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #555; margin: 0 0 4px; }
-  .payslip-label .ref { font-size: 11px; color: #888; }
-  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; padding: 16px; background: #f8f8f8; border-radius: 6px; }
-  .meta-item { font-size: 12px; }
-  .meta-label { color: #777; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
-  .meta-value { font-weight: 600; color: #111; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
-  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #eee; }
-  td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .net-row td { padding: 12px 6px; background: #111; color: #fff; font-size: 15px; font-weight: 700; }
-  .net-row td.n { color: #fff; }
-  .disclaimer { margin-top: 24px; padding: 12px; background: #f5f5f5; border-radius: 4px; font-size: 10px; color: #666; line-height: 1.6; }
-  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 10px; color: #aaa; }
-  .sig-block { margin-top: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  @page { size: A4; margin: 18mm 20mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; color: #111; background: #fff; font-size: 13px; line-height: 1.5; }
+  .page { max-width: 720px; margin: 0 auto; padding: 28px 32px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 3px solid #111; gap: 20px; }
+  .logo-block { display: flex; align-items: flex-start; gap: 14px; }
+  .logo { height: 52px; width: auto; max-width: 120px; object-fit: contain; }
+  .employer-info {}
+  .employer-name { font-size: 18px; font-weight: 700; letter-spacing: -.2px; margin-bottom: 3px; }
+  .employer-meta { font-size: 10.5px; color: #666; line-height: 1.6; }
+  .payslip-badge { text-align: right; flex-shrink: 0; }
+  .payslip-badge h2 { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #111; }
+  .payslip-badge .ref { font-size: 10px; color: #999; margin-top: 2px; }
+  .payslip-badge .period { font-size: 11px; color: #555; font-weight: 600; margin-top: 4px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 22px; border: 1px solid #e5e5e5; border-radius: 4px; overflow: hidden; }
+  .meta-item { padding: 9px 12px; border-bottom: 1px solid #e5e5e5; border-right: 1px solid #e5e5e5; }
+  .meta-item:nth-child(2n) { border-right: none; }
+  .meta-item:nth-last-child(-n+2) { border-bottom: none; }
+  .meta-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: #999; margin-bottom: 2px; }
+  .meta-value { font-size: 12px; font-weight: 600; color: #111; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  .net-pay-table { margin-bottom: 24px; }
+  .net-pay-row td { padding: 13px 8px; background: #111; color: #fff; font-size: 16px; font-weight: 800; letter-spacing: .01em; }
+  .net-pay-row td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .ref-section { background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 4px; padding: 14px 16px; margin-bottom: 18px; }
+  .ref-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #999; margin-bottom: 10px; border-bottom: 1px solid #e5e5e5; padding-bottom: 6px; }
+  .ref-section table { margin-bottom: 0; }
+  .sig-block { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 40px; margin-bottom: 24px; }
   .sig-line { border-top: 1px solid #ccc; padding-top: 6px; font-size: 10px; color: #888; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  .disclaimer { font-size: 9.5px; color: #888; line-height: 1.6; padding: 10px 12px; background: #f5f5f5; border-radius: 3px; }
+  .footer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #e5e5e5; display: flex; justify-content: space-between; font-size: 9.5px; color: #bbb; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none; }
+  }
 </style>
 <div class="page">
+
+  <!-- HEADER: Company info left, PAYSLIP badge right -->
   <div class="header">
-    <div>
-      <div class="employer">${esc(employerName)}</div>
-      <div class="employer-sub">Payslip — For Employee Records Only</div>
+    <div class="logo-block">
+      ${employer.logoUrl ? `<img src="${employer.logoUrl}" class="logo" alt="${esc(employer.name)} logo" />` : ""}
+      <div class="employer-info">
+        <div class="employer-name">${esc(employer.name)}</div>
+        <div class="employer-meta">
+          ${empAddrParts.length ? `${empAddrParts.join(", ")}<br>` : ""}
+          ${employer.phone ? `Tel: ${esc(employer.phone)}` : ""}${employer.phone && employer.email ? " &nbsp;|&nbsp; " : ""}${employer.email ? `Email: ${esc(employer.email)}` : ""}${(employer.phone || employer.email) && employer.registrationNumber ? "<br>" : ""}
+          ${employer.registrationNumber ? `Reg. No.: ${esc(employer.registrationNumber)}` : ""}
+        </div>
+      </div>
     </div>
-    <div class="payslip-label">
+    <div class="payslip-badge">
       <h2>Pay Slip</h2>
+      <div class="period">${esc(periodLabel)}</div>
       <div class="ref">Ref: ${esc(refNo)}</div>
     </div>
   </div>
 
-  <div class="meta">
+  <!-- EMPLOYEE DETAILS GRID -->
+  <div class="meta-grid">
     <div class="meta-item"><div class="meta-label">Employee Name</div><div class="meta-value">${esc(staffName)}</div></div>
-    <div class="meta-item"><div class="meta-label">Employee Code</div><div class="meta-value">${esc(sd?.employee_code ?? "—")}</div></div>
     <div class="meta-item"><div class="meta-label">NRIC / IC No.</div><div class="meta-value">${esc(sd?.nric_number ?? "—")}</div></div>
+    <div class="meta-item"><div class="meta-label">Employee Code</div><div class="meta-value">${esc(sd?.employee_code ?? "—")}</div></div>
     <div class="meta-item"><div class="meta-label">Pay Period</div><div class="meta-value">${esc(periodLabel)}</div></div>
     <div class="meta-item"><div class="meta-label">Attendance</div><div class="meta-value">${esc(daysLabel)}</div></div>
-    <div class="meta-item"><div class="meta-label">POS Summary</div><div class="meta-value">${entry.services_count ?? 0} services · ${entry.customers_served ?? 0} customers</div></div>
-    ${sd?.epf_number ? `<div class="meta-item"><div class="meta-label">EPF / KWSP No.</div><div class="meta-value">${esc(sd.epf_number)}</div></div>` : ""}
-    ${sd?.socso_number ? `<div class="meta-item"><div class="meta-label">SOCSO No.</div><div class="meta-value">${esc(sd.socso_number)}</div></div>` : ""}
-    ${sd?.tax_ref_number ? `<div class="meta-item"><div class="meta-label">Income Tax Ref.</div><div class="meta-value">${esc(sd.tax_ref_number)}</div></div>` : ""}
-    ${sd?.bank_name ? `<div class="meta-item"><div class="meta-label">Bank</div><div class="meta-value">${esc(sd.bank_name)}${sd.bank_account_number ? ` · ${esc(sd.bank_account_number)}` : ""}</div></div>` : ""}
+    <div class="meta-item"><div class="meta-label">EPF / KWSP No.</div><div class="meta-value">${esc(sd?.epf_number ?? "—")}</div></div>
+    <div class="meta-item"><div class="meta-label">SOCSO / PERKESO No.</div><div class="meta-value">${esc(sd?.socso_number ?? "—")}</div></div>
+    <div class="meta-item"><div class="meta-label">Income Tax Ref.</div><div class="meta-value">${esc(sd?.tax_ref_number ?? "—")}</div></div>
+    ${sd?.bank_name ? `<div class="meta-item"><div class="meta-label">Bank</div><div class="meta-value">${esc(sd.bank_name)}</div></div><div class="meta-item"><div class="meta-label">Account No.</div><div class="meta-value">${esc(sd.bank_account_number ?? "—")}</div></div>` : `<div class="meta-item"><div class="meta-label">Bank</div><div class="meta-value">—</div></div><div class="meta-item"><div class="meta-label">Account No.</div><div class="meta-value">—</div></div>`}
   </div>
 
-  ${(sd?.address_line1 || sd?.city) ? `
-  <div style="margin-bottom:20px;font-size:11px;color:#555">
-    <strong>Employee Address:</strong>
-    ${[sd.address_line1, sd.address_line2, sd.postcode && sd.city ? `${sd.postcode} ${sd.city}` : (sd.city || sd.postcode || ""), sd.state].filter(Boolean).join(", ")}
-  </div>` : ""}
+  ${empAddrLine ? `<p style="font-size:11px;color:#777;margin-bottom:18px"><strong>Employee Address:</strong> ${esc(empAddrLine)}</p>` : ""}
 
+  <!-- EARNINGS -->
   <table>
     ${sectionHeader("Earnings")}
     ${row("Basic Salary", formatRMStat(entry.base_salary))}
-    ${row("Service Commission", formatRMStat(entry.service_commission))}
-    ${row("Product Commission", formatRMStat(entry.product_commission))}
-    ${row("Allowance / Bonus", formatRMStat(entry.bonuses))}
-    ${separator}
+    ${entry.service_commission !== 0 ? row("Service Commission", formatRMStat(entry.service_commission)) : ""}
+    ${entry.product_commission !== 0 ? row("Product Commission", formatRMStat(entry.product_commission)) : ""}
+    ${entry.bonuses !== 0 ? row("Allowance / Bonus", formatRMStat(entry.bonuses)) : ""}
+    ${dividerRow}
     ${row("Gross Pay", formatRMStat(gross), true)}
   </table>
 
+  <!-- DEDUCTIONS & NET PAY -->
   <table>
-    ${sectionHeader("Statutory Contributions — Estimates (KWSP / PERKESO / SIP / PCB)")}
-    ${sd?.epf_enabled !== false ? row(`EPF / KWSP — Employee (11%)${sd?.epf_number ? ` · ${esc(sd.epf_number)}` : ""}`, `(${formatRMStat(stat.epf.employeeContribution)})`) : row("EPF / KWSP", "Not applicable")}
-    ${sd?.socso_enabled !== false ? row(`SOCSO / PERKESO — Employee${sd?.socso_number ? ` · ${esc(sd.socso_number)}` : ""}`, `(${formatRMStat(stat.socso.employeeContribution)})`) : row("SOCSO / PERKESO", "Not applicable")}
-    ${row(`EIS / SIP — Employee (0.2%)${sd?.eis_number ? ` · ${esc(sd.eis_number)}` : ""}`, `(${formatRMStat(stat.eis.employeeContribution)})`)}
-    ${row(`PCB / MTD — Income Tax Est.${sd?.tax_ref_number ? ` · ${esc(sd.tax_ref_number)}` : ""}`, `(${formatRMStat(stat.pcb.monthlyPcb)})`)}
-    ${separator}
-    ${row("Total Statutory Estimate", `(${formatRMStat(stat.totalEmployeeDeductions)})`, true)}
+    ${sectionHeader("Deductions & Advances")}
+    ${entry.deductions !== 0 ? row("Total Deductions", `(${formatRMStat(entry.deductions)})`) : subtleRow("Total Deductions", "(RM 0.00)")}
+    ${entry.advances !== 0 ? row("Salary Advance", `(${formatRMStat(entry.advances)})`) : subtleRow("Salary Advance", "(RM 0.00)")}
   </table>
 
-  <table>
-    ${sectionHeader("Deductions & Advances Recorded")}
-    ${row("Total Deductions", `(${formatRMStat(entry.deductions)})`)}
-    ${row("Salary Advance", `(${formatRMStat(entry.advances)})`)}
+  <!-- NET PAY — prominent row immediately after deductions -->
+  <table class="net-pay-table">
+    <tr class="net-pay-row">
+      <td>NET PAY (GAJI BERSIH)</td>
+      <td>${formatRMStat(entry.net_payout)}</td>
+    </tr>
   </table>
 
-  <table>
-    <tr class="net-row"><td>NET PAY</td><td class="n">${formatRMStat(entry.net_payout)}</td></tr>
-  </table>
+  <!-- STATUTORY ESTIMATES — clearly labelled as reference only -->
+  <div class="ref-section">
+    <div class="ref-section-title">Statutory Contributions — Estimated Reference Only (KWSP / PERKESO / SIP / PCB)</div>
+    <table>
+      ${sd?.epf_enabled !== false
+        ? subtleRow(`EPF / KWSP — Employee (11%)${sd?.epf_number ? ` · No. ${esc(sd.epf_number)}` : ""}`, `~ (${formatRMStat(stat.epf.employeeContribution)})`)
+        : subtleRow("EPF / KWSP", "Not applicable")}
+      ${sd?.socso_enabled !== false
+        ? subtleRow(`SOCSO / PERKESO — Employee${sd?.socso_number ? ` · No. ${esc(sd.socso_number)}` : ""}`, `~ (${formatRMStat(stat.socso.employeeContribution)})`)
+        : subtleRow("SOCSO / PERKESO", "Not applicable")}
+      ${subtleRow(`EIS / SIP (0.2%)${sd?.eis_number ? ` · No. ${esc(sd.eis_number)}` : ""}`, `~ (${formatRMStat(stat.eis.employeeContribution)})`)}
+      ${subtleRow(`PCB / MTD Income Tax${sd?.tax_ref_number ? ` · ${esc(sd.tax_ref_number)}` : ""}`, `~ (${formatRMStat(stat.pcb.monthlyPcb)})`)}
+      <tr><td colspan="2" style="padding:4px 8px;font-size:9.5px;color:#bbb">
+        ~ Estimates based on gross pay, age ${age}, ${marital.replace(/_/g," ")}, ${dependents} dependent${dependents !== 1 ? "s" : ""}.
+        Verify actual amounts with KWSP i‑Akaun, PERKESO Online, and LHDN e‑Data PCB before filing.
+        If statutory deductions have already been included in the Deductions field above, disregard these estimates.
+      </td></tr>
+    </table>
+  </div>
 
   ${
-    entry.service_revenue != null || entry.product_revenue != null
-      ? `<table>
-    ${sectionHeader("POS Revenue Attribution (Reference)")}
-    ${row("Service Revenue", formatRMStat(entry.service_revenue ?? 0))}
-    ${row("Product Revenue", formatRMStat(entry.product_revenue ?? 0))}
-    ${row("Total POS Revenue", formatRMStat((entry.service_revenue ?? 0) + (entry.product_revenue ?? 0)), true)}
-  </table>`
+    ((entry.service_revenue ?? 0) + (entry.product_revenue ?? 0)) > 0
+      ? `<div class="ref-section">
+    <div class="ref-section-title">POS Revenue (Reference)</div>
+    <table>
+      ${subtleRow("Service Revenue", formatRMStat(entry.service_revenue ?? 0))}
+      ${subtleRow("Product Revenue", formatRMStat(entry.product_revenue ?? 0))}
+      ${subtleRow("Total Revenue", formatRMStat((entry.service_revenue ?? 0) + (entry.product_revenue ?? 0)))}
+    </table>
+  </div>`
       : ""
   }
 
-  ${
-    entry.notes
-      ? `<table>
-    ${sectionHeader("Notes")}
-    <tr><td colspan="2" style="color:#555;font-style:italic">${esc(entry.notes)}</td></tr>
-  </table>`
-      : ""
-  }
-
-  ${
-    Math.abs(diff) > 0.02
-      ? `<div class="disclaimer" style="border-left:3px solid #e5a000">&#9888; Stored deductions (${formatRMStat(entry.deductions)}) differ from the statutory estimate (${formatRMStat(stat.totalEmployeeDeductions)}) by ${formatRMStat(Math.abs(diff))}. This may reflect loans, zakat, additional PCB, or adjustments. Use official payroll records for statutory filing.</div>`
-      : ""
-  }
+  ${entry.notes ? `<p style="font-size:11px;color:#555;margin-bottom:18px"><strong>Notes:</strong> ${esc(entry.notes)}</p>` : ""}
 
   <div class="sig-block">
     <div>
-      <div style="height:40px"></div>
+      <div style="height:44px"></div>
       <div class="sig-line">Employee Signature &amp; Date</div>
     </div>
     <div>
-      <div style="height:40px"></div>
-      <div class="sig-line">Authorised by &amp; Date</div>
+      <div style="height:44px"></div>
+      <div class="sig-line">Authorised Signature &amp; Date (${esc(employer.name)})</div>
     </div>
   </div>
 
   <div class="disclaimer">
-    <strong>Important:</strong> Statutory figures (EPF, SOCSO, EIS, PCB) are <em>estimates</em> computed using a simplified MTD model
-    (age&nbsp;${age}, marital status: ${esc(marital)}, dependents: ${dependents}). They are provided for reference only and may differ from actual
-    contributions. Always verify against LHDN e‑Data PCB, KWSP i‑Akaun, and PERKESO online portals before filing. This document does not
-    constitute legal or tax advice and is not a substitute for your employer's official EA Form (Form C.P.8A).
-    <br/><br/>
-    Generated by BarberPro on ${new Date().toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })} · Ref: ${esc(refNo)}
+    <strong>Important Notice:</strong> Statutory contribution figures (EPF, SOCSO, EIS, PCB) shown in the reference section are <em>estimates only</em>
+    and are not deducted from the Net Pay above unless they are separately recorded under Deductions.
+    Actual statutory obligations must be verified against LHDN tables, EA Form (C.P.8A), KWSP i‑Akaun, and PERKESO Online before submission.
+    This document is for payroll record purposes only and does not constitute legal or tax advice.
   </div>
 
   <div class="footer">
-    <span>${esc(employerName)} · Payslip for the period ${esc(periodStart)} to ${esc(periodEnd)}</span>
-    <span>BarberPro · shop.barberpro.my</span>
+    <span>${esc(employer.name)} &nbsp;·&nbsp; ${esc(periodStart)} to ${esc(periodEnd)}</span>
+    <span>Ref: ${esc(refNo)} &nbsp;·&nbsp; Printed ${new Date().toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" })}</span>
   </div>
+
 </div>
 `;
 }
@@ -306,6 +357,7 @@ function getInitials(name: string): string {
 export default function PayrollPage() {
   const t = useT();
   const { tenantName, activeBranchId } = useTenant();
+  const { data: tenantProfileResult } = useTenantProfile();
   const queryClient = useQueryClient();
   const { data: periodsResult, isLoading: periodsLoading } = usePayrollPeriods();
   const { data: branchesResult } = useBranches();
@@ -531,8 +583,19 @@ export default function PayrollPage() {
     }
     const marital = (entry.staff?.marital_status as MaritalStatus | null) ?? "single";
     const dependents = entry.staff?.num_dependents ?? 0;
+    const tp = tenantProfileResult?.data;
     const inner = buildPayslipInnerHtml({
-      employerName: tenantName,
+      employer: {
+        name: tp?.name ?? tenantName,
+        address: tp?.address_line1,
+        city: tp?.city,
+        state: tp?.state,
+        postcode: tp?.postcode,
+        phone: tp?.phone,
+        email: tp?.email,
+        registrationNumber: tp?.registration_number,
+        logoUrl: tp?.logo_url,
+      },
       periodLabel,
       periodStart: selectedPeriod.period_start,
       periodEnd: selectedPeriod.period_end,
@@ -640,9 +703,9 @@ export default function PayrollPage() {
   </tbody>
 </table>
 <div class="foot">
-  Generated by BarberPro on ${new Date().toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })}.<br>
+  ${esc(tenantName)} · Payroll Register · Printed ${new Date().toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })}<br>
   For employer records only. Cross-check all figures with KWSP, PERKESO, LHDN, and your bank payment files before statutory submission.
-  Net Pay figures above do not include statutory deductions unless they have been manually recorded under "Deductions" in BarberPro.
+  Net Pay figures above do not include statutory deductions unless they have been manually recorded under Deductions.
 </div>`;
     openPrintableDocument(inner, `Payroll-Register-${periodLabel}`);
   }
