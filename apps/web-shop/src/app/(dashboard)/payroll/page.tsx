@@ -305,11 +305,68 @@ function buildPayslipInnerHtml(params: {
       <td>${formatRMStat(netPay)}</td>
     </tr>
   </table>
-  <p style="font-size:9.5px;color:#999;margin-bottom:18px;margin-top:-14px">
+  <p style="font-size:9.5px;color:#999;margin-bottom:22px;margin-top:-14px">
     * Statutory deductions (EPF, SOCSO, EIS, PCB) are <em>estimates</em> based on gross pay, age&nbsp;${age},
     ${marital.replace(/_/g, " ")}, ${dependents}&nbsp;dependent${dependents !== 1 ? "s" : ""}.
     Actual net pay may differ. Always verify with official portals before transfer.
   </p>
+
+  <!-- EMPLOYER CONTRIBUTIONS — separate cost to employer, not deducted from employee -->
+  <div style="background:#f0f4ff;border:1px solid #c7d7f5;border-radius:4px;padding:14px 16px;margin-bottom:18px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#4a6fa5;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #c7d7f5">
+      Employer Statutory Contributions &nbsp;
+      <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#8aa8d4">(Borne by Employer — Not Deducted from Employee)</span>
+    </div>
+    <table style="margin-bottom:0">
+      ${sd?.epf_enabled !== false
+        ? `<tr>
+            <td style="padding:6px 8px;color:#4a6fa5;font-size:12px">
+              EPF / KWSP — Employer (${gross <= 5000 ? "13" : "12"}%)${sd?.epf_number ? ` &nbsp;<span style="font-weight:400;color:#8aa8d4">No. ${esc(sd.epf_number)}</span>` : ""}
+            </td>
+            <td style="text-align:right;padding:6px 8px;font-size:12px;color:#2d4a7a;font-variant-numeric:tabular-nums;white-space:nowrap">
+              ${formatRMStat(stat.epf.employerContribution)} *
+            </td>
+          </tr>`
+        : `<tr><td style="padding:6px 8px;color:#8aa8d4;font-size:12px">EPF / KWSP — Employer</td><td style="text-align:right;padding:6px 8px;font-size:12px;color:#8aa8d4">Not applicable</td></tr>`}
+
+      ${sd?.socso_enabled !== false && stat.socso.applicable
+        ? `<tr>
+            <td style="padding:6px 8px;color:#4a6fa5;font-size:12px">
+              SOCSO / PERKESO — Employer (~1.75%)${sd?.socso_number ? ` &nbsp;<span style="font-weight:400;color:#8aa8d4">No. ${esc(sd.socso_number)}</span>` : ""}
+            </td>
+            <td style="text-align:right;padding:6px 8px;font-size:12px;color:#2d4a7a;font-variant-numeric:tabular-nums;white-space:nowrap">
+              ${formatRMStat(stat.socso.employerContribution)} *
+            </td>
+          </tr>`
+        : `<tr><td style="padding:6px 8px;color:#8aa8d4;font-size:12px">SOCSO / PERKESO — Employer</td><td style="text-align:right;padding:6px 8px;font-size:12px;color:#8aa8d4">Not applicable</td></tr>`}
+
+      ${stat.eis.applicable
+        ? `<tr>
+            <td style="padding:6px 8px;color:#4a6fa5;font-size:12px">
+              EIS / SIP — Employer (0.2%)${sd?.eis_number ? ` &nbsp;<span style="font-weight:400;color:#8aa8d4">No. ${esc(sd.eis_number)}</span>` : ""}
+            </td>
+            <td style="text-align:right;padding:6px 8px;font-size:12px;color:#2d4a7a;font-variant-numeric:tabular-nums;white-space:nowrap">
+              ${formatRMStat(stat.eis.employerContribution)} *
+            </td>
+          </tr>`
+        : `<tr><td style="padding:6px 8px;color:#8aa8d4;font-size:12px">EIS / SIP — Employer</td><td style="text-align:right;padding:6px 8px;font-size:12px;color:#8aa8d4">Not applicable</td></tr>`}
+
+      <tr><td colspan="2" style="padding:0 8px;border-bottom:1px solid #c7d7f5"></td></tr>
+
+      <tr>
+        <td style="padding:8px 8px 6px;color:#2d4a7a;font-size:13px"><strong>Total Employer Contributions *</strong></td>
+        <td style="text-align:right;padding:8px 8px 6px;font-size:13px;color:#2d4a7a;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">
+          ${formatRMStat(stat.epf.employerContribution + stat.socso.employerContribution + stat.eis.employerContribution)}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:4px 8px 6px;color:#4a6fa5;font-size:12px">Total Cost of Employment (Gross Pay + Employer Contributions) *</td>
+        <td style="text-align:right;padding:4px 8px 6px;font-size:12px;color:#2d4a7a;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600">
+          ${formatRMStat(stat.totalEmployerCost)}
+        </td>
+      </tr>
+    </table>
+  </div>
 
   ${
     ((entry.service_revenue ?? 0) + (entry.product_revenue ?? 0)) > 0
