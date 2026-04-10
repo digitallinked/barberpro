@@ -11,8 +11,8 @@ import {
   Printer,
   QrCode,
   Scissors,
+  Package,
   Search,
-  ShoppingBag,
   ShoppingCart,
   Smartphone,
   Ticket,
@@ -308,26 +308,22 @@ function OrderContent({
 function ServiceBtn({
   name,
   price,
-  duration,
   onClick,
 }: {
   name: string;
   price: number;
-  duration: number;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col gap-1.5 rounded-xl border border-white/5 bg-[#111] p-3 text-left transition active:scale-[0.97] hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/5"
+      className="group flex flex-col justify-between gap-3 rounded-xl border border-white/8 bg-[#161616] p-3.5 text-left transition duration-150 active:scale-[0.96] hover:border-[#D4AF37]/35 hover:bg-[#D4AF37]/[0.07] hover:shadow-lg hover:shadow-[#D4AF37]/5"
     >
-      <div className="flex items-start justify-between gap-1">
-        <span className="text-base leading-none">✂️</span>
-        <span className="text-xs font-bold text-white">RM {price}</span>
-      </div>
-      <p className="line-clamp-2 text-xs font-semibold leading-tight text-white">{name}</p>
-      <p className="text-[11px] text-gray-500">~{duration} min</p>
+      <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-white/90 group-hover:text-white">
+        {name}
+      </p>
+      <p className="text-right text-sm font-bold text-[#D4AF37]">RM {price}</p>
     </button>
   );
 }
@@ -337,26 +333,22 @@ function ServiceBtn({
 function ProductBtn({
   name,
   price,
-  stock,
   onClick,
 }: {
   name: string;
   price: number;
-  stock: number;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col gap-1.5 rounded-xl border border-white/5 bg-[#111] p-3 text-left transition active:scale-[0.97] hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/5"
+      className="group flex flex-col justify-between gap-3 rounded-xl border border-white/8 bg-[#161616] p-3.5 text-left transition duration-150 active:scale-[0.96] hover:border-[#D4AF37]/35 hover:bg-[#D4AF37]/[0.07] hover:shadow-lg hover:shadow-[#D4AF37]/5"
     >
-      <div className="flex items-start justify-between gap-1">
-        <ShoppingBag className="h-3.5 w-3.5 text-gray-500" />
-        <span className="text-xs font-bold text-white">RM {price}</span>
-      </div>
-      <p className="line-clamp-2 text-xs font-semibold leading-tight text-white">{name}</p>
-      <p className="text-[11px] text-gray-500">Stock: {stock}</p>
+      <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-white/90 group-hover:text-white">
+        {name}
+      </p>
+      <p className="text-right text-sm font-bold text-[#D4AF37]">RM {price}</p>
     </button>
   );
 }
@@ -923,7 +915,7 @@ export function PosPageClient() {
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            <ShoppingBag className="h-3.5 w-3.5" />
+            <Package className="h-3.5 w-3.5" />
             Products
           </button>
         </div>
@@ -950,7 +942,6 @@ export function PosPageClient() {
                           key={s.id}
                           name={s.name}
                           price={s.price ?? 0}
-                          duration={s.duration_min ?? 30}
                           onClick={() => addToCart(s.id, s.name, s.price ?? 0, "service", s.id)}
                         />
                       ))}
@@ -969,7 +960,6 @@ export function PosPageClient() {
                         key={s.id}
                         name={s.name}
                         price={s.price ?? 0}
-                        duration={s.duration_min ?? 30}
                         onClick={() => addToCart(s.id, s.name, s.price ?? 0, "service", s.id)}
                       />
                     ))}
@@ -982,7 +972,6 @@ export function PosPageClient() {
                       key={s.id}
                       name={s.name}
                       price={s.price ?? 0}
-                      duration={s.duration_min ?? 30}
                       onClick={() => addToCart(s.id, s.name, s.price ?? 0, "service", s.id)}
                     />
                   ))}
@@ -1010,7 +999,6 @@ export function PosPageClient() {
                   key={p.id}
                   name={p.name}
                   price={p.sell_price ?? 0}
-                  stock={p.stock_qty ?? 0}
                   onClick={() => addToCart(p.id, p.name, p.sell_price ?? 0, "product", undefined, p.id)}
                 />
               ))}
