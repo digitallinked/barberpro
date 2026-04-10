@@ -1280,9 +1280,12 @@ export default function PayrollPage() {
                                       <p className="font-medium text-white">{e.customers_served ?? "—"}</p>
                                     </div>
                                   </div>
-                                  <div className="mt-3 text-xs text-gray-600">
-                                    Statutory est.: EPF {formatRM(stat.epf.employeeContribution)}, SOCSO {formatRM(stat.socso.employeeContribution)}, EIS {formatRM(stat.eis.employeeContribution)}
-                                  </div>
+                                  {cr && (
+                                    <div className="mt-3 text-xs text-gray-600">
+                                      Statutory est. (employee): EPF {formatRM(cr.totalEmpStat)}
+                                      &nbsp;· Est. net take-home: {formatRM(cr.netTakeHome)}
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
