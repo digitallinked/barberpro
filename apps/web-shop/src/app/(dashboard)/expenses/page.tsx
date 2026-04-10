@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -12,13 +13,13 @@ import {
   Clock,
   Download,
   ExternalLink,
+  MoreVertical,
   Pencil,
   Plus,
   Receipt,
   Search,
   Tag,
   Trash2,
-  XCircle,
   X,
 } from "lucide-react";
 import { useExpenses, useExpenseStats } from "@/hooks";
@@ -68,10 +69,8 @@ const PAYMENT_OPTIONS = [
 ];
 
 const STATUS_STYLES: Record<string, string> = {
-  approved: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   pending: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  rejected: "bg-red-500/10 text-red-400 border-red-500/20",
-  paid: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  paid: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -356,6 +355,167 @@ function ExistingReceiptBadge({
       View Receipt
       <ExternalLink className="h-3 w-3" />
     </a>
+  );
+}
+
+// ─── Row Action Menu ───────────────────────────────────────────────────────────
+
+type ExpenseRowData = {
+  id: string;
+  status: string | null;
+  receipt_url: string | null;
+  category: string;
+  vendor: string | null;
+  amount: number;
+  payment_method: string;
+  expense_date: string;
+  notes: string | null;
+};
+
+function RowMenu({
+  expense,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  supabase,
+  deletingId,
+}: {
+  expense: ExpenseRowData;
+  onEdit: () => void;
+  onDelete: () => void;
+  onStatusChange: (status: "paid" | "pending") => void;
+  supabase: ReturnType<typeof useSupabase>;
+  deletingId: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const status = expense.status ?? "pending";
+
+  useEffect(() => {
+    if (open && expense.receipt_url && !receiptUrl) {
+      supabase.storage
+        .from("expense-receipts")
+        .createSignedUrl(expense.receipt_url, 300)
+        .then(({ data }) => data?.signedUrl && setReceiptUrl(data.signedUrl));
+    }
+  }, [open, expense.receipt_url, receiptUrl, supabase]);
+
+  // Position the portal menu using fixed coords (viewport-relative, ignores all overflow/z-index parents)
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const menuWidth = 208; // w-52
+    const menuHeight = 190;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= menuHeight ? rect.bottom + 6 : rect.top - menuHeight - 6;
+    const left = Math.max(8, rect.right - menuWidth);
+    setMenuStyle({ position: "fixed", top, left, width: menuWidth });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const insideBtn = btnRef.current?.contains(target);
+      const insideMenu = menuRef.current?.contains(target);
+      if (!insideBtn && !insideMenu) setOpen(false);
+    }
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function handleScroll() { setOpen(false); }
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleEsc);
+    document.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleEsc);
+      document.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [open]);
+
+  const menu = open ? (
+    <div
+      ref={menuRef}
+      style={menuStyle}
+      className="z-[9999] overflow-hidden rounded-xl border border-white/10 bg-[#1c1c1c] shadow-2xl shadow-black/60"
+    >
+      {status === "pending" ? (
+        <button
+          type="button"
+          onClick={() => { onStatusChange("paid"); setOpen(false); }}
+          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Mark as Paid
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => { onStatusChange("pending"); setOpen(false); }}
+          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+        >
+          <Clock className="h-4 w-4 shrink-0" />
+          Mark as Pending
+        </button>
+      )}
+
+      <div className="mx-3 border-t border-white/5" />
+
+      <button
+        type="button"
+        onClick={() => { onEdit(); setOpen(false); }}
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
+      >
+        <Pencil className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+        Edit Expense
+      </button>
+
+      {expense.receipt_url && (
+        <a
+          href={receiptUrl ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setOpen(false)}
+          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
+        >
+          <Receipt className="h-4 w-4 shrink-0 text-gray-400" />
+          View Receipt
+          <ExternalLink className="ml-auto h-3 w-3 text-gray-600" />
+        </a>
+      )}
+
+      <div className="mx-3 border-t border-white/5" />
+
+      <button
+        type="button"
+        onClick={() => { onDelete(); setOpen(false); }}
+        disabled={!!deletingId}
+        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+      >
+        <Trash2 className="h-4 w-4 shrink-0" />
+        Delete
+      </button>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+          open ? "bg-white/10 text-white" : "text-gray-500 hover:bg-white/5 hover:text-white"
+        }`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && createPortal(menu, document.body)}
+    </>
   );
 }
 
@@ -656,8 +816,8 @@ export default function ExpensesPage() {
   const allCategories = Array.from(new Set(expensesData.map((e) => e.category)));
 
   const pendingExpenses = expensesData.filter((e) => (e.status ?? "pending") === "pending");
-  const approvedTotal = expensesData
-    .filter((e) => e.status === "approved")
+  const paidTotal = expensesData
+    .filter((e) => e.status === "paid")
     .reduce((s, e) => s + (e.amount ?? 0), 0);
   const pendingTotal = pendingExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
 
@@ -711,7 +871,11 @@ export default function ExpensesPage() {
     fd.set("payment_method", values.payment_method);
     fd.set("expense_date", values.expense_date);
     fd.set("notes", values.notes);
-    if (storagePath) fd.set("receipt_url", storagePath);
+    // Always send receipt_url so the server knows whether to update it:
+    // - new path string = new upload
+    // - empty string = user cleared it
+    // - key not present = don't touch it (handled server-side by checking null key)
+    fd.set("receipt_url", storagePath ?? values.receipt_url ?? "");
     const result = await updateExpense(editExpense.id, fd);
     setPending(false);
     if (result.success) {
@@ -736,7 +900,7 @@ export default function ExpensesPage() {
     }
   }
 
-  async function handleStatusChange(id: string, status: "approved" | "rejected" | "pending") {
+  async function handleStatusChange(id: string, status: "paid" | "pending") {
     const result = await updateExpenseStatus(id, status);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
@@ -747,9 +911,9 @@ export default function ExpensesPage() {
   }
 
   const STATS = [
-    { label: "Total Approved", value: formatAmount(approvedTotal), icon: CircleDollarSign, iconBg: "bg-emerald-500/10", iconColor: "text-emerald-400", sub: "all-time approved" },
-    { label: "This Month", value: formatAmount(stats.thisMonth), icon: BarChart2, iconBg: "bg-blue-500/10", iconColor: "text-blue-400", sub: "approved only" },
-    { label: "Pending Approval", value: formatAmount(pendingTotal), icon: Clock, iconBg: "bg-yellow-500/10", iconColor: "text-yellow-400", sub: `${pendingExpenses.length} expense${pendingExpenses.length !== 1 ? "s" : ""}` },
+    { label: "Total Paid", value: formatAmount(paidTotal), icon: CircleDollarSign, iconBg: "bg-emerald-500/10", iconColor: "text-emerald-400", sub: "all-time paid" },
+    { label: "This Month", value: formatAmount(stats.thisMonth), icon: BarChart2, iconBg: "bg-blue-500/10", iconColor: "text-blue-400", sub: "paid only" },
+    { label: "Pending Payment", value: formatAmount(pendingTotal), icon: Clock, iconBg: "bg-yellow-500/10", iconColor: "text-yellow-400", sub: `${pendingExpenses.length} expense${pendingExpenses.length !== 1 ? "s" : ""}` },
     { label: "All Time (any status)", value: formatAmount(expensesData.reduce((s, e) => s + (e.amount ?? 0), 0)), icon: Tag, iconBg: "bg-white/5", iconColor: "text-gray-400", sub: `${expensesData.length} records` },
   ];
 
@@ -809,11 +973,11 @@ export default function ExpensesPage() {
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-yellow-400">
-              {pendingExpenses.length} expense{pendingExpenses.length !== 1 ? "s" : ""} pending approval
+              {pendingExpenses.length} expense{pendingExpenses.length !== 1 ? "s" : ""} pending payment
               <span className="ml-2 font-normal text-yellow-400/70">({formatAmount(pendingTotal)})</span>
             </p>
             <p className="text-xs text-yellow-400/60 mt-0.5">
-              Only approved expenses appear in P&L reports and stats. Review below.
+              Only paid expenses appear in P&L reports and stats. Mark them as paid below.
             </p>
           </div>
           <button
@@ -863,8 +1027,7 @@ export default function ExpensesPage() {
             >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="paid">Paid</option>
             </select>
           </div>
         </div>
@@ -879,50 +1042,29 @@ export default function ExpensesPage() {
             <div className="px-5 py-8 text-center text-gray-500">No expenses found</div>
           ) : (
             filtered.map((e) => (
-              <div key={e.id} className="space-y-2.5 px-5 py-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`rounded px-2 py-0.5 text-xs font-bold ${getCategoryColor(e.category)}`}>{e.category}</span>
-                  <span className="shrink-0 font-bold text-red-400">- {formatAmount(e.amount)}</span>
-                </div>
-                <p className="text-xs text-gray-300">
-                  {e.vendor ?? "—"} · {formatDate(e.expense_date)} · {formatPaymentMethod(e.payment_method)}
-                </p>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(e.status ?? "pending")}`}>
-                      {e.status ?? "pending"}
-                    </span>
-                    {(e.status ?? "pending") === "pending" && (
-                      <>
-                        <button type="button" onClick={() => handleStatusChange(e.id, "approved")} className="flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" /> Approve
-                        </button>
-                        <button type="button" onClick={() => handleStatusChange(e.id, "rejected")} className="flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-400">
-                          <XCircle className="h-3 w-3" /> Reject
-                        </button>
-                      </>
-                    )}
-                    {e.receipt_url && (
-                      <ExistingReceiptBadge storagePath={e.receipt_url} supabase={supabase} />
-                    )}
+              <div key={e.id} className="px-5 py-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`rounded px-2 py-0.5 text-xs font-bold ${getCategoryColor(e.category)}`}>{e.category}</span>
+                      <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(e.status ?? "pending")}`}>
+                        {e.status ?? "pending"}
+                      </span>
+                    </div>
+                    <p className="text-sm font-bold text-red-400">- {formatAmount(e.amount)}</p>
+                    <p className="text-xs text-gray-400">
+                      {e.vendor ?? "—"} · {formatDate(e.expense_date)}
+                    </p>
+                    <p className="text-xs text-gray-600">{formatPaymentMethod(e.payment_method)}</p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditExpense({ id: e.id, category: e.category, vendor: e.vendor ?? null, amount: e.amount, payment_method: e.payment_method, expense_date: e.expense_date, notes: e.notes ?? null, receipt_url: e.receipt_url ?? null })}
-                      className="rounded p-1.5 text-gray-500 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-colors"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(e.id)}
-                      disabled={!!deletingId}
-                      className="rounded p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <RowMenu
+                    expense={e}
+                    onEdit={() => setEditExpense({ id: e.id, category: e.category, vendor: e.vendor ?? null, amount: e.amount, payment_method: e.payment_method, expense_date: e.expense_date, notes: e.notes ?? null, receipt_url: e.receipt_url ?? null })}
+                    onDelete={() => handleDelete(e.id)}
+                    onStatusChange={(status) => handleStatusChange(e.id, status)}
+                    supabase={supabase}
+                    deletingId={deletingId}
+                  />
                 </div>
               </div>
             ))
@@ -940,91 +1082,44 @@ export default function ExpensesPage() {
                 <th className="p-4 text-left">Payment</th>
                 <th className="p-4 text-left">Date</th>
                 <th className="p-4 text-left">Status</th>
-                <th className="p-4 text-left">Receipt</th>
                 <th className="p-4 text-left">Notes</th>
-                <th className="p-4 text-left">Actions</th>
+                <th className="p-4 text-right"></th>
               </tr>
             </thead>
             <tbody>
               {expensesLoading ? (
-                <tr><td colSpan={9} className="p-8 text-center text-gray-500">Loading...</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-gray-500">Loading...</td></tr>
               ) : expensesError ? (
-                <tr><td colSpan={9} className="p-8 text-center text-red-400">Failed to load expenses</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-red-400">Failed to load expenses</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="p-8 text-center text-gray-500">No expenses found</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-gray-500">No expenses found</td></tr>
               ) : (
                 filtered.map((e) => (
-                  <tr key={e.id} className={`border-t border-white/[0.04] hover:bg-white/[0.02] transition-colors ${(e.status ?? "pending") === "pending" ? "bg-yellow-500/[0.02]" : ""}`}>
+                  <tr key={e.id} className={`border-t border-white/[0.04] hover:bg-white/[0.02] transition-colors group ${(e.status ?? "pending") === "pending" ? "bg-yellow-500/[0.02]" : ""}`}>
                     <td className="p-4">
                       <span className={`rounded px-2 py-0.5 text-xs font-bold ${getCategoryColor(e.category)}`}>{e.category}</span>
                     </td>
-                    <td className="p-4 font-medium text-white">{e.vendor ?? "—"}</td>
+                    <td className="p-4 font-medium text-white">{e.vendor ?? <span className="text-gray-600">—</span>}</td>
                     <td className="p-4 text-right font-bold text-red-400">- {formatAmount(e.amount)}</td>
                     <td className="p-4 text-gray-300">{formatPaymentMethod(e.payment_method)}</td>
                     <td className="p-4 text-gray-300">{formatDate(e.expense_date)}</td>
                     <td className="p-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(e.status ?? "pending")}`}>
-                          {e.status ?? "pending"}
-                        </span>
-                        {(e.status ?? "pending") === "pending" && (
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(e.id, "approved")}
-                              className="rounded p-1 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
-                              title="Approve"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStatusChange(e.id, "rejected")}
-                              className="rounded p-1 text-red-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-                              title="Reject"
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        )}
-                        {e.status === "approved" && (
-                          <button
-                            type="button"
-                            onClick={() => handleStatusChange(e.id, "pending")}
-                            className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
-                            title="Undo approval"
-                          >
-                            undo
-                          </button>
-                        )}
-                      </div>
+                      <span className={`rounded border px-2 py-0.5 text-xs font-bold ${getStatusStyle(e.status ?? "pending")}`}>
+                        {e.status ?? "pending"}
+                      </span>
                     </td>
-                    <td className="p-4">
-                      {e.receipt_url ? (
-                        <ExistingReceiptBadge storagePath={e.receipt_url} supabase={supabase} />
-                      ) : (
-                        <span className="text-xs text-gray-600">—</span>
-                      )}
+                    <td className="p-4 max-w-[140px]">
+                      <span className="block truncate text-xs text-gray-400" title={e.notes ?? ""}>{e.notes ?? <span className="text-gray-600">—</span>}</span>
                     </td>
-                    <td className="p-4 text-gray-400 max-w-[120px] truncate" title={e.notes ?? ""}>{e.notes ?? "—"}</td>
-                    <td className="p-4">
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setEditExpense({ id: e.id, category: e.category, vendor: e.vendor ?? null, amount: e.amount, payment_method: e.payment_method, expense_date: e.expense_date, notes: e.notes ?? null, receipt_url: e.receipt_url ?? null })}
-                          className="rounded p-1.5 text-gray-500 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-colors"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(e.id)}
-                          disabled={!!deletingId}
-                          className="rounded p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <td className="p-3 text-right">
+                      <RowMenu
+                        expense={e}
+                        onEdit={() => setEditExpense({ id: e.id, category: e.category, vendor: e.vendor ?? null, amount: e.amount, payment_method: e.payment_method, expense_date: e.expense_date, notes: e.notes ?? null, receipt_url: e.receipt_url ?? null })}
+                        onDelete={() => handleDelete(e.id)}
+                        onStatusChange={(status) => handleStatusChange(e.id, status)}
+                        supabase={supabase}
+                        deletingId={deletingId}
+                      />
                     </td>
                   </tr>
                 ))

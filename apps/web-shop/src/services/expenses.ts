@@ -42,7 +42,7 @@ export async function getExpenseStats(
     .from("expenses")
     .select("amount")
     .eq("tenant_id", tenantId)
-    .eq("status", "approved");
+    .eq("status", "paid");
 
   if (allError) {
     return { data: null, error: new Error(allError.message) };
@@ -52,7 +52,7 @@ export async function getExpenseStats(
     .from("expenses")
     .select("amount")
     .eq("tenant_id", tenantId)
-    .eq("status", "approved")
+    .eq("status", "paid")
     .gte("expense_date", startOfMonth.toISOString().split("T")[0]!);
 
   if (monthError) {

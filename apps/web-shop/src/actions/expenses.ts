@@ -57,8 +57,8 @@ export async function updateExpense(id: string, formData: FormData) {
     const payment_method = formData.get("payment_method") as string;
     const expense_date = formData.get("expense_date") as string;
     const notes = (formData.get("notes") as string) || null;
-    const branch_id = (formData.get("branch_id") as string) || null;
-    const receipt_url = (formData.get("receipt_url") as string) || null;
+    // receipt_url: only update if explicitly provided (empty string = cleared, null key = untouched)
+    const receiptUrlRaw = formData.get("receipt_url");
 
     if (!category || !payment_method || !expense_date) {
       return { success: false, error: "Category, payment method, and expense date are required" };
@@ -68,6 +68,7 @@ export async function updateExpense(id: string, formData: FormData) {
       return { success: false, error: "Amount must be greater than 0" };
     }
 
+    // Never overwrite branch_id on edit — it's set at creation time and should not change
     const updateData: Record<string, unknown> = {
       category,
       vendor: vendor || null,
@@ -75,12 +76,12 @@ export async function updateExpense(id: string, formData: FormData) {
       payment_method,
       expense_date,
       notes: notes || null,
-      branch_id: branch_id || null,
       updated_at: new Date().toISOString(),
     };
 
-    if (receipt_url !== null) {
-      updateData.receipt_url = receipt_url;
+    // Only touch receipt_url if the form explicitly sent a value
+    if (receiptUrlRaw !== null) {
+      updateData.receipt_url = (receiptUrlRaw as string) || null;
     }
 
     const { error } = await supabase
@@ -98,7 +99,7 @@ export async function updateExpense(id: string, formData: FormData) {
   }
 }
 
-export async function updateExpenseStatus(id: string, status: "approved" | "rejected" | "pending") {
+export async function updateExpenseStatus(id: string, status: "paid" | "pending") {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
