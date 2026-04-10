@@ -30,7 +30,9 @@ import {
   useBranches,
   useStaffAssignments,
   useAttendanceSummaries,
+  useStaffAttendance,
 } from "@/hooks";
+import { AttendanceCalendarGrid } from "@/components/attendance-calendar";
 import { commissionAmountsFromScheme } from "@/lib/payroll-calculator";
 import { useTenant } from "@/components/tenant-provider";
 import type { TransactionWithItems } from "@/services/transactions";
@@ -210,7 +212,7 @@ const MONTH_OPTIONS = [
 
 export default function ReportsPage() {
   const t = useT();
-  const { tenantName, tenantPlan } = useTenant();
+  const { tenantName, tenantPlan, activeBranchName, isAllBranches } = useTenant();
   const isStarter = tenantPlan === "starter";
   const [activeTab, setActiveTab] = useState<TabId>("revenue");
   const [taxYear, setTaxYear] = useState(() => new Date().getFullYear() - 1);
@@ -247,6 +249,14 @@ export default function ReportsPage() {
     reportAttRange.end
   );
 
+  // Detailed records only fetched when on attendance tab
+  const { data: attendanceDetailResult, isFetching: attendanceDetailLoading } = useStaffAttendance(
+    reportAttRange.start,
+    reportAttRange.end,
+    undefined,
+    activeTab === "attendance"
+  );
+
   useEffect(() => {
     function close(e: MouseEvent) {
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
@@ -257,6 +267,20 @@ export default function ReportsPage() {
 
   const transactions = transactionsData?.data ?? [];
   const staffMembers = staffData?.data ?? [];
+
+  // Branch-scoped attendance: staffMembers is already filtered by active branch
+  const branchStaffIds = useMemo(
+    () => new Set(staffMembers.map((s) => s.staff_profile_id)),
+    [staffMembers]
+  );
+  const branchFilteredSummaries = useMemo(
+    () => (attendanceSummariesResult?.data ?? []).filter((s) => branchStaffIds.has(s.staffId)),
+    [attendanceSummariesResult, branchStaffIds]
+  );
+  const branchFilteredAttendanceRows = useMemo(
+    () => (attendanceDetailResult?.data ?? []).filter((r) => branchStaffIds.has(r.staff_id)),
+    [attendanceDetailResult, branchStaffIds]
+  );
   const customerStats = customerStatsData?.data ?? { total: 0, newThisMonth: 0 };
   const inventoryItems = inventoryData?.data ?? [];
   const inventoryStats = inventoryStatsData?.data ?? { totalItems: 0, lowStock: 0 };
@@ -827,7 +851,7 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
         return `<p><strong>Range:</strong> ${rangeLabel}</p>${h("Staff performance")}<table><tr><th>Name</th><th>Role</th><th>Branch</th><th class="n">Revenue</th><th class="n">Comm.(est.)</th><th class="n">Tx</th><th class="n">Avg/tx</th></tr>${rows}</table>`;
       }
       case "attendance": {
-        const rows = (attendanceSummariesResult?.data ?? [])
+        const rows = branchFilteredSummaries
           .map((row) => {
             const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
             const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
@@ -947,7 +971,7 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
             "Days_logged",
             "On_time_rate_pct",
           ],
-          (attendanceSummariesResult?.data ?? []).map((row) => {
+          branchFilteredSummaries.map((row) => {
             const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
             const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
             const rate = denom > 0 ? ((worked / denom) * 100).toFixed(1) : "";
@@ -1565,62 +1589,169 @@ ${body}
         </div>
       )}
 
-      {activeTab === "attendance" && (
-        <div className="space-y-6">
-          <Card className="p-5">
-            <h3 className="font-bold text-white">Attendance by staff</h3>
-            <p className="mt-0.5 text-sm text-gray-500">
-              Range: {reportAttRange.start} – {reportAttRange.end} (follows report period filter; &quot;All data&quot; uses last 30
-              days).
-            </p>
-          </Card>
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    <th className="p-4 text-left">Staff</th>
-                    <th className="p-4 text-right">Present</th>
-                    <th className="p-4 text-right">Late</th>
-                    <th className="p-4 text-right">Half day</th>
-                    <th className="p-4 text-right">Absent</th>
-                    <th className="p-4 text-right">Leave</th>
-                    <th className="p-4 text-right">Days logged</th>
-                    <th className="p-4 text-right">On-time rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(attendanceSummariesResult?.data ?? []).length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-gray-500">
-                        No attendance records in this range. Record attendance from Payroll.
-                      </td>
-                    </tr>
-                  ) : (
-                    (attendanceSummariesResult?.data ?? []).map((row) => {
-                      const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
-                      const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
-                      const rate = denom > 0 ? (worked / denom) * 100 : 0;
-                      return (
-                        <tr key={row.staffId} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
-                          <td className="p-4 font-medium text-white">{row.staffName}</td>
-                          <td className="p-4 text-right text-emerald-400">{row.daysPresent}</td>
-                          <td className="p-4 text-right text-yellow-400">{row.daysLate}</td>
-                          <td className="p-4 text-right text-gray-300">{row.daysHalfDay}</td>
-                          <td className="p-4 text-right text-red-400">{row.daysAbsent}</td>
-                          <td className="p-4 text-right text-gray-400">{row.daysLeave}</td>
-                          <td className="p-4 text-right text-gray-300">{row.totalRecords}</td>
-                          <td className="p-4 text-right text-[#D4AF37]">{rate.toFixed(0)}%</td>
-                        </tr>
-                      );
-                    })
+      {activeTab === "attendance" && (() => {
+        const totalPresent = branchFilteredSummaries.reduce((s, r) => s + r.daysPresent, 0);
+        const totalLate = branchFilteredSummaries.reduce((s, r) => s + r.daysLate, 0);
+        const totalHalfDay = branchFilteredSummaries.reduce((s, r) => s + r.daysHalfDay, 0);
+        const totalAbsent = branchFilteredSummaries.reduce((s, r) => s + r.daysAbsent, 0);
+        const totalLeave = branchFilteredSummaries.reduce((s, r) => s + r.daysLeave, 0);
+        const totalLogged = branchFilteredSummaries.reduce((s, r) => s + r.totalRecords, 0);
+        const totalWorked = totalPresent + totalLate + totalHalfDay;
+        const overallRate = totalLogged > 0 ? ((totalWorked / totalLogged) * 100).toFixed(0) : "—";
+
+        return (
+          <div className="space-y-6">
+            {/* Header card */}
+            <Card className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-bold text-white">Attendance by staff</h3>
+                  {!isAllBranches && activeBranchName && (
+                    <span className="rounded-full bg-[#D4AF37]/10 px-2 py-0.5 text-[10px] font-medium text-[#D4AF37]">
+                      {activeBranchName}
+                    </span>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-      )}
+                  {isAllBranches && (
+                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                      All Branches
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  {reportAttRange.start} – {reportAttRange.end}
+                  {periodScope === "all" && " (last 30 days used for all-data mode)"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">{branchFilteredSummaries.length} staff · {totalLogged} records</p>
+                <p className="mt-0.5 text-sm font-semibold text-[#D4AF37]">Team rate: {overallRate}{overallRate !== "—" ? "%" : ""}</p>
+              </div>
+            </Card>
+
+            {/* KPI cards */}
+            {branchFilteredSummaries.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <Card className="p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Present days</p>
+                  <p className="mt-2 text-2xl font-bold text-emerald-400">{totalPresent}</p>
+                  <p className="mt-0.5 text-xs text-gray-600">team total</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Late days</p>
+                  <p className="mt-2 text-2xl font-bold text-amber-400">{totalLate}</p>
+                  <p className="mt-0.5 text-xs text-gray-600">+ {totalHalfDay} half day</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Absent days</p>
+                  <p className="mt-2 text-2xl font-bold text-red-400">{totalAbsent}</p>
+                  <p className="mt-0.5 text-xs text-gray-600">team total</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Leave days</p>
+                  <p className="mt-2 text-2xl font-bold text-purple-400">{totalLeave}</p>
+                  <p className="mt-0.5 text-xs text-gray-600">team total</p>
+                </Card>
+                <Card className="p-4 col-span-2 sm:col-span-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">Attendance rate</p>
+                  <p className="mt-2 text-2xl font-bold text-[#D4AF37]">{overallRate}{overallRate !== "—" ? "%" : ""}</p>
+                  <p className="mt-0.5 text-xs text-gray-600">on-time across team</p>
+                </Card>
+              </div>
+            )}
+
+            {/* Calendar grid — shows detail for the period */}
+            <Card className="overflow-hidden">
+              <div className="border-b border-white/5 px-5 py-3">
+                <h4 className="text-sm font-semibold text-white">Monthly calendar view</h4>
+                <p className="mt-0.5 text-xs text-gray-500">Click any cell in the Staff page to log attendance. This view is read-only.</p>
+              </div>
+              {attendanceDetailLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+                </div>
+              ) : staffMembers.filter(s => s.is_active).length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-gray-500">
+                  No active staff in this branch.
+                </div>
+              ) : (
+                <AttendanceCalendarGrid
+                  attendanceRows={branchFilteredAttendanceRows}
+                  staffList={staffMembers.filter(s => s.is_active)}
+                  dateFrom={reportAttRange.start}
+                  dateTo={reportAttRange.end}
+                  onCellClick={() => {}}
+                />
+              )}
+            </Card>
+
+            {/* Summary table */}
+            <Card>
+              <div className="border-b border-white/5 px-5 py-3">
+                <h4 className="text-sm font-semibold text-white">Summary by staff member</h4>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      <th className="p-4 text-left">Staff</th>
+                      <th className="p-4 text-right">Present</th>
+                      <th className="p-4 text-right">Late</th>
+                      <th className="p-4 text-right">Half day</th>
+                      <th className="p-4 text-right">Absent</th>
+                      <th className="p-4 text-right">Leave</th>
+                      <th className="p-4 text-right">Days logged</th>
+                      <th className="p-4 text-right">On-time rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {branchFilteredSummaries.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-gray-500">
+                          No attendance records in this range. Log attendance from the Staff page.
+                        </td>
+                      </tr>
+                    ) : (
+                      branchFilteredSummaries.map((row) => {
+                        const denom = row.daysPresent + row.daysLate + row.daysHalfDay + row.daysAbsent + row.daysLeave;
+                        const worked = row.daysPresent + row.daysLate + row.daysHalfDay;
+                        const rate = denom > 0 ? (worked / denom) * 100 : 0;
+                        const rateColor =
+                          rate >= 90 ? "text-emerald-400" : rate >= 70 ? "text-[#D4AF37]" : "text-red-400";
+                        return (
+                          <tr key={row.staffId} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
+                            <td className="p-4 font-medium text-white">{row.staffName}</td>
+                            <td className="p-4 text-right font-semibold text-emerald-400">{row.daysPresent}</td>
+                            <td className="p-4 text-right text-amber-400">{row.daysLate}</td>
+                            <td className="p-4 text-right text-blue-400">{row.daysHalfDay}</td>
+                            <td className="p-4 text-right text-red-400">{row.daysAbsent}</td>
+                            <td className="p-4 text-right text-purple-400">{row.daysLeave}</td>
+                            <td className="p-4 text-right text-gray-400">{row.totalRecords}</td>
+                            <td className={`p-4 text-right font-semibold ${rateColor}`}>{rate.toFixed(0)}%</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  {branchFilteredSummaries.length > 1 && (
+                    <tfoot>
+                      <tr className="border-t border-white/10 bg-black/20 text-xs font-semibold text-gray-400">
+                        <td className="p-4 uppercase tracking-wider">Team total</td>
+                        <td className="p-4 text-right text-emerald-400">{totalPresent}</td>
+                        <td className="p-4 text-right text-amber-400">{totalLate}</td>
+                        <td className="p-4 text-right text-blue-400">{totalHalfDay}</td>
+                        <td className="p-4 text-right text-red-400">{totalAbsent}</td>
+                        <td className="p-4 text-right text-purple-400">{totalLeave}</td>
+                        <td className="p-4 text-right text-gray-400">{totalLogged}</td>
+                        <td className="p-4 text-right text-[#D4AF37]">{overallRate}{overallRate !== "—" ? "%" : ""}</td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Customers tab */}
       {activeTab === "customers" && (

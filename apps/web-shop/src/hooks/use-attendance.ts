@@ -5,14 +5,14 @@ import { useSupabase } from "./use-supabase";
 import { useTenant } from "@/components/tenant-provider";
 import { getStaffAttendance, getAttendanceSummaries } from "@/services/attendance";
 
-export function useStaffAttendance(dateFrom: string, dateTo: string, staffId?: string) {
+export function useStaffAttendance(dateFrom: string, dateTo: string, staffId?: string, enabled = true) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
 
   return useQuery({
     queryKey: ["staff-attendance", tenantId, dateFrom, dateTo, staffId],
     queryFn: () => getStaffAttendance(supabase, tenantId, dateFrom, dateTo, staffId),
-    enabled: !!dateFrom && !!dateTo,
+    enabled: enabled && !!dateFrom && !!dateTo,
   });
 }
 

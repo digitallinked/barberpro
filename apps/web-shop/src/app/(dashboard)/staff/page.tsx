@@ -2,31 +2,30 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CalendarClock,
   CheckCircle2,
-  Eye,
   Loader2,
   Lock,
   Mail,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
-  Star,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useStaffMembers, useBranches, useStaffAttendance } from "@/hooks";
 import type { StaffMember } from "@/services/staff";
-import { createStaffMember, updateStaffMember, deleteStaffMember, reactivateStaffMember } from "@/actions/staff";
-import { inviteStaffMember, revokeStaffAccess, resendStaffInvite } from "@/actions/staff-invite";
+import { createStaffMember } from "@/actions/staff";
+import { inviteStaffMember } from "@/actions/staff-invite";
 import { recordAttendance } from "@/actions/attendance";
 import { useT } from "@/lib/i18n/language-context";
 import { useTenant } from "@/components/tenant-provider";
 import { isOwnerOrManager } from "@/lib/permissions";
+import { AttendanceCalendarGrid } from "@/components/attendance-calendar";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-white/5 bg-[#1a1a1a] ${className}`}>{children}</div>;
@@ -64,32 +63,14 @@ function calendarMonthBounds(): { from: string; to: string } {
   return { from, to };
 }
 
-function formatTime(iso: string | null): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "—";
-  }
-}
-
-function attendanceStatusLabel(t: ReturnType<typeof useT>, s: string): string {
-  const m: Record<string, string> = {
-    present: t.staff.present,
-    absent: t.staff.absent,
-    late: t.staff.late,
-    half_day: t.staff.halfDay,
-    leave: t.staff.leave,
-  };
-  return m[s] ?? s;
-}
 
 const STARTER_STAFF_LIMIT = 5;
 
 export default function StaffPage() {
   const t = useT();
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const { tenantPlan, userRole } = useTenant();
+  const { tenantPlan, userRole, activeBranchId, activeBranchName, isAllBranches } = useTenant();
   const { data: staffResult, isLoading: staffLoading } = useStaffMembers();
   const { data: branchesResult } = useBranches();
 
@@ -101,6 +82,8 @@ export default function StaffPage() {
   const [attStatus, setAttStatus] = useState("present");
   const [attPending, setAttPending] = useState(false);
   const [attBanner, setAttBanner] = useState<string | null>(null);
+  const [attSelectedName, setAttSelectedName] = useState<string | null>(null);
+  const attFormRef = useRef<HTMLDivElement>(null);
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -111,28 +94,18 @@ export default function StaffPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
 
-  const [editStaff, setEditStaff] = useState<StaffMember | null>(null);
-  const [editPending, setEditPending] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
-  const [actionPending, setActionPending] = useState(false);
-  const actionMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!actionMenuId) return;
-    function handleClick(e: MouseEvent) {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
-        setActionMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [actionMenuId]);
 
   const { data: attendanceWrap, isFetching: attLoading } = useStaffAttendance(attFrom, attTo);
   const attendanceRows = attendanceWrap?.data ?? [];
 
   const staffList = staffResult?.data ?? [];
+
+  // Filter attendance to only staff in the active branch (staffList is already branch-scoped)
+  const staffIdSet = useMemo(() => new Set(staffList.map((s) => s.staff_profile_id)), [staffList]);
+  const branchFilteredAttendance = useMemo(
+    () => attendanceRows.filter((r) => staffIdSet.has(r.staff_id)),
+    [attendanceRows, staffIdSet]
+  );
   const isStarter = tenantPlan === "starter";
   const atStaffLimit = isStarter && staffList.length >= STARTER_STAFF_LIMIT;
   const branches = branchesResult?.data ?? [];
@@ -190,6 +163,7 @@ export default function StaffPage() {
     fd.set("staff_id", attStaffId);
     fd.set("date", attDate);
     fd.set("status", attStatus);
+    if (activeBranchId) fd.set("branch_id", activeBranchId);
     const result = await recordAttendance(fd);
     setAttPending(false);
     if (result.success) {
@@ -201,49 +175,34 @@ export default function StaffPage() {
     }
   }
 
-  async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!editStaff) return;
-    setEditPending(true);
-    setEditError(null);
-    const fd = new FormData(e.currentTarget);
-    const result = await updateStaffMember(editStaff.id, fd);
-    setEditPending(false);
-    if (result.success) {
-      setEditStaff(null);
-      queryClient.invalidateQueries({ queryKey: ["staff"] });
-    } else {
-      setEditError(result.error ?? "Failed to update");
-    }
+  function handleCellClick(staffId: string, staffName: string, date: string, currentStatus?: string) {
+    setAttStaffId(staffId);
+    setAttDate(date);
+    setAttStatus(currentStatus ?? "present");
+    setAttSelectedName(staffName);
+    setAttBanner(null);
+    setTimeout(() => {
+      attFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
   }
 
-  async function handleDeactivate(staffId: string) {
-    setActionPending(true);
-    const result = await deleteStaffMember(staffId);
-    setActionPending(false);
-    setActionMenuId(null);
-    if (result.success) queryClient.invalidateQueries({ queryKey: ["staff"] });
+  function shiftMonth(delta: number) {
+    const d = new Date(attFrom + "T00:00:00");
+    d.setMonth(d.getMonth() + delta);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const from = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const to = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    setAttFrom(from);
+    setAttTo(to);
   }
 
-  async function handleReactivate(staffId: string) {
-    setActionPending(true);
-    const result = await reactivateStaffMember(staffId);
-    setActionPending(false);
-    setActionMenuId(null);
-    if (result.success) queryClient.invalidateQueries({ queryKey: ["staff"] });
-  }
 
-  async function handleResendInvite(staffId: string) {
-    setActionPending(true);
-    await resendStaffInvite(staffId);
-    setActionPending(false);
-    setActionMenuId(null);
-  }
-
-  const sortedAttendance = [...attendanceRows].sort((a, b) => {
-    const d = b.date.localeCompare(a.date);
-    return d !== 0 ? d : (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  });
+  const attMonthLabel = useMemo(() => {
+    const d = new Date(attFrom + "T00:00:00");
+    return d.toLocaleDateString("en-MY", { month: "long", year: "numeric" });
+  }, [attFrom]);
 
   return (
     <div className="space-y-6">
@@ -303,301 +262,316 @@ export default function StaffPage() {
         </div>
       )}
 
-      {/* Attendance — primary ops for payroll days-worked */}
+      {/* Attendance — calendar grid view */}
       <Card className="overflow-hidden">
+        {/* Header */}
         <div className="border-b border-white/5 px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37]/10 text-[#D4AF37]">
-                <CalendarClock className="h-5 w-5" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37]/10 text-[#D4AF37]">
+                <CalendarClock className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-white">{t.staff.attendanceTitle}</h3>
-                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">{t.staff.attendanceSubtitle}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold text-white">{t.staff.attendanceTitle}</h3>
+                  {!isAllBranches && activeBranchName && (
+                    <span className="rounded-full bg-[#D4AF37]/10 px-2 py-0.5 text-[10px] font-medium text-[#D4AF37]">
+                      {activeBranchName}
+                    </span>
+                  )}
+                  {isAllBranches && (
+                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-gray-400">
+                      All Branches
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs text-gray-500">{t.staff.attendanceSubtitle}</p>
               </div>
             </div>
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-end sm:gap-2">
-              <div className="min-w-0 sm:min-w-0">
-                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                  {t.staff.dateFrom}
-                </label>
-                <input
-                  type="date"
-                  value={attFrom}
-                  onChange={(e) => setAttFrom(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-2 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40 sm:px-3"
-                />
-              </div>
-              <div className="min-w-0 sm:min-w-0">
-                <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                  {t.staff.dateTo}
-                </label>
-                <input
-                  type="date"
-                  value={attTo}
-                  onChange={(e) => setAttTo(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-2 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40 sm:px-3"
-                />
-              </div>
+
+            {/* Month navigation */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => shiftMonth(-1)}
+                className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-gray-400 transition hover:bg-white/5 hover:text-white"
+              >
+                ‹ Prev
+              </button>
+              <span className="min-w-[120px] text-center text-sm font-medium text-white">{attMonthLabel}</span>
+              <button
+                type="button"
+                onClick={() => shiftMonth(1)}
+                className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-gray-400 transition hover:bg-white/5 hover:text-white"
+              >
+                Next ›
+              </button>
+              <button
+                type="button"
+                onClick={() => { const r = calendarMonthBounds(); setAttFrom(r.from); setAttTo(r.to); }}
+                className="rounded-lg border border-[#D4AF37]/30 px-2.5 py-1.5 text-xs font-medium text-[#D4AF37] transition hover:bg-[#D4AF37]/10"
+              >
+                Today
+              </button>
             </div>
+          </div>
+
+          {/* Custom date range (collapsed by default, shown as small inputs) */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider text-gray-600">Custom range:</span>
+            <input
+              type="date"
+              value={attFrom}
+              onChange={(e) => setAttFrom(e.target.value)}
+              className="rounded border border-white/10 bg-[#111] px-2 py-1 text-xs text-white outline-none focus:border-[#D4AF37]/40"
+            />
+            <span className="text-gray-600">→</span>
+            <input
+              type="date"
+              value={attTo}
+              onChange={(e) => setAttTo(e.target.value)}
+              className="rounded border border-white/10 bg-[#111] px-2 py-1 text-xs text-white outline-none focus:border-[#D4AF37]/40"
+            />
+            {attLoading && (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+            )}
           </div>
         </div>
 
-        <form
-          onSubmit={handleAttendanceSave}
-          className="flex flex-col gap-3 border-b border-white/5 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3 sm:px-5"
-        >
-          <div className="w-full min-w-0 sm:min-w-[160px] sm:flex-1">
-            <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.colStaff}</label>
-            <select
-              value={attStaffId}
-              onChange={(e) => setAttStaffId(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
-            >
-              <option value="">{t.staff.selectStaff}</option>
-              {staffList.map((s) => (
-                <option key={s.staff_profile_id} value={s.staff_profile_id}>
-                  {s.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="w-full sm:w-auto">
-            <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.dateLabel}</label>
-            <input
-              type="date"
-              value={attDate}
-              min={attFrom}
-              max={attTo}
-              onChange={(e) => setAttDate(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
-            />
-          </div>
-          <div className="w-full sm:min-w-[130px] sm:w-auto">
-            <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.statusLabel}</label>
-            <select
-              value={attStatus}
-              onChange={(e) => setAttStatus(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
-            >
-              <option value="present">{t.staff.present}</option>
-              <option value="late">{t.staff.late}</option>
-              <option value="half_day">{t.staff.halfDay}</option>
-              <option value="absent">{t.staff.absent}</option>
-              <option value="leave">{t.staff.leave}</option>
-            </select>
-          </div>
-          <button
-            type="submit"
-            disabled={attPending || !attStaffId}
-            className="w-full rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:py-2"
-          >
-            {t.staff.saveAttendance}
-          </button>
-        </form>
-
-        {attBanner && (
-          <div className="border-b border-red-500/20 bg-red-500/5 px-4 py-2 text-xs text-red-400 sm:px-5">{attBanner}</div>
-        )}
-
-        <div className="max-h-[min(420px,55vh)] overflow-auto">
-          {attLoading ? (
+        {/* Calendar grid */}
+        <div className="max-h-[520px] overflow-y-auto">
+          {attLoading && branchFilteredAttendance.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
             </div>
-          ) : sortedAttendance.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <CalendarClock className="mx-auto mb-2 h-8 w-8 text-gray-700" />
-              <p className="text-sm text-gray-500">{t.staff.noAttendance}</p>
-            </div>
           ) : (
-            <>
-              {/* Mobile: stacked rows — no horizontal table scroll */}
-              <div className="divide-y divide-white/[0.04] sm:hidden">
-                {sortedAttendance.slice(0, 100).map((r) => (
-                  <div key={r.id} className="px-4 py-3.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 flex-1 truncate font-medium text-white">{r.staff?.full_name ?? "—"}</p>
-                      <span className="shrink-0 rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-gray-300">
-                        {attendanceStatusLabel(t, r.status)}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs tabular-nums text-gray-500">{r.date}</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {t.staff.colClockIn}: <span className="tabular-nums text-gray-400">{formatTime(r.clock_in)}</span>
-                      {" · "}
-                      {t.staff.colClockOut}: <span className="tabular-nums text-gray-400">{formatTime(r.clock_out)}</span>
-                    </p>
-                  </div>
+            <AttendanceCalendarGrid
+              attendanceRows={branchFilteredAttendance}
+              staffList={staffList.filter((s) => s.is_active)}
+              dateFrom={attFrom}
+              dateTo={attTo}
+              selectedStaffId={attStaffId}
+              selectedDate={attDate}
+              onCellClick={handleCellClick}
+            />
+          )}
+        </div>
+
+        {/* Quick record form */}
+        <div ref={attFormRef} className="border-t border-white/5">
+          {attSelectedName && attStaffId && (
+            <div className="flex items-center gap-2 border-b border-[#D4AF37]/10 bg-[#D4AF37]/5 px-4 py-2 sm:px-5">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-[#D4AF37]">Logging for</span>
+              <span className="text-sm font-semibold text-white">{attSelectedName}</span>
+              <span className="text-gray-600">·</span>
+              <span className="text-sm text-gray-400">{attDate}</span>
+              <button
+                type="button"
+                onClick={() => { setAttStaffId(""); setAttSelectedName(null); }}
+                className="ml-auto text-gray-600 hover:text-gray-400"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          <form
+            onSubmit={handleAttendanceSave}
+            className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3 sm:px-5"
+          >
+            <div className="w-full min-w-0 sm:min-w-[160px] sm:flex-1">
+              <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.colStaff}</label>
+              <select
+                value={attStaffId}
+                onChange={(e) => {
+                  setAttStaffId(e.target.value);
+                  const found = staffList.find((s) => s.staff_profile_id === e.target.value);
+                  setAttSelectedName(found?.full_name ?? null);
+                }}
+                className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+              >
+                <option value="">{t.staff.selectStaff}</option>
+                {staffList.map((s) => (
+                  <option key={s.staff_profile_id} value={s.staff_profile_id}>
+                    {s.full_name}
+                  </option>
                 ))}
-              </div>
-              {/* Desktop: table */}
-              <table className="hidden w-full text-sm sm:table">
-                <thead>
-                  <tr className="sticky top-0 border-b border-white/5 bg-[#141414] text-left text-[11px] font-medium uppercase tracking-wider text-gray-500">
-                    <th className="px-5 py-3">{t.staff.colStaff}</th>
-                    <th className="px-3 py-3">{t.staff.colDate}</th>
-                    <th className="px-3 py-3">{t.staff.colClockIn}</th>
-                    <th className="px-3 py-3">{t.staff.colClockOut}</th>
-                    <th className="px-5 py-3">{t.staff.colStatus}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedAttendance.slice(0, 100).map((r) => (
-                    <tr key={r.id} className="border-t border-white/[0.04] transition hover:bg-white/[0.02]">
-                      <td className="px-5 py-2.5 font-medium text-white">{r.staff?.full_name ?? "—"}</td>
-                      <td className="px-3 py-2.5 tabular-nums text-gray-400">{r.date}</td>
-                      <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_in)}</td>
-                      <td className="px-3 py-2.5 tabular-nums text-gray-500">{formatTime(r.clock_out)}</td>
-                      <td className="px-5 py-2.5 text-gray-300">{attendanceStatusLabel(t, r.status)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
+              </select>
+            </div>
+            <div className="w-full sm:w-auto">
+              <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.dateLabel}</label>
+              <input
+                type="date"
+                value={attDate}
+                onChange={(e) => setAttDate(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+              />
+            </div>
+            <div className="w-full sm:min-w-[130px] sm:w-auto">
+              <label className="mb-1 block text-[10px] font-medium text-gray-500">{t.staff.statusLabel}</label>
+              <select
+                value={attStatus}
+                onChange={(e) => setAttStatus(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/40"
+              >
+                <option value="present">{t.staff.present}</option>
+                <option value="late">{t.staff.late}</option>
+                <option value="half_day">{t.staff.halfDay}</option>
+                <option value="absent">{t.staff.absent}</option>
+                <option value="leave">{t.staff.leave}</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={attPending || !attStaffId}
+              className="w-full rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:py-2"
+            >
+              {attPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#111] border-t-transparent" />
+                  Saving…
+                </span>
+              ) : (
+                t.staff.saveAttendance
+              )}
+            </button>
+          </form>
+          {attBanner && (
+            <div className="border-t border-red-500/20 bg-red-500/5 px-4 py-2 text-xs text-red-400 sm:px-5">
+              {attBanner}
+            </div>
           )}
         </div>
       </Card>
 
-      {/* Summary bar */}
-      <Card className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-gray-500" />
-          <span className="text-sm text-gray-400">
-            Total: <span className="font-bold text-white">{staffLoading ? "…" : staffList.length}</span>
-          </span>
+      {/* Staff table */}
+      <Card className="overflow-hidden">
+        {/* Table header */}
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
+          <div className="flex items-center gap-3">
+            <Users className="h-4 w-4 text-gray-500" />
+            <span className="text-sm text-gray-500">
+              <span className="font-bold text-white">{staffLoading ? "…" : activeCount}</span> active
+              <span className="mx-1.5 text-gray-700">·</span>
+              <span className="font-bold text-white">{staffLoading ? "…" : staffList.length}</span> total
+            </span>
+          </div>
+          {search && (
+            <span className="text-xs text-gray-500">
+              {filteredStaff.length} result{filteredStaff.length !== 1 ? "s" : ""} for &ldquo;{search}&rdquo;
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          <span className="text-sm text-gray-400">
-            {t.staff.active}: <span className="font-bold text-white">{activeCount}</span>
-          </span>
+
+        <div className="overflow-x-auto">
+          {staffLoading ? (
+            <div className="flex items-center justify-center py-14">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
+            </div>
+          ) : filteredStaff.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-14">
+              <Users className="h-8 w-8 text-gray-700" />
+              <p className="text-sm text-gray-500">
+                {search ? `No staff match "${search}"` : "No staff yet — click Add Staff to get started"}
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 bg-[#141414] text-left text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-5 py-3">Staff member</th>
+                  <th className="px-4 py-3">Branch</th>
+                  <th className="px-4 py-3">Employment</th>
+                  <th className="px-4 py-3 text-right">Base salary</th>
+                  <th className="px-5 py-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {filteredStaff.map((s) => {
+                  const branchName = s.branch_id ? (branchMap[s.branch_id] ?? "—") : "—";
+                  const employmentLabel =
+                    { full_time: "Full Time", part_time: "Part Time", contract: "Contract" }[
+                      s.employment_type
+                    ] ?? s.employment_type.replace(/_/g, " ");
+
+                  return (
+                    <tr
+                      key={s.staff_profile_id}
+                      onClick={() => router.push(`/staff/${s.staff_profile_id}`)}
+                      className="group cursor-pointer transition-colors hover:bg-[#D4AF37]/[0.04]"
+                    >
+                      {/* Staff name + role + contact */}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/30 bg-[#2a2a2a] text-xs font-bold text-white">
+                            {getInitials(s.full_name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-white">{s.full_name}</p>
+                            <p className="text-xs text-gray-500">{formatRole(s.role)}</p>
+                            {(s.email ?? s.phone) && (
+                              <p className="mt-0.5 max-w-[200px] truncate text-[10px] text-gray-600">
+                                {s.email ?? s.phone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Branch */}
+                      <td className="px-4 py-3.5 text-gray-400">
+                        {s.branch_id ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]/50" />
+                            {branchName}
+                          </span>
+                        ) : (
+                          <span className="text-gray-700">—</span>
+                        )}
+                      </td>
+
+                      {/* Employment type */}
+                      <td className="px-4 py-3.5">
+                        <span className="rounded-md bg-white/5 px-2 py-1 text-xs text-gray-400">
+                          {employmentLabel}
+                        </span>
+                      </td>
+
+                      {/* Base salary */}
+                      <td className="px-4 py-3.5 text-right tabular-nums">
+                        {s.base_salary > 0 ? (
+                          <span className="text-gray-300">
+                            RM{" "}
+                            {s.base_salary.toLocaleString("en-MY", {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-gray-700">—</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-5 py-3.5 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            s.is_active
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                              : "border-gray-500/30 bg-gray-500/10 text-gray-500"
+                          }`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${s.is_active ? "bg-emerald-400" : "bg-gray-500"}`} />
+                          {s.is_active ? t.staff.active : t.staff.inactive}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </Card>
-
-      {/* Staff grid — 1 col on phone (readable cards), 2 from sm, 3 on xl */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {staffLoading ? (
-          <div className="col-span-full rounded-xl border border-white/5 bg-[#1a1a1a] p-8 text-center text-gray-500">
-            Loading...
-          </div>
-        ) : (
-          filteredStaff.map((s) => {
-            const statusCls = s.is_active
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-              : "bg-gray-500/10 text-gray-400 border-gray-500/30";
-            const branchName = s.branch_id ? (branchMap[s.branch_id] ?? "—") : "—";
-            return (
-              <Card
-                key={s.staff_profile_id}
-                className="p-4 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl sm:p-5"
-              >
-                <div className="mb-3 flex items-start justify-between gap-2 sm:mb-4">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[#D4AF37]/30 bg-[#2a2a2a] text-sm font-bold text-white sm:h-14 sm:w-14 sm:text-lg">
-                      {getInitials(s.full_name)}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-bold text-white">{s.full_name}</h3>
-                      <p className="truncate text-xs text-gray-400">{formatRole(s.role)}</p>
-                      <p className="truncate text-[10px] text-gray-500">{branchName}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider sm:text-[10px] ${statusCls}`}
-                  >
-                    {s.is_active ? t.staff.active : t.staff.inactive}
-                  </span>
-                </div>
-
-                <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg bg-[#111] p-2.5 sm:mb-4 sm:gap-3 sm:p-3">
-                  <div className="min-w-0 text-center">
-                    <p className="text-base font-bold text-white sm:text-lg">—</p>
-                    <p className="text-[9px] text-gray-500 sm:text-[10px]">Customers</p>
-                  </div>
-                  <div className="min-w-0 text-center">
-                    <p className="text-base font-bold text-emerald-400 sm:text-lg">—</p>
-                    <p className="text-[9px] text-gray-500 sm:text-[10px]">Revenue</p>
-                  </div>
-                  <div className="min-w-0 text-center">
-                    <p className="flex items-center justify-center gap-0.5 text-base font-bold text-[#D4AF37] sm:text-lg">
-                      <Star className="h-3 w-3 shrink-0" /> —
-                    </p>
-                    <p className="text-[9px] text-gray-500 sm:text-[10px]">Rating</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Link
-                    href={`/staff/${s.staff_profile_id}`}
-                    className="flex w-full items-center justify-center gap-1 rounded-lg border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 sm:flex-1 sm:py-2"
-                  >
-                    <Eye className="h-3.5 w-3.5" /> View Profile
-                  </Link>
-                  <div className="flex justify-center gap-2 sm:shrink-0">
-                    {isOwnerOrManager(userRole) && (
-                      <button
-                        type="button"
-                        onClick={() => { setEditStaff(s); setEditError(null); }}
-                        className="rounded-lg border border-white/10 p-2 text-gray-500 transition hover:bg-white/5 hover:text-white"
-                        title="Edit staff"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {isOwnerOrManager(userRole) && (
-                      <div className="relative" ref={actionMenuId === s.id ? actionMenuRef : undefined}>
-                        <button
-                          type="button"
-                          onClick={() => setActionMenuId(actionMenuId === s.id ? null : s.id)}
-                          className="rounded-lg border border-white/10 p-2 text-gray-500 transition hover:bg-white/5 hover:text-white"
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </button>
-                        {actionMenuId === s.id && (
-                          <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl shadow-black/40">
-                            <div className="p-1">
-                              {s.is_active ? (
-                                <button
-                                  type="button"
-                                  disabled={actionPending}
-                                  onClick={() => handleDeactivate(s.id)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
-                                >
-                                  <X className="h-3.5 w-3.5" /> Deactivate
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={actionPending}
-                                  onClick={() => handleReactivate(s.id)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-400 transition hover:bg-emerald-500/10 disabled:opacity-50"
-                                >
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Reactivate
-                                </button>
-                              )}
-                              {!s.is_active || (
-                                <button
-                                  type="button"
-                                  disabled={actionPending}
-                                  onClick={() => handleResendInvite(s.id)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
-                                >
-                                  <Mail className="h-3.5 w-3.5" /> Resend Invite
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })
-        )}
-      </div>
 
       {/* Staff limit upgrade modal */}
       {showUpgrade && (
@@ -818,132 +792,6 @@ export default function StaffPage() {
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
-      {/* Edit Staff Modal */}
-      {editStaff && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
-          <div className="my-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/5 p-6">
-              <div>
-                <h3 className="text-lg font-bold text-white">Edit Staff</h3>
-                <p className="mt-1 text-sm text-gray-400">Update role, branch and details</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditStaff(null)}
-                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleEditSubmit} className="space-y-4 p-6">
-              {editError && (
-                <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">{editError}</div>
-              )}
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-400">{t.staff.fullName} <span className="text-red-400">*</span></label>
-                <input
-                  name="full_name"
-                  required
-                  defaultValue={editStaff.full_name}
-                  className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Email</label>
-                  <input
-                    name="email"
-                    type="email"
-                    defaultValue={editStaff.email ?? ""}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Phone</label>
-                  <input
-                    name="phone"
-                    defaultValue={editStaff.phone ?? ""}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-400">{t.staff.role} <span className="text-red-400">*</span></label>
-                  <select
-                    name="role"
-                    required
-                    defaultValue={editStaff.role}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  >
-                    <option value="manager">Manager</option>
-                    <option value="barber">Barber</option>
-                    <option value="senior_barber">Senior Barber</option>
-                    <option value="junior_barber">Junior Barber</option>
-                    <option value="cashier">Cashier</option>
-                    <option value="staff">Staff</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-400">{t.staff.branch} <span className="text-red-400">*</span></label>
-                  <select
-                    name="branch_id"
-                    defaultValue={editStaff.branch_id ?? ""}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  >
-                    <option value="">— No branch —</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Employment Type</label>
-                  <select
-                    name="employment_type"
-                    defaultValue={editStaff.employment_type}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  >
-                    <option value="full_time">Full Time</option>
-                    <option value="part_time">Part Time</option>
-                    <option value="contract">Contract</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-400">Base Salary (RM)</label>
-                  <input
-                    name="base_salary"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    defaultValue={editStaff.base_salary}
-                    className="w-full rounded-lg border border-white/10 bg-[#111] px-4 py-2.5 text-sm text-white outline-none focus:border-[#D4AF37]"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 border-t border-white/5 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditStaff(null)}
-                  className="flex-1 rounded-lg border border-white/10 py-2.5 text-sm font-medium text-gray-400 transition hover:bg-white/5"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={editPending}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
-                >
-                  {editPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                  {editPending ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
