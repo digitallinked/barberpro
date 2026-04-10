@@ -17,13 +17,14 @@ export function useInventoryItems(explicitBranchId?: string | null) {
   });
 }
 
-export function useInventoryStats() {
+export function useInventoryStats(explicitBranchId?: string | null) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
+  const branchId = useEffectiveBranchId(explicitBranchId);
 
   return useQuery({
-    queryKey: ["inventory-stats", tenantId],
-    queryFn: () => getInventoryStats(supabase, tenantId),
+    queryKey: ["inventory-stats", tenantId, branchId ?? "all"],
+    queryFn: () => getInventoryStats(supabase, tenantId, branchId),
   });
 }
 

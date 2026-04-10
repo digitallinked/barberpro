@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -47,7 +47,7 @@ function formatRM(n: number): string {
 export default function CommissionsPage() {
   const t = useT();
   const queryClient = useQueryClient();
-  const { tenantPlan } = useTenant();
+  const { tenantPlan, activeBranchId } = useTenant();
   const isStarter = tenantPlan === "starter";
   const { data: schemesResult } = useCommissionSchemes();
   const { data: assignmentsResult } = useStaffAssignments();
@@ -59,8 +59,17 @@ export default function CommissionsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const schemes = schemesResult?.data ?? [];
-  const assignments = assignmentsResult?.data ?? [];
+  const assignmentsRaw = assignmentsResult?.data ?? [];
   const staffList = staffResult?.data ?? [];
+
+  const branchStaffIdSet = useMemo(
+    () => new Set(staffList.map((s) => s.staff_profile_id)),
+    [staffList]
+  );
+  const assignments = useMemo(() => {
+    if (!activeBranchId) return assignmentsRaw;
+    return assignmentsRaw.filter((a) => branchStaffIdSet.has(a.staff_id));
+  }, [assignmentsRaw, activeBranchId, branchStaffIdSet]);
 
   async function handleNewScheme(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

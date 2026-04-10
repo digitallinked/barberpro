@@ -27,32 +27,42 @@ export async function getInventoryItems(
 
 export async function getInventoryStats(
   client: Client,
-  tenantId: string
+  tenantId: string,
+  branchId?: string | null,
 ): Promise<{
   data: { totalItems: number; lowStock: number } | null;
   error: Error | null;
 }> {
-  const { count: totalItems, error: totalError } = await client
+  let countQuery = client
     .from("inventory_items")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true);
+    .eq("tenant_id", tenantId);
+
+  let itemsQuery = client
+    .from("inventory_items")
+    .select("id, stock_qty, reorder_level")
+    .eq("tenant_id", tenantId);
+
+  if (branchId) {
+    countQuery = countQuery.eq("branch_id", branchId);
+    itemsQuery = itemsQuery.eq("branch_id", branchId);
+  }
+
+  const { count: totalItems, error: totalError } = await countQuery;
 
   if (totalError) {
     return { data: null, error: new Error(totalError.message) };
   }
 
-  const { data: items, error: itemsError } = await client
-    .from("inventory_items")
-    .select("id, stock_qty, reorder_level")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true);
+  const { data: items, error: itemsError } = await itemsQuery;
 
   if (itemsError) {
     return { data: null, error: new Error(itemsError.message) };
   }
 
-  const lowStock = (items ?? []).filter((i) => i.stock_qty <= i.reorder_level).length;
+  const lowStock = (items ?? []).filter(
+    (i) => (i.stock_qty ?? 0) <= (i.reorder_level ?? 0),
+  ).length;
 
   return {
     data: {

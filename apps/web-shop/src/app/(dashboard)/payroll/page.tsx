@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Banknote,
@@ -305,7 +305,7 @@ function getInitials(name: string): string {
 
 export default function PayrollPage() {
   const t = useT();
-  const { tenantName } = useTenant();
+  const { tenantName, activeBranchId } = useTenant();
   const queryClient = useQueryClient();
   const { data: periodsResult, isLoading: periodsLoading } = usePayrollPeriods();
   const { data: branchesResult } = useBranches();
@@ -330,9 +330,18 @@ export default function PayrollPage() {
   const { data: entriesResult } = usePayrollEntries(selectedPeriodId);
 
   const periods = periodsResult?.data ?? [];
-  const entries = entriesResult?.data ?? [];
+  const entriesRaw = entriesResult?.data ?? [];
   const branches = branchesResult?.data ?? [];
   const staffList = staffResult?.data ?? [];
+
+  const branchStaffIdSet = useMemo(
+    () => new Set(staffList.map((s) => s.staff_profile_id)),
+    [staffList]
+  );
+  const entries = useMemo(() => {
+    if (!activeBranchId) return entriesRaw;
+    return entriesRaw.filter((e) => branchStaffIdSet.has(e.staff_id));
+  }, [entriesRaw, activeBranchId, branchStaffIdSet]);
   const selectedPeriod = periods.find((p) => p.id === selectedPeriodId);
 
   const periodStart = selectedPeriod?.period_start ?? null;
