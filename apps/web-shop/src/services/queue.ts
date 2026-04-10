@@ -53,6 +53,32 @@ export type QueueTicketWithRelations = {
   ticket_seats: TicketSeatMember[];
 };
 
+/** Normalized service line for POS display when linked to a queue ticket. */
+export type PosLinkedServiceLine = {
+  seatMemberId: string;
+  staffId: string | null;
+  staffName: string;
+  serviceId: string | null;
+  serviceName: string;
+  unitPrice: number;
+};
+
+/** Build one display row per non-cancelled seat member for the POS linked-queue view. */
+export function buildLinkedServiceLines(
+  ticket: QueueTicketWithRelations
+): PosLinkedServiceLine[] {
+  return ticket.ticket_seats
+    .filter((m) => m.status !== "cancelled")
+    .map((m) => ({
+      seatMemberId: m.id,
+      staffId: m.staff_id,
+      staffName: m.staff?.full_name ?? "Unassigned",
+      serviceId: m.service_id,
+      serviceName: m.service?.name ?? "Walk-in Service",
+      unitPrice: m.service?.price ?? 0,
+    }));
+}
+
 function mapTicketSeatMember(raw: Record<string, unknown>): TicketSeatMember {
   const seat = raw.branch_seats as Record<string, unknown> | null;
   const staffProfile = raw.staff_profiles as Record<string, unknown> | null;

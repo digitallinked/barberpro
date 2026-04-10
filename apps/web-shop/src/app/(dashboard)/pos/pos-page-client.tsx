@@ -35,10 +35,14 @@ import {
   useSupabase,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
-import { createTransaction } from "@/actions/pos";
+import { createTransaction, createTransactionFromQueueTicket } from "@/actions/pos";
 import { useT } from "@/lib/i18n/language-context";
 import { SST_RATE } from "@/lib/malaysian-tax";
-import type { QueueTicketWithRelations } from "@/services/queue";
+import {
+  buildLinkedServiceLines,
+  type PosLinkedServiceLine,
+  type QueueTicketWithRelations,
+} from "@/services/queue";
 
 type CartItem = {
   id: string;
@@ -163,6 +167,8 @@ function SelectorDropdown({
 
 type OrderContentProps = {
   cart: CartItem[];
+  linkedServiceLines: PosLinkedServiceLine[];
+  hasUnassignedBarber: boolean;
   subtotal: number;
   tax: number;
   total: number;
@@ -176,6 +182,8 @@ type OrderContentProps = {
 
 function OrderContent({
   cart,
+  linkedServiceLines,
+  hasUnassignedBarber,
   subtotal,
   tax,
   total,
@@ -186,11 +194,48 @@ function OrderContent({
   onCheckout,
   onQrPay,
 }: OrderContentProps) {
+  const hasItems = cart.length > 0 || linkedServiceLines.length > 0;
+  const paymentBlocked = !hasItems || hasUnassignedBarber;
+
   return (
     <>
       {/* Line items */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {cart.length === 0 ? (
+        {hasUnassignedBarber && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-400">
+            All seated members must have a barber assigned. Complete assignments in Queue first.
+          </div>
+        )}
+        {linkedServiceLines.length > 0 && (
+          <>
+            <p className="px-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+              Services from queue
+            </p>
+            {linkedServiceLines.map((line) => (
+              <div
+                key={line.seatMemberId}
+                className="flex items-center gap-3 rounded-xl border border-[#D4AF37]/15 bg-[#D4AF37]/[0.04] px-3 py-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white">{line.serviceName}</p>
+                  <p className="text-xs text-gray-500">
+                    <Scissors className="mr-1 inline h-3 w-3 text-[#D4AF37]/60" />
+                    {line.staffName}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-bold text-[#D4AF37]">
+                  RM {line.unitPrice.toFixed(2)}
+                </span>
+              </div>
+            ))}
+            {cart.length > 0 && (
+              <p className="mt-2 px-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                Products
+              </p>
+            )}
+          </>
+        )}
+        {!hasItems ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5">
               <ShoppingCart className="h-6 w-6 text-gray-600" />
@@ -279,7 +324,7 @@ function OrderContent({
                 key={method}
                 type="button"
                 onClick={() => onCheckout(method)}
-                disabled={submitting}
+                disabled={submitting || paymentBlocked}
                 className={`group flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#1e1e1e] py-3 text-sm font-semibold text-white transition disabled:opacity-40 ${colorMap[accent]}`}
               >
                 <Icon className={`h-4 w-4 shrink-0 ${colorMap[accent].split(" ")[0]}`} />
@@ -290,7 +335,7 @@ function OrderContent({
           <button
             type="button"
             onClick={onQrPay}
-            disabled={submitting}
+            disabled={submitting || paymentBlocked}
             className="group col-span-2 flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#1e1e1e] py-3 text-sm font-semibold text-white transition disabled:opacity-40 text-[#D4AF37] group-hover:bg-[#D4AF37]/10 group-hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/30"
           >
             <QrCode className="h-4 w-4 shrink-0 text-[#D4AF37]" />
@@ -405,6 +450,7 @@ export function PosPageClient() {
   const [linkedQueueTicketId, setLinkedQueueTicketId] = useState<string | null>(
     searchParams.get("queue_ticket_id")
   );
+  const [linkedServiceLines, setLinkedServiceLines] = useState<PosLinkedServiceLine[]>([]);
   const [queueDropdownOpen, setQueueDropdownOpen] = useState(false);
   const queueDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -469,21 +515,29 @@ export function PosPageClient() {
   function applyQueueTicket(ticket: QueueTicketWithRelations) {
     setLinkedQueueTicketId(ticket.id);
     if (ticket.customer_id) setSelectedCustomer(ticket.customer_id);
-    if (ticket.assigned_staff_id) {
-      const idx = barbers.findIndex((b) => b.staff_profile_id === ticket.assigned_staff_id);
-      if (idx >= 0) setSelectedBarber(idx);
+
+    const seatLines = buildLinkedServiceLines(ticket);
+    if (seatLines.length > 0) {
+      setLinkedServiceLines(seatLines);
+      setCart((prev) => prev.filter((i) => i.type === "product"));
+    } else {
+      setLinkedServiceLines([]);
+      if (ticket.assigned_staff_id) {
+        const idx = barbers.findIndex((b) => b.staff_profile_id === ticket.assigned_staff_id);
+        if (idx >= 0) setSelectedBarber(idx);
+      }
+      const serviceItems = cartItemsFromTicket(ticket);
+      setCart((prev) => {
+        const products = prev.filter((i) => i.type === "product");
+        return [...products, ...serviceItems];
+      });
     }
-    const serviceItems = cartItemsFromTicket(ticket);
-    setCart((prev) => {
-      // Keep any manually added products, merge/replace services
-      const products = prev.filter((i) => i.type === "product");
-      return [...products, ...serviceItems];
-    });
     setQueueDropdownOpen(false);
   }
 
   function clearQueueLink() {
     setLinkedQueueTicketId(null);
+    setLinkedServiceLines([]);
   }
 
   const filteredCustomers = useMemo(
@@ -507,11 +561,14 @@ export function PosPageClient() {
     return map;
   }, [services]);
 
-  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const isLinkedQueue = Boolean(linkedQueueTicketId) && linkedServiceLines.length > 0;
+  const hasUnassignedBarber = isLinkedQueue && linkedServiceLines.some((l) => !l.staffId);
+  const linkedServicesTotal = linkedServiceLines.reduce((sum, l) => sum + l.unitPrice, 0);
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0) + linkedServicesTotal;
   const tax = Math.round(subtotal * SST_RATE * 100) / 100;
   const total = subtotal + tax;
   const serviceTaxLabelPct = Math.round(SST_RATE * 100);
-  const cartCount = cart.reduce((sum, i) => sum + i.qty, 0);
+  const cartCount = cart.reduce((sum, i) => sum + i.qty, 0) + linkedServiceLines.length;
 
   const selectedBarberName =
     selectedBarber !== null && barbers[selectedBarber]
@@ -548,23 +605,27 @@ export function PosPageClient() {
       }
     }
 
-    // If we came from a queue ticket URL but no service_ids were in the URL,
-    // try to fill from the ticket's member_services once queue data is loaded
-    if (urlQueueTicketId && prefillServiceIds.length === 0) {
+    // If we came from a queue ticket URL, try to apply it from queue data
+    if (urlQueueTicketId) {
       if (!queueData) return; // wait for queue data
       const ticket = (queueData.data ?? []).find((q) => q.id === urlQueueTicketId);
       if (ticket) {
-        const serviceItems = cartItemsFromTicket(ticket);
-        if (serviceItems.length > 0) setCart(serviceItems);
-        if (ticket.customer_id) setSelectedCustomer(ticket.customer_id);
-        if (ticket.assigned_staff_id) {
-          const idx = barbers.findIndex((b) => b.staff_profile_id === ticket.assigned_staff_id);
-          if (idx >= 0) setSelectedBarber(idx);
+        const seatLines = buildLinkedServiceLines(ticket);
+        if (seatLines.length > 0) {
+          setLinkedServiceLines(seatLines);
+          setCart((prev) => prev.filter((i) => i.type === "product"));
+        } else if (prefillServiceIds.length === 0) {
+          const serviceItems = cartItemsFromTicket(ticket);
+          if (serviceItems.length > 0) setCart(serviceItems);
+          if (ticket.assigned_staff_id) {
+            const idx = barbers.findIndex((b) => b.staff_profile_id === ticket.assigned_staff_id);
+            if (idx >= 0) setSelectedBarber(idx);
+          }
         }
+        if (ticket.customer_id) setSelectedCustomer(ticket.customer_id);
       }
+      setLinkedQueueTicketId(urlQueueTicketId);
     }
-
-    if (urlQueueTicketId) setLinkedQueueTicketId(urlQueueTicketId);
     prefillApplied.current = true;
   // cartItemsFromTicket is stable (defined in render scope with no deps that change)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -590,8 +651,95 @@ export function PosPageClient() {
     );
   }
 
+  function resetAfterSuccess(method: string) {
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
+    queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
+
+    const receiptServiceItems: CartItem[] = linkedServiceLines.map((l) => ({
+      id: l.seatMemberId,
+      name: `${l.serviceName}`,
+      price: l.unitPrice,
+      qty: 1,
+      type: "service" as const,
+    }));
+    const receiptProductItems = cart.filter((i) => i.type === "product");
+    const allReceiptItems = isLinkedQueue
+      ? [...receiptServiceItems, ...receiptProductItems]
+      : [...cart];
+
+    const uniqueBarbers = [...new Set(linkedServiceLines.map((l) => l.staffName))];
+    const barberDisplay = isLinkedQueue
+      ? uniqueBarbers.join(", ")
+      : selectedBarber !== null && barbers[selectedBarber]
+        ? barbers[selectedBarber].full_name
+        : "Next Available";
+
+    setReceipt({
+      items: allReceiptItems,
+      subtotal,
+      tax,
+      total,
+      paymentMethod: method,
+      customerName: selectedCustomerObj?.full_name ?? "Walk-in",
+      barberName: barberDisplay,
+      paidAt: new Date().toISOString(),
+    });
+
+    setCart([]);
+    setLinkedServiceLines([]);
+    setShowCheckout(false);
+    setShowQrStep(false);
+    setShowConfirmStep(false);
+    setPendingMethod(null);
+    setQrFile(null);
+    setQrPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
+    setLinkedQueueTicketId(null);
+    setSelectedCustomer(null);
+    setSelectedBarber(0);
+  }
+
   async function handleCheckout(method: string, proofStoragePath?: string | null) {
     if (!branchId) return;
+
+    if (isLinkedQueue) {
+      if (hasUnassignedBarber) {
+        setCheckoutError("All seated members must have a barber assigned before payment.");
+        return;
+      }
+      setCheckoutError(null);
+      setSubmitting(true);
+      try {
+        const result = await createTransactionFromQueueTicket({
+          queueTicketId: linkedQueueTicketId!,
+          paymentMethod: method,
+          products: cart.filter((i) => i.type === "product").map((i) => ({
+            inventoryItemId: i.inventoryItemId ?? "",
+            name: i.name,
+            quantity: i.qty,
+            unitPrice: i.price,
+            lineTotal: i.price * i.qty,
+          })),
+          subtotal,
+          discountAmount: 0,
+          taxAmount: tax,
+          totalAmount: total,
+          proofStoragePath: proofStoragePath ?? null,
+        });
+        if (result.success) {
+          resetAfterSuccess(method);
+        } else {
+          setCheckoutError(result.error ?? "Checkout failed");
+        }
+      } catch {
+        setCheckoutError("Checkout failed due to an unexpected server response.");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     if (cart.length === 0) {
       setCheckoutError("Add at least one item before processing payment.");
       return;
@@ -627,30 +775,7 @@ export function PosPageClient() {
       });
 
       if (result.success) {
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
-        queryClient.invalidateQueries({ queryKey: ["inventory"] });
-        queryClient.invalidateQueries({ queryKey: ["queue-tickets"] });
-        queryClient.invalidateQueries({ queryKey: ["queue-stats"] });
-        setReceipt({
-          items: [...cart],
-          subtotal,
-          tax,
-          total,
-          paymentMethod: method,
-          customerName: selectedCustomerObj?.full_name ?? "Walk-in",
-          barberName: selectedBarber !== null && barbers[selectedBarber] ? barbers[selectedBarber].full_name : "Next Available",
-          paidAt: new Date().toISOString(),
-        });
-        setCart([]);
-        setShowCheckout(false);
-        setShowQrStep(false);
-        setShowConfirmStep(false);
-        setPendingMethod(null);
-        setQrFile(null);
-        setQrPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-        setLinkedQueueTicketId(null);
-        setSelectedCustomer(null);
-        setSelectedBarber(0);
+        resetAfterSuccess(method);
       } else {
         setCheckoutError(result.error ?? "Checkout failed");
       }
@@ -662,7 +787,7 @@ export function PosPageClient() {
   }
 
   function handleSimplePay(method: string) {
-    if (cart.length === 0) {
+    if (cart.length === 0 && linkedServiceLines.length === 0) {
       setCheckoutError("Add at least one item before processing payment.");
       return;
     }
@@ -672,7 +797,7 @@ export function PosPageClient() {
   }
 
   function handleQrPay() {
-    if (cart.length === 0) {
+    if (cart.length === 0 && linkedServiceLines.length === 0) {
       setCheckoutError("Add at least one item before processing payment.");
       return;
     }
@@ -769,6 +894,8 @@ export function PosPageClient() {
 
   const orderContentProps: OrderContentProps = {
     cart,
+    linkedServiceLines,
+    hasUnassignedBarber,
     subtotal,
     tax,
     total,
@@ -872,7 +999,7 @@ export function PosPageClient() {
         </div>
 
         {/* Customer + Barber row */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${isLinkedQueue ? "grid-cols-1" : "grid-cols-2"}`}>
           <SelectorDropdown
             icon={User}
             label={t.pos.customer}
@@ -883,13 +1010,25 @@ export function PosPageClient() {
             searchValue={customerSearch}
             onSearchChange={setCustomerSearch}
           />
-          <SelectorDropdown
-            icon={Scissors}
-            label="Barber"
-            options={barberOptions}
-            value={barberValue}
-            onChange={handleBarberChange}
-          />
+          {isLinkedQueue ? (
+            <div className="rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/[0.06] px-3 py-2.5 text-sm">
+              <p className="flex items-center gap-1.5 text-xs text-[#D4AF37]/80">
+                <Scissors className="h-3.5 w-3.5" />
+                <span className="font-semibold">Barber assigned from queue</span>
+              </p>
+              <p className="mt-1 text-xs text-gray-400 truncate">
+                {[...new Set(linkedServiceLines.map((l) => l.staffName))].join(", ")}
+              </p>
+            </div>
+          ) : (
+            <SelectorDropdown
+              icon={Scissors}
+              label="Barber"
+              options={barberOptions}
+              value={barberValue}
+              onChange={handleBarberChange}
+            />
+          )}
         </div>
 
         {/* Tab toggle */}
@@ -1012,7 +1151,7 @@ export function PosPageClient() {
         <button
           type="button"
           onClick={() => setShowCheckout(true)}
-          disabled={cart.length === 0}
+          disabled={cart.length === 0 && linkedServiceLines.length === 0}
           className="flex w-full items-center justify-between rounded-2xl bg-[#D4AF37] px-5 py-3.5 shadow-2xl shadow-black/50 transition active:scale-[0.98] disabled:opacity-40"
         >
           <div className="flex items-center gap-3">
@@ -1049,7 +1188,9 @@ export function PosPageClient() {
                   </span>
                 </div>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  {selectedBarberName} • {selectedCustomerName}
+                  {isLinkedQueue
+                    ? [...new Set(linkedServiceLines.map((l) => l.staffName))].join(", ")
+                    : selectedBarberName} • {selectedCustomerName}
                 </p>
               </div>
               <button
@@ -1081,7 +1222,9 @@ export function PosPageClient() {
               </span>
             </div>
             <p className="mt-1 truncate text-xs text-gray-500">
-              {selectedBarberName} • {selectedCustomerName}
+              {isLinkedQueue
+                ? [...new Set(linkedServiceLines.map((l) => l.staffName))].join(", ")
+                : selectedBarberName} • {selectedCustomerName}
             </p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1147,7 +1290,11 @@ export function PosPageClient() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Barber</span>
-                    <span className="font-medium text-white">{selectedBarberName}</span>
+                    <span className="font-medium text-white">
+                      {isLinkedQueue
+                        ? [...new Set(linkedServiceLines.map((l) => l.staffName))].join(", ")
+                        : selectedBarberName}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Items</span>

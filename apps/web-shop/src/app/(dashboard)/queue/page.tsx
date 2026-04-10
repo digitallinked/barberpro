@@ -90,27 +90,6 @@ function buildPosPaymentHref(ticket: QueueTicketWithRelations): string {
   const params = new URLSearchParams();
   params.set("queue_ticket_id", ticket.id);
   if (ticket.customer_id) params.set("customer_id", ticket.customer_id);
-  if (ticket.assigned_staff_id) params.set("staff_id", ticket.assigned_staff_id);
-
-  // Collect all service IDs to pre-fill in POS:
-  // For group tickets use seated members' services + extra check-in services.
-  // For single-person tickets use check-in member_services (supports multiple), fallback to ticket.service_id.
-  const serviceIds = new Set<string>();
-  if (ticket.ticket_seats.length > 0) {
-    for (const seat of ticket.ticket_seats) {
-      if (seat.service_id) serviceIds.add(seat.service_id);
-    }
-    // Extra services from check-in that weren't stored in a seat row
-    for (const ms of ticket.member_services) {
-      if (!serviceIds.has(ms.service_id)) serviceIds.add(ms.service_id);
-    }
-  } else if (ticket.member_services.length > 0) {
-    for (const ms of ticket.member_services) serviceIds.add(ms.service_id);
-  } else if (ticket.service_id) {
-    serviceIds.add(ticket.service_id);
-  }
-  for (const id of serviceIds) params.append("service_id", id);
-
   return `/pos?${params.toString()}`;
 }
 
@@ -1087,16 +1066,31 @@ export default function QueuePage() {
                         </button>
                       </div>
                     )}
-                    {q.status === "completed" && !isPaid && (
-                      <div className="mt-3 flex gap-1.5 border-t border-white/5 pt-3">
-                        <Link
-                          href={buildPosPaymentHref(q)}
-                          className="rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111] transition hover:brightness-110"
-                        >
-                          {t.queue.proceedToPayment}
-                        </Link>
-                      </div>
-                    )}
+                    {q.status === "completed" && !isPaid && (() => {
+                      const seatedMembers = q.ticket_seats.filter((m) => m.status !== "cancelled");
+                      const hasUnassigned = seatedMembers.length > 0 && seatedMembers.some((m) => !m.staff_id);
+                      return (
+                        <div className="mt-3 flex flex-col gap-1.5 border-t border-white/5 pt-3">
+                          {hasUnassigned && (
+                            <p className="text-[10px] text-amber-400">
+                              {t.queue.assignBarberFirst}
+                            </p>
+                          )}
+                          <Link
+                            href={hasUnassigned ? "#" : buildPosPaymentHref(q)}
+                            onClick={hasUnassigned ? (e: React.MouseEvent) => e.preventDefault() : undefined}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                              hasUnassigned
+                                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                                : "bg-[#D4AF37] text-[#111] hover:brightness-110"
+                            }`}
+                            aria-disabled={hasUnassigned}
+                          >
+                            {t.queue.proceedToPayment}
+                          </Link>
+                        </div>
+                      );
+                    })()}
                     {isPaid && (
                       <div className="mt-3 flex items-center gap-1.5 border-t border-white/5 pt-3">
                         <span className="text-[11px] text-emerald-400/70">✓ Payment received</span>
@@ -1821,6 +1815,7 @@ export default function QueuePage() {
       {showPaymentModal && (() => {
         const members = showPaymentModal.ticket_seats.filter((m) => m.status !== "cancelled");
         const isGroup = members.length > 0;
+        const paymentHasUnassignedBarber = isGroup && members.some((m) => !m.staff_id);
         // Extra check-in services per seated member beyond the one stored in the seat row
         const groupExtraServices = members.map((m, idx) =>
           showPaymentModal.member_services.filter(
@@ -2079,9 +2074,14 @@ export default function QueuePage() {
                   </button>
                 </div>
 
+                {paymentHasUnassignedBarber && (
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                    {t.queue.assignBarberFirst}
+                  </p>
+                )}
                 <button
                   type="submit"
-                  disabled={paymentSubmitting}
+                  disabled={paymentSubmitting || paymentHasUnassignedBarber}
                   className="w-full rounded-lg bg-[#D4AF37] py-2.5 text-sm font-bold text-[#111] transition hover:brightness-110 disabled:opacity-50"
                 >
                   {paymentSubmitting ? t.queue.processing : t.queue.confirmPayment}
