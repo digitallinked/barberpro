@@ -248,10 +248,14 @@ export async function generatePayrollEntries(periodId: string) {
     );
 
     let generated = 0;
+    let alreadyHadCount = 0;
 
     for (const staff of activeStaff) {
       const staffProfileId = staff.id as string;
-      if (existingStaffIds.has(staffProfileId)) continue;
+      if (existingStaffIds.has(staffProfileId)) {
+        alreadyHadCount++;
+        continue;
+      }
 
       const baseSalary = (staff.base_salary as number) || 0;
 
@@ -304,13 +308,11 @@ export async function generatePayrollEntries(periodId: string) {
     }
 
     revalidatePath("/payroll");
-    const skipped = activeStaff.length - existingStaffIds.size - generated;
     return {
       success: true,
       generated,
-      skipped,
+      alreadyHad: alreadyHadCount,
       total: activeStaff.length,
-      alreadyHad: existingStaffIds.size,
     };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

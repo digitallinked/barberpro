@@ -94,13 +94,14 @@ export async function calculateStaffCommission(
         service_id,
         inventory_item_id,
         quantity,
-        transactions!inner (id, created_at, customer_id, payment_status)
+        transactions!inner (id, paid_at, customer_id, payment_status)
       `
       )
       .eq("tenant_id", tenantId)
       .eq("staff_id", staffId)
-      .gte("transactions.created_at", `${periodStart}T00:00:00Z`)
-      .lte("transactions.created_at", `${periodEnd}T23:59:59Z`),
+      .eq("transactions.payment_status", "paid")
+      .gte("transactions.paid_at", `${periodStart}T00:00:00Z`)
+      .lte("transactions.paid_at", `${periodEnd}T23:59:59Z`),
 
     client
       .from("staff_commission_assignments")
@@ -136,7 +137,7 @@ export async function calculateStaffCommission(
 
   for (const item of items) {
     const tx = item.transactions as Record<string, unknown> | null;
-    if (!tx || tx.payment_status === "cancelled") continue;
+    if (!tx || tx.payment_status !== "paid") continue;
 
     const lineTotal = (item.line_total as number) || 0;
     const itemType = item.item_type as string;

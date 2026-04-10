@@ -5,6 +5,45 @@ import { revalidatePath } from "next/cache";
 import { getAuthContext } from "./_helpers";
 import { isOwnerOrManager } from "@/lib/permissions";
 
+function getProfileFields(formData: FormData) {
+  return {
+    employment_type: (formData.get("employment_type") as string) || "full_time",
+    base_salary: Number(formData.get("base_salary")) || 0,
+    employee_code: (formData.get("employee_code") as string) || null,
+    joined_at: (formData.get("joined_at") as string) || null,
+    // Personal
+    nric_number: (formData.get("nric_number") as string) || null,
+    date_of_birth: (formData.get("date_of_birth") as string) || null,
+    gender: (formData.get("gender") as string) || null,
+    nationality: (formData.get("nationality") as string) || null,
+    marital_status: (formData.get("marital_status") as string) || null,
+    num_dependents: formData.get("num_dependents") !== null && formData.get("num_dependents") !== ""
+      ? Number(formData.get("num_dependents"))
+      : null,
+    // Address
+    address_line1: (formData.get("address_line1") as string) || null,
+    address_line2: (formData.get("address_line2") as string) || null,
+    city: (formData.get("city") as string) || null,
+    state: (formData.get("state") as string) || null,
+    postcode: (formData.get("postcode") as string) || null,
+    // Statutory
+    epf_number: (formData.get("epf_number") as string) || null,
+    epf_enabled: formData.get("epf_enabled") === "true",
+    socso_number: (formData.get("socso_number") as string) || null,
+    socso_enabled: formData.get("socso_enabled") === "true",
+    eis_number: (formData.get("eis_number") as string) || null,
+    tax_ref_number: (formData.get("tax_ref_number") as string) || null,
+    // Banking
+    bank_name: (formData.get("bank_name") as string) || null,
+    bank_account_number: (formData.get("bank_account_number") as string) || null,
+    // Emergency contact
+    emergency_contact_name: (formData.get("emergency_contact_name") as string) || null,
+    emergency_contact_phone: (formData.get("emergency_contact_phone") as string) || null,
+    // Notes
+    notes: (formData.get("notes") as string) || null,
+  };
+}
+
 export async function createStaffMember(formData: FormData) {
   try {
     const { supabase, tenantId, appUser } = await getAuthContext();
@@ -18,9 +57,6 @@ export async function createStaffMember(formData: FormData) {
     const phone = (formData.get("phone") as string) || null;
     const role = formData.get("role") as string;
     const branch_id = (formData.get("branch_id") as string) || null;
-    const employment_type = (formData.get("employment_type") as string) || "full_time";
-    const base_salary = Number(formData.get("base_salary")) || 0;
-    const employee_code = (formData.get("employee_code") as string) || null;
 
     if (!full_name || !role) {
       return { success: false, error: "Full name and role are required" };
@@ -43,12 +79,12 @@ export async function createStaffMember(formData: FormData) {
     if (newUserError) return { success: false, error: newUserError.message };
     if (!newUser) return { success: false, error: "Failed to create staff user" };
 
+    const profileFields = getProfileFields(formData);
+
     const { error: profileError } = await supabase.from("staff_profiles").insert({
       tenant_id: tenantId,
       user_id: newUser.id,
-      employment_type,
-      base_salary,
-      employee_code: employee_code || null,
+      ...profileFields,
     });
 
     if (profileError) return { success: false, error: profileError.message };
@@ -73,9 +109,6 @@ export async function updateStaffMember(id: string, formData: FormData) {
     const phone = (formData.get("phone") as string) || null;
     const role = formData.get("role") as string;
     const branch_id = (formData.get("branch_id") as string) || null;
-    const employment_type = (formData.get("employment_type") as string) || "full_time";
-    const base_salary = Number(formData.get("base_salary")) || 0;
-    const employee_code = (formData.get("employee_code") as string) || null;
 
     if (!full_name || !role) {
       return { success: false, error: "Full name and role are required" };
@@ -96,6 +129,8 @@ export async function updateStaffMember(id: string, formData: FormData) {
 
     if (appUserError) return { success: false, error: appUserError.message };
 
+    const profileFields = getProfileFields(formData);
+
     const { data: profile } = await supabase
       .from("staff_profiles")
       .select("id")
@@ -107,9 +142,7 @@ export async function updateStaffMember(id: string, formData: FormData) {
       const { error: profileError } = await supabase
         .from("staff_profiles")
         .update({
-          employment_type,
-          base_salary,
-          employee_code: employee_code || null,
+          ...profileFields,
           updated_at: new Date().toISOString(),
         })
         .eq("id", profile.id)
@@ -119,6 +152,7 @@ export async function updateStaffMember(id: string, formData: FormData) {
     }
 
     revalidatePath("/staff");
+    revalidatePath(`/staff/${id}`);
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

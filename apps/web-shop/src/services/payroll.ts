@@ -4,6 +4,28 @@ import type { Database, Tables } from "@/types/database.types";
 type Client = SupabaseClient<Database>;
 type PayrollPeriodRow = Tables<"payroll_periods">;
 
+export type StaffPayslipDetails = {
+  full_name: string;
+  nric_number: string | null;
+  date_of_birth: string | null;
+  marital_status: string | null;
+  num_dependents: number | null;
+  epf_number: string | null;
+  epf_enabled: boolean;
+  socso_number: string | null;
+  socso_enabled: boolean;
+  eis_number: string | null;
+  tax_ref_number: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postcode: string | null;
+  employee_code: string | null;
+};
+
 export type PayrollEntryWithStaff = {
   id: string;
   payroll_period_id: string;
@@ -24,7 +46,7 @@ export type PayrollEntryWithStaff = {
   customers_served: number | null;
   created_at: string;
   updated_at: string;
-  staff: { full_name: string } | null;
+  staff: StaffPayslipDetails | null;
 };
 
 const ENTRY_SELECT = `
@@ -47,7 +69,27 @@ const ENTRY_SELECT = `
   customers_served,
   created_at,
   updated_at,
-  staff_profiles!payroll_entries_staff_id_fkey (app_users!inner (full_name))
+  staff_profiles!payroll_entries_staff_id_fkey (
+    nric_number,
+    date_of_birth,
+    marital_status,
+    num_dependents,
+    epf_number,
+    epf_enabled,
+    socso_number,
+    socso_enabled,
+    eis_number,
+    tax_ref_number,
+    bank_name,
+    bank_account_number,
+    address_line1,
+    address_line2,
+    city,
+    state,
+    postcode,
+    employee_code,
+    app_users!inner (full_name)
+  )
 `;
 
 function mapEntryRow(row: Record<string, unknown>): PayrollEntryWithStaff {
@@ -75,8 +117,28 @@ function mapEntryRow(row: Record<string, unknown>): PayrollEntryWithStaff {
     customers_served: (row.customers_served as number | null) ?? null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
-    staff: staffData
-      ? { full_name: (staffData as Record<string, unknown>).full_name as string }
+    staff: staffData && staffProfile
+      ? {
+          full_name: (staffData as Record<string, unknown>).full_name as string,
+          nric_number: staffProfile.nric_number as string | null,
+          date_of_birth: staffProfile.date_of_birth as string | null,
+          marital_status: staffProfile.marital_status as string | null,
+          num_dependents: staffProfile.num_dependents as number | null,
+          epf_number: staffProfile.epf_number as string | null,
+          epf_enabled: (staffProfile.epf_enabled as boolean) ?? true,
+          socso_number: staffProfile.socso_number as string | null,
+          socso_enabled: (staffProfile.socso_enabled as boolean) ?? true,
+          eis_number: staffProfile.eis_number as string | null,
+          tax_ref_number: staffProfile.tax_ref_number as string | null,
+          bank_name: staffProfile.bank_name as string | null,
+          bank_account_number: staffProfile.bank_account_number as string | null,
+          address_line1: staffProfile.address_line1 as string | null,
+          address_line2: staffProfile.address_line2 as string | null,
+          city: staffProfile.city as string | null,
+          state: staffProfile.state as string | null,
+          postcode: staffProfile.postcode as string | null,
+          employee_code: staffProfile.employee_code as string | null,
+        }
       : null,
   };
 }

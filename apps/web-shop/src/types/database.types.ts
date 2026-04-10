@@ -1492,43 +1492,100 @@ export type Database = {
       }
       staff_profiles: {
         Row: {
+          address_line1: string | null
+          address_line2: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           base_salary: number
+          city: string | null
           created_at: string
+          date_of_birth: string | null
+          eis_number: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           employee_code: string | null
           employment_type: string
           epf_enabled: boolean
+          epf_number: string | null
+          gender: string | null
           id: string
           joined_at: string | null
+          marital_status: string | null
+          nationality: string | null
           notes: string | null
+          nric_number: string | null
+          num_dependents: number | null
+          postcode: string | null
           socso_enabled: boolean
+          socso_number: string | null
+          state: string | null
+          tax_ref_number: string | null
           tenant_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           base_salary?: number
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          eis_number?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           employee_code?: string | null
           employment_type?: string
           epf_enabled?: boolean
+          epf_number?: string | null
+          gender?: string | null
           id?: string
           joined_at?: string | null
+          marital_status?: string | null
+          nationality?: string | null
           notes?: string | null
+          nric_number?: string | null
+          num_dependents?: number | null
+          postcode?: string | null
           socso_enabled?: boolean
+          socso_number?: string | null
+          state?: string | null
+          tax_ref_number?: string | null
           tenant_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           base_salary?: number
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          eis_number?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           employee_code?: string | null
           employment_type?: string
           epf_enabled?: boolean
+          epf_number?: string | null
+          gender?: string | null
           id?: string
           joined_at?: string | null
+          marital_status?: string | null
+          nationality?: string | null
           notes?: string | null
+          nric_number?: string | null
+          num_dependents?: number | null
+          postcode?: string | null
           socso_enabled?: boolean
+          socso_number?: string | null
+          state?: string | null
+          tax_ref_number?: string | null
           tenant_id?: string
           updated_at?: string
           user_id?: string

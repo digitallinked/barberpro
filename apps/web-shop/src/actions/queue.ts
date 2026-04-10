@@ -188,6 +188,7 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
         total_amount: amountDue,
         payment_status: "paid",
         paid_at: new Date().toISOString(),
+        proof_storage_path: proofStoragePath,
       })
       .select("id")
       .single();

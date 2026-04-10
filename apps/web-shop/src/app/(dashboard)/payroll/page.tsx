@@ -70,18 +70,53 @@ type PayrollEntryRow = {
   advances: number;
   net_payout: number;
   notes: string | null;
+  days_worked?: number | null;
+  total_working_days?: number | null;
+  service_revenue?: number | null;
+  product_revenue?: number | null;
+  services_count?: number | null;
+  customers_served?: number | null;
 };
+
+type StaffDetails = {
+  nric_number?: string | null;
+  epf_number?: string | null;
+  epf_enabled?: boolean;
+  socso_number?: string | null;
+  socso_enabled?: boolean;
+  eis_number?: string | null;
+  tax_ref_number?: string | null;
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postcode?: string | null;
+  employee_code?: string | null;
+} | null;
 
 function buildPayslipInnerHtml(params: {
   employerName: string;
   periodLabel: string;
+  periodStart: string;
+  periodEnd: string;
   staffName: string;
-  entry: PayrollEntryRow;
+  staffDetails?: StaffDetails;
+  entry: PayrollEntryRow & {
+    days_worked?: number | null;
+    total_working_days?: number | null;
+    service_revenue?: number | null;
+    product_revenue?: number | null;
+    services_count?: number | null;
+    customers_served?: number | null;
+  };
   age: number;
   marital: MaritalStatus;
   dependents: number;
 }): string {
-  const { employerName, periodLabel, staffName, entry, age, marital, dependents } = params;
+  const { employerName, periodLabel, periodStart, periodEnd, staffName, staffDetails, entry, age, marital, dependents } = params;
+  const sd = staffDetails;
   const gross =
     entry.base_salary +
     entry.service_commission +
@@ -92,44 +127,158 @@ function buildPayslipInnerHtml(params: {
     numDependents: dependents,
   });
   const diff = Math.round((entry.deductions - stat.totalEmployeeDeductions) * 100) / 100;
+  const daysLabel =
+    entry.days_worked != null && entry.total_working_days != null
+      ? `${entry.days_worked} / ${entry.total_working_days} days worked`
+      : "—";
+  const refNo = `BP-${periodStart.replace(/-/g, "")}-${staffName.replace(/\s+/g, "").slice(0, 4).toUpperCase()}`;
+
+  const row = (label: string, value: string, bold = false, indent = false) =>
+    `<tr><td style="${indent ? "padding-left:20px;" : ""}color:#555">${bold ? `<strong>${label}</strong>` : label}</td><td class="n">${bold ? `<strong>${value}</strong>` : value}</td></tr>`;
+
+  const separator = `<tr><td colspan="2" style="padding:0;border-bottom:2px solid #222;"></td></tr>`;
+  const sectionHeader = (title: string) =>
+    `<tr><td colspan="2" style="padding:10px 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;border-bottom:1px solid #ddd">${title}</td></tr>`;
 
   return `
 <style>
-  body { font-family: system-ui, sans-serif; padding: 24px; color: #111; max-width: 640px; margin: 0 auto; }
-  h1 { font-size: 18px; margin: 0 0 4px; }
-  .sub { color: #555; font-size: 12px; margin-bottom: 20px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e5e5e5; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .foot { margin-top: 20px; font-size: 11px; color: #666; line-height: 1.5; }
+  @page { size: A4; margin: 20mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; padding: 0; margin: 0; color: #111; background: #fff; }
+  .page { max-width: 680px; margin: 0 auto; padding: 32px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid #111; }
+  .employer { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+  .employer-sub { font-size: 11px; color: #777; margin-top: 3px; }
+  .payslip-label { text-align: right; }
+  .payslip-label h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #555; margin: 0 0 4px; }
+  .payslip-label .ref { font-size: 11px; color: #888; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; padding: 16px; background: #f8f8f8; border-radius: 6px; }
+  .meta-item { font-size: 12px; }
+  .meta-label { color: #777; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+  .meta-value { font-weight: 600; color: #111; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #eee; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .net-row td { padding: 12px 6px; background: #111; color: #fff; font-size: 15px; font-weight: 700; }
+  .net-row td.n { color: #fff; }
+  .disclaimer { margin-top: 24px; padding: 12px; background: #f5f5f5; border-radius: 4px; font-size: 10px; color: #666; line-height: 1.6; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 10px; color: #aaa; }
+  .sig-block { margin-top: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .sig-line { border-top: 1px solid #ccc; padding-top: 6px; font-size: 10px; color: #888; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
-<h1>Payslip (reference)</h1>
-<p class="sub">${esc(employerName)} · ${esc(periodLabel)} · ${esc(staffName)}</p>
-<table>
-  <tr><th colspan="2">Earnings</th></tr>
-  <tr><td>Base salary</td><td class="num">${formatRMStat(entry.base_salary)}</td></tr>
-  <tr><td>Service commission</td><td class="num">${formatRMStat(entry.service_commission)}</td></tr>
-  <tr><td>Product commission</td><td class="num">${formatRMStat(entry.product_commission)}</td></tr>
-  <tr><td>Bonuses</td><td class="num">${formatRMStat(entry.bonuses)}</td></tr>
-  <tr><td><strong>Gross pay</strong></td><td class="num"><strong>${formatRMStat(gross)}</strong></td></tr>
-  <tr><th colspan="2">Statutory estimate (KWSP / PERKESO / SIP / PCB)</th></tr>
-  <tr><td>EPF (employee)</td><td class="num">${formatRMStat(stat.epf.employeeContribution)}</td></tr>
-  <tr><td>SOCSO (employee)</td><td class="num">${formatRMStat(stat.socso.employeeContribution)}</td></tr>
-  <tr><td>EIS (employee)</td><td class="num">${formatRMStat(stat.eis.employeeContribution)}</td></tr>
-  <tr><td>PCB / MTD (estimate)</td><td class="num">${formatRMStat(stat.pcb.monthlyPcb)}</td></tr>
-  <tr><td><strong>Total statutory (estimate)</strong></td><td class="num"><strong>${formatRMStat(stat.totalEmployeeDeductions)}</strong></td></tr>
-  <tr><th colspan="2">Recorded in BarberPro</th></tr>
-  <tr><td>Total deductions (stored)</td><td class="num">${formatRMStat(entry.deductions)}</td></tr>
-  <tr><td>Advances</td><td class="num">${formatRMStat(entry.advances)}</td></tr>
-  <tr><td><strong>Net payout</strong></td><td class="num"><strong>${formatRMStat(entry.net_payout)}</strong></td></tr>
-</table>
-${
-  Math.abs(diff) > 0.02
-    ? `<p class="foot">Stored deductions differ from the statutory estimate by ${formatRMStat(Math.abs(diff))} (e.g. loans, zakat, or different PCB inputs). Use your official payroll / LHDN figures for filing.</p>`
-    : ""
-}
-<p class="foot">PCB uses a simplified MTD model (age ${age}, marital: ${esc(marital)}, children: ${dependents}). Confirm with LHDN tables, EA form, and e-Data PCB. This document is for records only and is not legal or tax advice.</p>
-${entry.notes ? `<p class="foot"><strong>Notes:</strong> ${esc(entry.notes)}</p>` : ""}
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="employer">${esc(employerName)}</div>
+      <div class="employer-sub">Payslip — For Employee Records Only</div>
+    </div>
+    <div class="payslip-label">
+      <h2>Pay Slip</h2>
+      <div class="ref">Ref: ${esc(refNo)}</div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="meta-item"><div class="meta-label">Employee Name</div><div class="meta-value">${esc(staffName)}</div></div>
+    <div class="meta-item"><div class="meta-label">Employee Code</div><div class="meta-value">${esc(sd?.employee_code ?? "—")}</div></div>
+    <div class="meta-item"><div class="meta-label">NRIC / IC No.</div><div class="meta-value">${esc(sd?.nric_number ?? "—")}</div></div>
+    <div class="meta-item"><div class="meta-label">Pay Period</div><div class="meta-value">${esc(periodLabel)}</div></div>
+    <div class="meta-item"><div class="meta-label">Attendance</div><div class="meta-value">${esc(daysLabel)}</div></div>
+    <div class="meta-item"><div class="meta-label">POS Summary</div><div class="meta-value">${entry.services_count ?? 0} services · ${entry.customers_served ?? 0} customers</div></div>
+    ${sd?.epf_number ? `<div class="meta-item"><div class="meta-label">EPF / KWSP No.</div><div class="meta-value">${esc(sd.epf_number)}</div></div>` : ""}
+    ${sd?.socso_number ? `<div class="meta-item"><div class="meta-label">SOCSO No.</div><div class="meta-value">${esc(sd.socso_number)}</div></div>` : ""}
+    ${sd?.tax_ref_number ? `<div class="meta-item"><div class="meta-label">Income Tax Ref.</div><div class="meta-value">${esc(sd.tax_ref_number)}</div></div>` : ""}
+    ${sd?.bank_name ? `<div class="meta-item"><div class="meta-label">Bank</div><div class="meta-value">${esc(sd.bank_name)}${sd.bank_account_number ? ` · ${esc(sd.bank_account_number)}` : ""}</div></div>` : ""}
+  </div>
+
+  ${(sd?.address_line1 || sd?.city) ? `
+  <div style="margin-bottom:20px;font-size:11px;color:#555">
+    <strong>Employee Address:</strong>
+    ${[sd.address_line1, sd.address_line2, sd.postcode && sd.city ? `${sd.postcode} ${sd.city}` : (sd.city || sd.postcode || ""), sd.state].filter(Boolean).join(", ")}
+  </div>` : ""}
+
+  <table>
+    ${sectionHeader("Earnings")}
+    ${row("Basic Salary", formatRMStat(entry.base_salary))}
+    ${row("Service Commission", formatRMStat(entry.service_commission))}
+    ${row("Product Commission", formatRMStat(entry.product_commission))}
+    ${row("Allowance / Bonus", formatRMStat(entry.bonuses))}
+    ${separator}
+    ${row("Gross Pay", formatRMStat(gross), true)}
+  </table>
+
+  <table>
+    ${sectionHeader("Statutory Contributions — Estimates (KWSP / PERKESO / SIP / PCB)")}
+    ${sd?.epf_enabled !== false ? row(`EPF / KWSP — Employee (11%)${sd?.epf_number ? ` · ${esc(sd.epf_number)}` : ""}`, `(${formatRMStat(stat.epf.employeeContribution)})`) : row("EPF / KWSP", "Not applicable")}
+    ${sd?.socso_enabled !== false ? row(`SOCSO / PERKESO — Employee${sd?.socso_number ? ` · ${esc(sd.socso_number)}` : ""}`, `(${formatRMStat(stat.socso.employeeContribution)})`) : row("SOCSO / PERKESO", "Not applicable")}
+    ${row(`EIS / SIP — Employee (0.2%)${sd?.eis_number ? ` · ${esc(sd.eis_number)}` : ""}`, `(${formatRMStat(stat.eis.employeeContribution)})`)}
+    ${row(`PCB / MTD — Income Tax Est.${sd?.tax_ref_number ? ` · ${esc(sd.tax_ref_number)}` : ""}`, `(${formatRMStat(stat.pcb.monthlyPcb)})`)}
+    ${separator}
+    ${row("Total Statutory Estimate", `(${formatRMStat(stat.totalEmployeeDeductions)})`, true)}
+  </table>
+
+  <table>
+    ${sectionHeader("Deductions & Advances Recorded")}
+    ${row("Total Deductions", `(${formatRMStat(entry.deductions)})`)}
+    ${row("Salary Advance", `(${formatRMStat(entry.advances)})`)}
+  </table>
+
+  <table>
+    <tr class="net-row"><td>NET PAY</td><td class="n">${formatRMStat(entry.net_payout)}</td></tr>
+  </table>
+
+  ${
+    entry.service_revenue != null || entry.product_revenue != null
+      ? `<table>
+    ${sectionHeader("POS Revenue Attribution (Reference)")}
+    ${row("Service Revenue", formatRMStat(entry.service_revenue ?? 0))}
+    ${row("Product Revenue", formatRMStat(entry.product_revenue ?? 0))}
+    ${row("Total POS Revenue", formatRMStat((entry.service_revenue ?? 0) + (entry.product_revenue ?? 0)), true)}
+  </table>`
+      : ""
+  }
+
+  ${
+    entry.notes
+      ? `<table>
+    ${sectionHeader("Notes")}
+    <tr><td colspan="2" style="color:#555;font-style:italic">${esc(entry.notes)}</td></tr>
+  </table>`
+      : ""
+  }
+
+  ${
+    Math.abs(diff) > 0.02
+      ? `<div class="disclaimer" style="border-left:3px solid #e5a000">&#9888; Stored deductions (${formatRMStat(entry.deductions)}) differ from the statutory estimate (${formatRMStat(stat.totalEmployeeDeductions)}) by ${formatRMStat(Math.abs(diff))}. This may reflect loans, zakat, additional PCB, or adjustments. Use official payroll records for statutory filing.</div>`
+      : ""
+  }
+
+  <div class="sig-block">
+    <div>
+      <div style="height:40px"></div>
+      <div class="sig-line">Employee Signature &amp; Date</div>
+    </div>
+    <div>
+      <div style="height:40px"></div>
+      <div class="sig-line">Authorised by &amp; Date</div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Important:</strong> Statutory figures (EPF, SOCSO, EIS, PCB) are <em>estimates</em> computed using a simplified MTD model
+    (age&nbsp;${age}, marital status: ${esc(marital)}, dependents: ${dependents}). They are provided for reference only and may differ from actual
+    contributions. Always verify against LHDN e‑Data PCB, KWSP i‑Akaun, and PERKESO online portals before filing. This document does not
+    constitute legal or tax advice and is not a substitute for your employer's official EA Form (Form C.P.8A).
+    <br/><br/>
+    Generated by BarberPro on ${new Date().toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })} · Ref: ${esc(refNo)}
+  </div>
+
+  <div class="footer">
+    <span>${esc(employerName)} · Payslip for the period ${esc(periodStart)} to ${esc(periodEnd)}</span>
+    <span>BarberPro · shop.barberpro.my</span>
+  </div>
+</div>
 `;
 }
 
@@ -313,9 +462,11 @@ export default function PayrollPage() {
     setPending(false);
     if (result.success && "generated" in result) {
       queryClient.invalidateQueries({ queryKey: ["payroll-entries"] });
-      setBanner(
-        `Generated ${result.generated} new entries. ${result.skipped} staff skipped (already have an entry or inactive).`
-      );
+      const parts: string[] = [`Generated ${result.generated} new entries.`];
+      if ("alreadyHad" in result && result.alreadyHad > 0) {
+        parts.push(`${result.alreadyHad} staff already had an entry (skipped).`);
+      }
+      setBanner(parts.join(" "));
     } else if (!result.success) {
       setBanner("error" in result ? String(result.error) : "Generate failed");
     }
@@ -358,10 +509,26 @@ export default function PayrollPage() {
   function printPayslip(entry: (typeof entries)[number]) {
     if (!selectedPeriod) return;
     const periodLabel = `${formatDate(selectedPeriod.period_start)} – ${formatDate(selectedPeriod.period_end)}`;
+    // Derive age from date_of_birth if available
+    const dob = entry.staff?.date_of_birth;
+    let age = 30;
+    if (dob) {
+      const born = new Date(dob);
+      const today = new Date();
+      age = today.getFullYear() - born.getFullYear();
+      if (today.getMonth() < born.getMonth() || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) {
+        age--;
+      }
+    }
+    const marital = (entry.staff?.marital_status as MaritalStatus | null) ?? "single";
+    const dependents = entry.staff?.num_dependents ?? 0;
     const inner = buildPayslipInnerHtml({
       employerName: tenantName,
       periodLabel,
+      periodStart: selectedPeriod.period_start,
+      periodEnd: selectedPeriod.period_end,
       staffName: entry.staff?.full_name ?? "Staff",
+      staffDetails: entry.staff,
       entry: {
         base_salary: entry.base_salary,
         service_commission: entry.service_commission,
@@ -371,10 +538,16 @@ export default function PayrollPage() {
         advances: entry.advances,
         net_payout: entry.net_payout,
         notes: entry.notes,
+        days_worked: entry.days_worked,
+        total_working_days: entry.total_working_days,
+        service_revenue: entry.service_revenue,
+        product_revenue: entry.product_revenue,
+        services_count: entry.services_count,
+        customers_served: entry.customers_served,
       },
-      age: 30,
-      marital: "single",
-      dependents: 0,
+      age,
+      marital,
+      dependents,
     });
     openPrintableDocument(inner, `Payslip-${entry.staff?.full_name ?? "staff"}`);
   }
@@ -382,24 +555,87 @@ export default function PayrollPage() {
   function printPayrollRegister() {
     if (!selectedPeriod || entries.length === 0) return;
     const periodLabel = `${formatDate(selectedPeriod.period_start)} – ${formatDate(selectedPeriod.period_end)}`;
+    const grossTotal = entries.reduce((s, e) => s + e.base_salary + e.service_commission + e.product_commission + e.bonuses, 0);
+    const netTotal = entries.reduce((s, e) => s + e.net_payout, 0);
+    const deductTotal = entries.reduce((s, e) => s + e.deductions + e.advances, 0);
     const rows = entries
       .map(
-        (e) =>
-          `<tr><td>${esc(e.staff?.full_name ?? "?")}</td><td class="n">${formatRMStat(e.base_salary)}</td><td class="n">${formatRMStat(e.service_commission)}</td><td class="n">${formatRMStat(e.product_commission)}</td><td class="n">${formatRMStat(e.bonuses)}</td><td class="n">${formatRMStat(e.deductions)}</td><td class="n">${formatRMStat(e.net_payout)}</td></tr>`
+        (e) => {
+          const gross = e.base_salary + e.service_commission + e.product_commission + e.bonuses;
+          return `<tr>
+            <td>${esc(e.staff?.full_name ?? "?")}</td>
+            <td class="n">${e.days_worked != null ? `${e.days_worked}/${e.total_working_days}` : "—"}</td>
+            <td class="n">${formatRMStat(e.base_salary)}</td>
+            <td class="n">${formatRMStat(e.service_commission)}</td>
+            <td class="n">${formatRMStat(e.product_commission)}</td>
+            <td class="n">${formatRMStat(e.bonuses)}</td>
+            <td class="n">${formatRMStat(gross)}</td>
+            <td class="n">${formatRMStat(e.deductions + e.advances)}</td>
+            <td class="n"><strong>${formatRMStat(e.net_payout)}</strong></td>
+          </tr>`;
+        }
       )
       .join("");
     const inner = `
 <style>
-body{font-family:system-ui,sans-serif;padding:24px;color:#111}
-h1{font-size:18px} table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
-.n{text-align:right;font-variant-numeric:tabular-nums}
+  @page { size: A4 landscape; margin: 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; padding: 0; margin: 0; color: #111; }
+  .header { margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #111; display: flex; justify-content: space-between; align-items: flex-end; }
+  h1 { font-size: 18px; margin: 0 0 3px; }
+  .sub { font-size: 11px; color: #777; }
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; background: #f0f0f0; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead tr { background: #111; color: #fff; }
+  th { text-align: left; padding: 8px 6px; font-weight: 600; }
+  td { padding: 7px 6px; border-bottom: 1px solid #eee; }
+  .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .total-row td { background: #f5f5f5; font-weight: 700; border-top: 2px solid #111; }
+  .foot { margin-top: 20px; font-size: 10px; color: #888; line-height: 1.6; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
-<h1>Payroll register</h1>
-<p>${esc(tenantName)} · ${esc(periodLabel)}</p>
-<table><thead><tr><th>Staff</th><th class="n">Base</th><th class="n">Svc comm</th><th class="n">Prod comm</th><th class="n">Bonus</th><th class="n">Deduct.</th><th class="n">Net</th></tr></thead><tbody>${rows}</tbody></table>
-<p style="font-size:11px;color:#666;margin-top:16px">For employer records. Cross-check with KWSP, PERKESO, LHDN, and bank payment files before statutory submission.</p>`;
-    openPrintableDocument(inner, `Payroll-${periodLabel}`);
+<div class="header">
+  <div>
+    <h1>Payroll Register</h1>
+    <div class="sub">${esc(tenantName)} · Pay Period: ${esc(periodLabel)}</div>
+  </div>
+  <div class="badge">${entries.length} staff · Status: ${esc(selectedPeriod.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()))}</div>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th>Staff</th>
+      <th class="n">Days</th>
+      <th class="n">Basic Salary</th>
+      <th class="n">Svc Comm.</th>
+      <th class="n">Prod Comm.</th>
+      <th class="n">Bonus</th>
+      <th class="n">Gross Pay</th>
+      <th class="n">Deduct. + Adv.</th>
+      <th class="n">Net Pay</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows}
+    <tr class="total-row">
+      <td>TOTAL</td>
+      <td class="n">—</td>
+      <td class="n">—</td>
+      <td class="n">—</td>
+      <td class="n">—</td>
+      <td class="n">—</td>
+      <td class="n">${formatRMStat(grossTotal)}</td>
+      <td class="n">${formatRMStat(deductTotal)}</td>
+      <td class="n">${formatRMStat(netTotal)}</td>
+    </tr>
+  </tbody>
+</table>
+<div class="foot">
+  Generated by BarberPro on ${new Date().toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })}.<br>
+  For employer records only. Cross-check all figures with KWSP, PERKESO, LHDN, and your bank payment files before statutory submission.
+  Net Pay figures above do not include statutory deductions unless they have been manually recorded under "Deductions" in BarberPro.
+</div>`;
+    openPrintableDocument(inner, `Payroll-Register-${periodLabel}`);
   }
 
   const selectedStaffBase = staffList.find((s) => s.staff_profile_id === addStaffId)?.base_salary ?? 0;
@@ -1116,7 +1352,12 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
       {payslipEntry && selectedPeriod && (() => {
         const e = payslipEntry;
         const gross = e.base_salary + e.service_commission + e.product_commission + e.bonuses;
-        const stat = calculateStatutoryDeductions(gross, 30, { maritalStatus: "single", numDependents: 0 });
+        const _dob = e.staff?.date_of_birth;
+        let _age = 30;
+        if (_dob) { const born = new Date(_dob); const today = new Date(); _age = today.getFullYear() - born.getFullYear(); if (today.getMonth() < born.getMonth() || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) _age--; }
+        const _marital = (e.staff?.marital_status as MaritalStatus | null) ?? "single";
+        const _deps = e.staff?.num_dependents ?? 0;
+        const stat = calculateStatutoryDeductions(gross, _age, { maritalStatus: _marital, numDependents: _deps });
         const diff = Math.round((e.deductions - stat.totalEmployeeDeductions) * 100) / 100;
         const periodLabel = `${formatDate(selectedPeriod.period_start)} – ${formatDate(selectedPeriod.period_end)}`;
         const rev = (e.service_revenue ?? 0) + (e.product_revenue ?? 0);
@@ -1301,7 +1542,7 @@ th,td{text-align:left;padding:6px;border-bottom:1px solid #ddd}
 
                 {/* Legal disclaimer */}
                 <p className="text-[10px] leading-relaxed text-gray-600">
-                  Statutory estimates use a simplified MTD model (age 30, single, 0 dependents). Confirm with LHDN tables, EA form, and e‑Data PCB before filing. Deductions stored in BarberPro may differ from the statutory estimate if loans, zakat, or custom PCB inputs apply. This payslip is for records only and is not legal or tax advice.
+                  Statutory estimates use a simplified MTD model (age {_age}, {_marital.replace(/_/g," ")}, {_deps} dependent{_deps !== 1 ? "s" : ""}). Confirm with LHDN tables, EA form, and e‑Data PCB before filing. Deductions stored in BarberPro may differ from the statutory estimate if loans, zakat, or custom PCB inputs apply. This payslip is for records only and is not legal or tax advice.
                 </p>
               </div>
             </div>
