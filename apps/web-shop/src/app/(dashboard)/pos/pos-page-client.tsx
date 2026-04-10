@@ -439,7 +439,7 @@ export function PosPageClient() {
   );
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<number | null>(0);
+  const [selectedBarber, setSelectedBarber] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("services");
@@ -573,7 +573,7 @@ export function PosPageClient() {
   const selectedBarberName =
     selectedBarber !== null && barbers[selectedBarber]
       ? barbers[selectedBarber].full_name
-      : "Next Available";
+      : "Select Barber";
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomer);
   const selectedCustomerName = selectedCustomerObj?.full_name ?? "Walk-in";
 
@@ -674,7 +674,7 @@ export function PosPageClient() {
       ? uniqueBarbers.join(", ")
       : selectedBarber !== null && barbers[selectedBarber]
         ? barbers[selectedBarber].full_name
-        : "Next Available";
+        : "Select Barber";
 
     setReceipt({
       items: allReceiptItems,
@@ -697,7 +697,7 @@ export function PosPageClient() {
     setQrPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
     setLinkedQueueTicketId(null);
     setSelectedCustomer(null);
-    setSelectedBarber(0);
+    setSelectedBarber(null);
   }
 
   async function handleCheckout(method: string, proofStoragePath?: string | null) {
@@ -877,7 +877,7 @@ export function PosPageClient() {
 
   // Barber selector options
   const barberOptions: SelectorOption[] = [
-    { value: "__next__", label: "Next Available" },
+    { value: "__next__", label: "Select Barber" },
     ...barbers.map((b, i) => ({ value: String(i), label: b.full_name })),
   ];
 
