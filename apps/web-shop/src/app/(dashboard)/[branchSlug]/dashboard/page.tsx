@@ -29,7 +29,8 @@ import {
   useInventoryItems,
   useBranches,
   useExpenses,
-  useQueueStats
+  useQueueStats,
+  useBranchHref,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { useMaybeBranchContext } from "@/components/branch-context";
@@ -104,6 +105,7 @@ export default function DashboardPage() {
   const activeBranch = useMaybeBranchContext();
   const activeBranchName = activeBranch?.name ?? null;
   const isAllBranches = activeBranch === null;
+  const bHref = useBranchHref();
 
   useEffect(() => {
     if (searchParams.get("welcome") === "true") {
@@ -115,6 +117,7 @@ export default function DashboardPage() {
   }, [searchParams, router]);
 
   const { data: statsData, isLoading: statsLoading } = useDashboardStats(period);
+  const { data: monthStatsData } = useDashboardStats("month");
   const { data: chartData } = useDailyRevenue(period);
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
   const { data: staffData, isLoading: staffLoading } = useStaffMembers();
@@ -356,14 +359,14 @@ export default function DashboardPage() {
           });
         const approvedExpenses = monthExpenses.filter((e) => e.status === "approved").reduce((s, e) => s + (e.amount ?? 0), 0);
         const pendingCount = monthExpenses.filter((e) => (e.status ?? "pending") === "pending").length;
-        const thisMonthRevenue = stats?.todayRevenue ?? 0;
+        const thisMonthRevenue = monthStatsData?.data?.todayRevenue ?? 0;
         const netEstimate = thisMonthRevenue - approvedExpenses;
 
         return (
           <div className="space-y-3">
             {pendingCount > 0 && (
               <Link
-                href="/expenses"
+                href={bHref("/expenses")}
                 className="flex items-center gap-3 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 hover:border-yellow-500/30 transition-colors"
               >
                 <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" />
@@ -440,7 +443,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between border-b border-white/5 px-4 py-4 sm:px-5">
               <h3 className="font-bold text-white">{t.dashboard.recentTransactions}</h3>
               <Link
-                href="/reports"
+                href={bHref("/reports")}
                 className="text-sm font-medium text-[#D4AF37] transition hover:text-[#D4AF37]/80"
               >
                 {t.common.viewAll}
@@ -612,7 +615,7 @@ export default function DashboardPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/inventory"
+                  href={bHref("/inventory")}
                   className="mt-4 flex w-full items-center justify-center gap-1 text-xs font-medium text-red-400 transition hover:text-red-300"
                 >
                   <ShoppingCart className="h-3.5 w-3.5" />
@@ -662,7 +665,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
             <h3 className="font-bold text-white">{t.dashboard.recentExpenses}</h3>
             <Link
-              href="/expenses"
+              href={bHref("/expenses")}
               className="rounded-md bg-[#2a2a2a] px-3 py-1 text-xs text-white transition hover:bg-[#333]"
             >
               {t.common.addNew}

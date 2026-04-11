@@ -35,6 +35,7 @@ import {
   useStaffMembers,
   useServices,
   useSupabase,
+  useBranchHref,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { useT } from "@/lib/i18n/language-context";
@@ -98,6 +99,7 @@ export default function QueuePage() {
   const queryClient = useQueryClient();
   const supabase = useSupabase();
   const { branchId, branchName, tenantName, tenantId } = useTenant();
+  const bHref = useBranchHref();
   const { openRequestId } = useWalkInQueueModal();
   const { data: ticketsData, isLoading: ticketsLoading } = useQueueTickets();
   const { data: statsData } = useQueueStats();
@@ -1462,7 +1464,7 @@ export default function QueuePage() {
                 {activeServices.length === 0 && (
                   <p className="mt-1 text-[11px] text-amber-300">
                     {t.queue.noActiveServices}{" "}
-                    <Link href="/services" className="font-medium text-[#D4AF37] underline hover:text-[#e8c85b]">
+                    <Link href={bHref("/services")} className="font-medium text-[#D4AF37] underline hover:text-[#e8c85b]">
                       {t.queue.createService}
                     </Link>{" "}
                     first.

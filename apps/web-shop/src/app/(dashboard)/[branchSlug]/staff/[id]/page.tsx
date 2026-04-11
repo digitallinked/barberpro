@@ -38,6 +38,7 @@ import {
   useStaffCommission,
   useStaffAttendanceSummary,
   useStaffAttendance,
+  useBranchHref,
 } from "@/hooks";
 import { useTenant } from "@/components/tenant-provider";
 import { isOwnerOrManager } from "@/lib/permissions";
@@ -192,6 +193,7 @@ export default function StaffProfilePage() {
   const queryClient = useQueryClient();
   const { userRole } = useTenant();
   const canManage = isOwnerOrManager(userRole);
+  const bHref = useBranchHref();
 
   const [isPending, startTransition] = useTransition();
   const [clockFeedback, setClockFeedback] = useState<string | null>(null);
@@ -233,7 +235,7 @@ export default function StaffProfilePage() {
   if (!staff) {
     return (
       <div className="space-y-6">
-        <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-white">
+        <Link href={bHref("/staff")} className="inline-flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Back to Staff
         </Link>
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center text-red-400">
@@ -362,7 +364,7 @@ export default function StaffProfilePage() {
     <div className="space-y-6">
       {/* Top nav */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/staff" className="inline-flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-white">
+        <Link href={bHref("/staff")} className="inline-flex items-center gap-1.5 text-sm text-gray-400 transition hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Back to Staff
         </Link>
         {canManage && (
@@ -611,7 +613,7 @@ export default function StaffProfilePage() {
               <InfoRow label="Account no." value={staff.bank_account_number} />
             </div>
             <div className="px-4 pb-3 pt-2">
-              <Link href="/payroll"
+              <Link href={bHref("/payroll")}
                 className="block w-full rounded-lg border border-white/10 py-2 text-center text-xs font-medium text-gray-400 transition hover:bg-white/5 hover:text-white">
                 View Payroll →
               </Link>

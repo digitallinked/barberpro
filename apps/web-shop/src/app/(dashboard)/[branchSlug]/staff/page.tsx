@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useStaffMembers, useBranches, useStaffAttendance } from "@/hooks";
+import { useStaffMembers, useBranches, useStaffAttendance, useBranchHref } from "@/hooks";
 import type { StaffMember } from "@/services/staff";
 import { createStaffMember } from "@/actions/staff";
 import { inviteStaffMember } from "@/actions/staff-invite";
@@ -72,6 +72,7 @@ export default function StaffPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { tenantPlan, userRole } = useTenant();
+  const bHref = useBranchHref();
   const activeBranch = useMaybeBranchContext();
   const activeBranchId = activeBranch?.id ?? null;
   const activeBranchName = activeBranch?.name ?? null;
@@ -501,7 +502,7 @@ export default function StaffPage() {
                   return (
                     <tr
                       key={s.staff_profile_id}
-                      onClick={() => router.push(`/staff/${s.staff_profile_id}`)}
+                      onClick={() => router.push(bHref(`/staff/${s.staff_profile_id}`))}
                       className="group cursor-pointer transition-colors hover:bg-[#D4AF37]/[0.04]"
                     >
                       {/* Staff name + role + contact */}
