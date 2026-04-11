@@ -70,22 +70,32 @@ function formatDate(iso: string): string {
 function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
   const maxRevenue = Math.max(...bars.map((b) => b.revenue), 1);
   const maxH = 80;
-  const today = new Date();
-  const myNow = new Date(today.getTime() + 8 * 60 * 60 * 1000);
-  const dayLabels = ["Isn", "Sel", "Rab", "Kha", "Jum", "Sab", "Ahd"];
-  const myDayOfWeek = myNow.getUTCDay();
-  const todayLabel = dayLabels[myDayOfWeek === 0 ? 6 : myDayOfWeek - 1];
+  // getDailyRevenue returns English short labels: Mon Tue Wed Thu Fri Sat Sun
+  const weekDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const myNow = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
+  const myDayOfWeek = myNow.getUTCDay(); // 0 = Sun
+  const todayLabel =
+    bars.length <= 7
+      ? weekDayLabels[myDayOfWeek === 0 ? 6 : myDayOfWeek - 1]
+      : null; // month view: highlight last bar
 
   return (
-    <div className="flex h-28 items-end gap-2">
+    <div className="flex h-28 items-end gap-1.5">
       {bars.map((b, i) => {
-        const isToday = b.label === todayLabel || (bars.length > 7 && i === bars.length - 1);
-        const height = Math.max((b.revenue / maxRevenue) * maxH, b.revenue > 0 ? 4 : 2);
+        const isToday =
+          todayLabel !== null
+            ? b.label === todayLabel
+            : i === bars.length - 1;
+        const pct = b.revenue / maxRevenue;
+        const height = Math.max(pct * maxH, b.revenue > 0 ? 5 : 2);
         return (
           <div key={i} className="flex flex-1 flex-col items-center gap-1">
             <div
+              title={`${b.label}: RM ${b.revenue.toFixed(2)}`}
               style={{ height: `${height}px` }}
-              className={`w-full rounded-t transition-all ${isToday ? "bg-[#D4AF37]" : "bg-[#D4AF37]/20"}`}
+              className={`w-full rounded-t transition-all ${
+                isToday ? "bg-[#D4AF37]" : b.revenue > 0 ? "bg-[#D4AF37]/40" : "bg-white/5"
+              }`}
             />
             <span className="text-[9px] text-gray-600">{b.label}</span>
           </div>
@@ -118,7 +128,9 @@ export default function DashboardPage() {
 
   const { data: statsData, isLoading: statsLoading } = useDashboardStats(period);
   const { data: monthStatsData } = useDashboardStats("month");
-  const { data: chartData } = useDailyRevenue(period);
+  // Chart always shows the current week for context; stat cards reflect the selected period
+  const chartPeriod: Period = period === "month" ? "month" : "week";
+  const { data: chartData } = useDailyRevenue(chartPeriod);
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
   const { data: staffData, isLoading: staffLoading } = useStaffMembers();
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
@@ -414,7 +426,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bold text-white">{t.dashboard.salesRevenue}</h3>
                 <p className="mt-0.5 text-sm text-gray-500">
-                  {PERIOD_LABELS[period].chart}
+                  {period === "month" ? PERIOD_LABELS[period].chart : "Daily revenue — this week"}
                 </p>
               </div>
               <BarChart2 className="h-5 w-5 text-[#D4AF37]" />
@@ -432,7 +444,7 @@ export default function DashboardPage() {
                 {periodLabel}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-[#D4AF37]/20" />
+                <span className="inline-block h-2 w-2 rounded-full bg-[#D4AF37]/40" />
                 {t.dashboard.otherDays}
               </span>
             </div>
