@@ -116,12 +116,34 @@ export function isOwnerOrManager(role: string): boolean {
 }
 
 /**
+ * Pages that live at the root of (dashboard)/ — NOT under [branchSlug]/.
+ * Used to distinguish branch-scoped paths from global paths.
+ */
+const GLOBAL_PAGES = new Set([
+  "billing", "branches", "settings", "profile",
+]);
+
+/**
  * Extract the page identifier from a pathname for permission checking.
- * e.g. "/staff/123" -> "staff", "/branches/abc/inventory" -> "branches"
+ * Handles both branch-scoped paths and global paths:
+ *   "/digital-linked/queue"      → "queue"
+ *   "/all/dashboard"             → "dashboard"
+ *   "/billing"                   → "billing"
+ *   "/staff/123"                 → "staff"   (legacy flat route)
+ *   "/branches/abc/settings"     → "branches"
  */
 export function pageFromPathname(pathname: string): string | null {
   const segments = pathname.split("/").filter(Boolean);
-  return segments[0] ?? null;
+  if (segments.length === 0) return null;
+
+  const first = segments[0]!;
+
+  if (GLOBAL_PAGES.has(first) || ALL_PAGES.includes(first)) {
+    return first;
+  }
+
+  // First segment is a branch slug (or "all") — the page is the second segment
+  return segments[1] ?? null;
 }
 
 /**
