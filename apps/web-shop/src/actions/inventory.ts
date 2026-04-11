@@ -37,7 +37,7 @@ export async function createInventoryItem(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/inventory");
+    revalidatePath("/[branchSlug]/inventory", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -81,7 +81,7 @@ export async function updateInventoryItem(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/inventory");
+    revalidatePath("/[branchSlug]/inventory", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -148,7 +148,7 @@ export async function adjustStock(
 
     if (movementError) return { success: false, error: movementError.message };
 
-    revalidatePath("/inventory");
+    revalidatePath("/[branchSlug]/inventory", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

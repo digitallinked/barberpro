@@ -93,7 +93,7 @@ export async function upsertSeat(params: {
       if (error) return { success: false, error: error.message };
     }
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -109,7 +109,7 @@ export async function deleteSeat(seatId: string): Promise<{ success: boolean; er
       .eq("id", seatId)
       .eq("tenant_id", tenantId);
     if (error) return { success: false, error: error.message };
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -128,7 +128,7 @@ export async function assignBarberToSeat(
       .eq("id", seatId)
       .eq("tenant_id", tenantId);
     if (error) return { success: false, error: error.message };
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

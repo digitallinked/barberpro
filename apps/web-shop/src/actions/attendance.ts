@@ -37,9 +37,9 @@ export async function recordAttendance(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
-    revalidatePath("/staff");
-    revalidatePath(`/staff/${staff_id}`);
+    revalidatePath("/[branchSlug]/payroll", "page");
+    revalidatePath("/[branchSlug]/staff", "page");
+    revalidatePath("/[branchSlug]/staff/[id]", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -69,9 +69,9 @@ export async function clockIn(staffId: string, branchId?: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
-    revalidatePath("/staff");
-    revalidatePath(`/staff/${staffId}`);
+    revalidatePath("/[branchSlug]/payroll", "page");
+    revalidatePath("/[branchSlug]/staff", "page");
+    revalidatePath("/[branchSlug]/staff/[id]", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -108,9 +108,9 @@ export async function clockOut(staffId: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
-    revalidatePath("/staff");
-    revalidatePath(`/staff/${staffId}`);
+    revalidatePath("/[branchSlug]/payroll", "page");
+    revalidatePath("/[branchSlug]/staff", "page");
+    revalidatePath("/[branchSlug]/staff/[id]", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -138,8 +138,8 @@ export async function bulkRecordAttendance(
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
-    revalidatePath("/staff");
+    revalidatePath("/[branchSlug]/payroll", "page");
+    revalidatePath("/[branchSlug]/staff", "page");
     for (const r of records) {
       revalidatePath(`/staff/${r.staff_id}`);
     }

@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { createClient } from "./server";
 import { pickEffectiveBranchId } from "./branch-resolution";
 import type { Language } from "@/lib/i18n/translations";
@@ -24,7 +25,7 @@ export type TenantContext = {
   branches: { id: string; name: string; slug: string; is_hq: boolean }[];
 };
 
-export async function getCurrentTenant(): Promise<TenantContext | null> {
+export const getCurrentTenant = cache(async function getCurrentTenant(): Promise<TenantContext | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -91,4 +92,4 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
     branchSlug: activeBranch?.slug ?? null,
     branches: branchList.map((b) => ({ id: b.id, name: b.name, slug: b.slug, is_hq: b.is_hq })),
   };
-}
+});

@@ -89,7 +89,7 @@ export async function createStaffMember(formData: FormData) {
 
     if (profileError) return { success: false, error: profileError.message };
 
-    revalidatePath("/staff");
+    revalidatePath("/[branchSlug]/staff", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -151,8 +151,8 @@ export async function updateStaffMember(id: string, formData: FormData) {
       if (profileError) return { success: false, error: profileError.message };
     }
 
-    revalidatePath("/staff");
-    revalidatePath(`/staff/${id}`);
+    revalidatePath("/[branchSlug]/staff", "page");
+    revalidatePath("/[branchSlug]/staff/[id]", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -175,7 +175,7 @@ export async function reactivateStaffMember(id: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/staff");
+    revalidatePath("/[branchSlug]/staff", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -198,7 +198,7 @@ export async function deleteStaffMember(id: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/staff");
+    revalidatePath("/[branchSlug]/staff", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

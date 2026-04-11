@@ -164,9 +164,9 @@ export async function createTransaction(data: CreateTransactionData) {
       }
     }
 
-    revalidatePath("/pos");
-    revalidatePath("/queue");
-    revalidatePath("/dashboard");
+    revalidatePath("/[branchSlug]/pos", "page");
+    revalidatePath("/[branchSlug]/queue", "page");
+    revalidatePath("/[branchSlug]/dashboard", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -369,9 +369,9 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       .eq("tenant_id", tenantId)
       .neq("status", "completed");
 
-    revalidatePath("/pos");
-    revalidatePath("/queue");
-    revalidatePath("/dashboard");
+    revalidatePath("/[branchSlug]/pos", "page");
+    revalidatePath("/[branchSlug]/queue", "page");
+    revalidatePath("/[branchSlug]/dashboard", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

@@ -55,7 +55,7 @@ export async function createCommissionScheme(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/commissions");
+    revalidatePath("/[branchSlug]/commissions", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -110,7 +110,7 @@ export async function updateCommissionScheme(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/commissions");
+    revalidatePath("/[branchSlug]/commissions", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -140,7 +140,7 @@ export async function assignCommissionScheme(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/commissions");
+    revalidatePath("/[branchSlug]/commissions", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

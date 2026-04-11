@@ -32,7 +32,7 @@ export async function createPayrollPeriod(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
+    revalidatePath("/[branchSlug]/payroll", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -68,8 +68,8 @@ export async function updatePayrollPeriodStatus(id: string, status: string) {
       await recordPayrollExpenses(supabase, tenantId, appUserId, id);
     }
 
-    revalidatePath("/payroll");
-    revalidatePath("/expenses");
+    revalidatePath("/[branchSlug]/payroll", "page");
+    revalidatePath("/[branchSlug]/expenses", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -229,7 +229,7 @@ export async function createPayrollEntry(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
+    revalidatePath("/[branchSlug]/payroll", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -281,7 +281,7 @@ export async function updatePayrollEntry(entryId: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
+    revalidatePath("/[branchSlug]/payroll", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -300,7 +300,7 @@ export async function deletePayrollEntry(entryId: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/payroll");
+    revalidatePath("/[branchSlug]/payroll", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -420,7 +420,7 @@ export async function generatePayrollEntries(periodId: string) {
       }
     }
 
-    revalidatePath("/payroll");
+    revalidatePath("/[branchSlug]/payroll", "page");
     return {
       success: true,
       generated,

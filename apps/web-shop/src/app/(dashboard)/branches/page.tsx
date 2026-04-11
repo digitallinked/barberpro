@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
+import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,7 +19,6 @@ export default function BranchesPage() {
   const router = useRouter();
   const { data, isLoading, error } = useBranches();
   const tenant = useTenant();
-  const { activeBranchId, setActiveBranch } = tenant;
 
   const [showModal, setShowModal] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -112,8 +111,7 @@ export default function BranchesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {branches.map((b) => {
             const logoUrl = b.logo_url;
-            const slug = (b as Record<string, unknown>).slug ?? b.id;
-            const isActive = b.id === activeBranchId;
+            const slug = (b as Record<string, unknown>).slug as string ?? b.id;
             const modeLabel = b.accepts_online_bookings && b.accepts_walkin_queue ? "Bookings & Walk-ins"
               : b.accepts_online_bookings ? "Appointments only"
               : b.accepts_walkin_queue ? "Walk-in only"
@@ -124,9 +122,7 @@ export default function BranchesPage() {
             return (
               <div
                 key={b.id}
-                className={`group rounded-xl border bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20 ${
-                  isActive ? "border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/5" : "border-white/5 hover:border-[#D4AF37]/20"
-                }`}
+                className="group rounded-xl border border-white/5 bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl hover:shadow-black/20"
               >
                 <div className="flex items-start gap-3 mb-4">
                   {logoUrl ? (
@@ -148,11 +144,6 @@ export default function BranchesPage() {
                       <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${b.is_active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
                         {b.is_active ? "Open" : "Closed"}
                       </span>
-                      {isActive && (
-                        <span className="rounded-full bg-[#D4AF37]/15 px-1.5 py-0.5 text-[10px] font-bold text-[#D4AF37]">
-                          Active
-                        </span>
-                      )}
                     </div>
                     <h3 className="text-sm font-bold text-white truncate">{b.name}</h3>
                     <p className="font-mono text-[11px] text-gray-500">{b.code}</p>
@@ -183,23 +174,13 @@ export default function BranchesPage() {
                   >
                     {t.branches.tabOverview}
                   </Link>
-                  {isActive ? (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37]/10 px-3 py-2 text-xs font-bold text-[#D4AF37]">
-                      <Check className="h-3.5 w-3.5" />
-                      Active
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBranch(b.id);
-                        router.push("/dashboard");
-                      }}
-                      className="rounded-lg bg-[#D4AF37]/10 px-3 py-2 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
-                    >
-                      {t.branches.setAsActive}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/${slug}/dashboard`)}
+                    className="rounded-lg bg-[#D4AF37]/10 px-3 py-2 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
+                  >
+                    {t.branches.setAsActive}
+                  </button>
                 </div>
               </div>
             );

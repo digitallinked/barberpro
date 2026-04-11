@@ -35,7 +35,7 @@ export async function createAppointment(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/appointments");
+    revalidatePath("/[branchSlug]/appointments", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -75,7 +75,7 @@ export async function updateAppointment(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/appointments");
+    revalidatePath("/[branchSlug]/appointments", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -97,7 +97,7 @@ export async function updateAppointmentStatus(id: string, status: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/appointments");
+    revalidatePath("/[branchSlug]/appointments", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

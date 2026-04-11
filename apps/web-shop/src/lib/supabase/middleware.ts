@@ -11,11 +11,30 @@ const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete", "incomplete_expire
 const TENANT_CACHE_COOKIE = "bp_tenant_state";
 const TENANT_CACHE_MAX_AGE = 60; // seconds — refresh from DB every 60s
 
+/** Old flat routes that must be redirected to the branch-scoped equivalents. */
+const OLD_FLAT_ROUTES = [
+  "/dashboard",
+  "/queue",
+  "/appointments",
+  "/pos",
+  "/customers",
+  "/services",
+  "/staff",
+  "/payroll",
+  "/commissions",
+  "/inventory",
+  "/expenses",
+  "/promotions",
+  "/reports",
+];
+
 type TenantCachePayload = {
   onboardingCompleted: boolean;
   subscriptionStatus: string | null;
   role: string | null;
   isStaff: boolean;
+  /** Default branch slug for redirect — HQ for owners, assigned branch for staff. */
+  defaultBranchSlug: string | null;
   ts: number;
 };
 
@@ -41,16 +60,27 @@ async function fetchTenantState(
   // 1. Try owner lookup first (fast path for shop owners)
   const { data: ownedTenant } = await supabase
     .from("tenants")
-    .select("onboarding_completed, subscription_status")
+    .select("onboarding_completed, subscription_status, id")
     .eq("owner_auth_id", userId)
     .maybeSingle();
 
   if (ownedTenant) {
+    // Find HQ branch slug for the default redirect
+    const { data: hqBranch } = await supabase
+      .from("branches")
+      .select("slug")
+      .eq("tenant_id", ownedTenant.id)
+      .eq("is_active", true)
+      .order("is_hq", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     return {
       onboardingCompleted: ownedTenant.onboarding_completed === true,
       subscriptionStatus: ownedTenant.subscription_status,
       role: "owner",
       isStaff: false,
+      defaultBranchSlug: hqBranch?.slug ?? null,
       ts: Date.now(),
     };
   }
@@ -58,7 +88,7 @@ async function fetchTenantState(
   // 2. Fall back to app_users lookup (staff members)
   const { data: appUser } = await supabase
     .from("app_users")
-    .select("role, tenant_id")
+    .select("role, tenant_id, branch_id")
     .eq("auth_user_id", userId)
     .eq("is_active", true)
     .maybeSingle();
@@ -73,11 +103,37 @@ async function fetchTenantState(
 
   if (!staffTenant) return null;
 
+  // Get the staff member's assigned branch slug
+  let staffBranchSlug: string | null = null;
+  if (appUser.branch_id) {
+    const { data: staffBranch } = await supabase
+      .from("branches")
+      .select("slug")
+      .eq("id", appUser.branch_id)
+      .eq("is_active", true)
+      .maybeSingle();
+    staffBranchSlug = staffBranch?.slug ?? null;
+  }
+
+  if (!staffBranchSlug) {
+    // Fall back to first active branch of the tenant
+    const { data: firstBranch } = await supabase
+      .from("branches")
+      .select("slug")
+      .eq("tenant_id", appUser.tenant_id)
+      .eq("is_active", true)
+      .order("is_hq", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    staffBranchSlug = firstBranch?.slug ?? null;
+  }
+
   return {
     onboardingCompleted: staffTenant.onboarding_completed === true,
     subscriptionStatus: staffTenant.subscription_status,
     role: appUser.role,
     isStaff: true,
+    defaultBranchSlug: staffBranchSlug,
     ts: Date.now(),
   };
 }
@@ -129,6 +185,8 @@ export async function updateSession(request: NextRequest) {
   if (!user && isDashboardRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // Preserve the intended destination so we can redirect back after login
+    url.searchParams.set("returnTo", pathname);
     return NextResponse.redirect(url);
   }
 
@@ -148,10 +206,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isAuthRoute) {
-    // These pages must always be reachable regardless of onboarding/subscription state:
-    // - /register    → mid-onboarding, user needs to complete setup
-    // - /forgot-password → user wants to reset their password
-    // - /reset-password  → user arrived via email link (Supabase gives them a temp session)
     if (
       pathname.startsWith("/register") ||
       pathname.startsWith("/forgot-password") ||
@@ -160,15 +214,13 @@ export async function updateSession(request: NextRequest) {
       return getResponse();
     }
 
-    // /login: let through if onboarding is incomplete so "Log In" from the marketing
-    // site doesn't silently redirect to /register and confuse the user.
     if (pathname.startsWith("/login")) {
       if (!tenantState || !tenantState.onboardingCompleted) {
         return getResponse();
       }
     }
 
-    // Authenticated user with a complete account visiting an auth page — redirect them home.
+    // Authenticated user visiting an auth page — redirect them to the right place
     const url = request.nextUrl.clone();
     if (!tenantState || !tenantState.onboardingCompleted) {
       url.pathname = "/register";
@@ -177,8 +229,6 @@ export async function updateSession(request: NextRequest) {
       tenantState.subscriptionStatus === "incomplete" ||
       tenantState.subscriptionStatus === "incomplete_expired"
     ) {
-      // incomplete = Stripe checkout was not finished (e.g. 3DS required) → send back to payment step
-      // incomplete_expired = checkout window expired → same
       url.pathname = "/register";
       url.searchParams.set("step", "payment");
     } else if (
@@ -187,13 +237,14 @@ export async function updateSession(request: NextRequest) {
     ) {
       url.pathname = "/subscription-required";
     } else {
-      url.pathname = "/dashboard";
+      // Redirect to branch-scoped dashboard instead of flat /dashboard
+      const slug = tenantState.defaultBranchSlug;
+      url.pathname = slug ? `/${slug}/dashboard` : "/dashboard";
     }
     return NextResponse.redirect(url);
   }
 
   if (isDashboardRoute) {
-    // Staff members skip onboarding/subscription checks — those are the owner's responsibility
     if (tenantState?.isStaff) {
       if (
         tenantState.subscriptionStatus &&
@@ -221,6 +272,16 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
       }
     }
+
+    // Redirect old flat routes to branch-scoped equivalents
+    const matchedOldRoute = OLD_FLAT_ROUTES.find(
+      (r) => pathname === r || pathname.startsWith(r + "/")
+    );
+    if (matchedOldRoute && tenantState?.defaultBranchSlug) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${tenantState.defaultBranchSlug}${pathname}`;
+      return NextResponse.redirect(url);
+    }
   }
 
   if (isSubscriptionPage && tenantState) {
@@ -230,7 +291,8 @@ export async function updateSession(request: NextRequest) {
 
     if (tenantState.onboardingCompleted && subscriptionOk) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      const slug = tenantState.defaultBranchSlug;
+      url.pathname = slug ? `/${slug}/dashboard` : "/dashboard";
       return NextResponse.redirect(url);
     }
   }

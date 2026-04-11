@@ -40,7 +40,7 @@ export async function createExpense(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/expenses");
+    revalidatePath("/[branchSlug]/expenses", "page");
     return { success: true, id: data?.id };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -92,7 +92,7 @@ export async function updateExpense(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/expenses");
+    revalidatePath("/[branchSlug]/expenses", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -111,7 +111,7 @@ export async function updateExpenseStatus(id: string, status: "paid" | "pending"
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/expenses");
+    revalidatePath("/[branchSlug]/expenses", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -130,7 +130,7 @@ export async function deleteExpense(id: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/expenses");
+    revalidatePath("/[branchSlug]/expenses", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

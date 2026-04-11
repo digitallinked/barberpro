@@ -29,7 +29,7 @@ export async function createCustomer(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/customers");
+    revalidatePath("/[branchSlug]/customers", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -65,7 +65,7 @@ export async function updateCustomer(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/customers");
+    revalidatePath("/[branchSlug]/customers", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -84,7 +84,7 @@ export async function deleteCustomer(id: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/customers");
+    revalidatePath("/[branchSlug]/customers", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

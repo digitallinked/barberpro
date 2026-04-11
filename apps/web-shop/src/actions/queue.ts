@@ -70,7 +70,7 @@ export async function createQueueTicket(formData: FormData) {
       });
 
       if (!error) {
-        revalidatePath("/queue");
+        revalidatePath("/[branchSlug]/queue", "page");
         return { success: true };
       }
 
@@ -124,7 +124,7 @@ export async function updateQueueStatus(
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -285,9 +285,9 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
 
     if (queueError) return { success: false, error: queueError.message };
 
-    revalidatePath("/queue");
-    revalidatePath("/pos");
-    revalidatePath("/dashboard");
+    revalidatePath("/[branchSlug]/queue", "page");
+    revalidatePath("/[branchSlug]/pos", "page");
+    revalidatePath("/[branchSlug]/dashboard", "page");
     return { success: true, warning };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -333,7 +333,7 @@ export async function addTicketSeatMember(
 
     if (ticketError) return { success: false, error: ticketError.message };
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -357,7 +357,7 @@ export async function completeTicketSeatMember(
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -379,7 +379,7 @@ export async function removeTicketSeatMember(
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -411,7 +411,7 @@ export async function cancelStaleWaitingQueueTickets(requestedBranchId?: string 
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -490,7 +490,7 @@ export async function rotateQueueCheckinToken(requestedBranchId?: string | null)
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/queue");
+    revalidatePath("/[branchSlug]/queue", "page");
     const baseUrl = getCustomerPublicBaseUrl();
     const url = `${baseUrl}/check-in/${token}`;
     return { success: true as const, url };

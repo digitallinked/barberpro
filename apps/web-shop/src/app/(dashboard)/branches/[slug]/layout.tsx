@@ -1,57 +1,53 @@
-"use client";
-
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
 import {
   ArrowLeft,
   ClipboardList,
-  Loader2,
   Settings,
   Store,
 } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { BranchProvider } from "@/components/branch-context";
-import { useTenant } from "@/components/tenant-provider";
-import { useBranchBySlug } from "@/hooks";
+import { getCurrentTenant } from "@/lib/supabase/queries";
+import { createClient } from "@/lib/supabase/server";
+import { resolveBranchBySlug } from "@/lib/branch-slug";
 import { getBranchTabs } from "@/lib/permissions";
 import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
+import { hasSupabaseEnv } from "@/lib/env";
+import { BranchSlugLayoutTabs } from "./layout-tabs";
 
 const TAB_ICONS: Record<string, React.ElementType> = {
   overview: Store,
   settings: Settings,
 };
 
-export default function BranchSlugLayout({ children }: { children: ReactNode }) {
-  const params = useParams();
-  const slug = params.slug as string;
-  const pathname = usePathname();
-  const { userRole } = useTenant();
+type Props = {
+  children: ReactNode;
+  params: Promise<{ slug: string }>;
+};
 
-  const { data: branchResult, isLoading, error } = useBranchBySlug(slug);
-  const branch = branchResult?.data ?? null;
+export default async function BranchSlugLayout({ children, params }: Props) {
+  const { slug } = await params;
 
-  const tabs = getBranchTabs(userRole);
-  const basePath = `/branches/${slug}`;
-
-  const activeTab = (() => {
-    const after = pathname.replace(basePath, "").replace(/^\//, "");
-    if (!after) return "overview";
-    return after.split("/")[0] || "overview";
-  })();
-
-  if (isLoading) {
+  if (!hasSupabaseEnv()) {
     return (
-      <div className="flex items-center justify-center rounded-2xl border border-white/5 bg-[#1a1a1a] py-24">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
-          <p className="text-sm text-gray-400">Loading branch...</p>
-        </div>
+      <div className="space-y-4">
+        <Link href="/branches" className="inline-flex items-center gap-1 text-sm text-gray-400 transition hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Back to Branches
+        </Link>
+        <div>{children}</div>
       </div>
     );
   }
 
-  if (error || !branch) {
+  const tenantCtx = await getCurrentTenant();
+  if (!tenantCtx) redirect("/login");
+
+  const supabase = await createClient();
+  const branch = await resolveBranchBySlug(supabase, tenantCtx.tenantId, slug);
+
+  if (!branch) {
     return (
       <div className="space-y-4">
         <Link href="/branches" className="inline-flex items-center gap-1 text-sm text-gray-400 transition hover:text-white">
@@ -64,17 +60,17 @@ export default function BranchSlugLayout({ children }: { children: ReactNode }) 
     );
   }
 
+  const tabs = getBranchTabs(tenantCtx.userRole);
+  const basePath = `/branches/${slug}`;
   const logoUrl = branch.logo_url;
 
   return (
     <BranchProvider value={branch}>
       <div className="space-y-0">
-        {/* Back link */}
         <Link href="/branches" className="mb-4 inline-flex items-center gap-1 text-sm text-gray-400 transition hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Back to Branches
         </Link>
 
-        {/* Branch Header */}
         <div className="rounded-t-xl border border-white/5 bg-[#1a1a1a] px-6 pt-6 pb-0">
           <div className="flex items-center gap-4 pb-5">
             {logoUrl ? (
@@ -98,31 +94,10 @@ export default function BranchSlugLayout({ children }: { children: ReactNode }) 
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="-mb-px flex gap-0 overflow-x-auto">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.key;
-              const href = tab.key === "overview" ? basePath : `${basePath}/${tab.key}`;
-              const Icon = TAB_ICONS[tab.key] ?? ClipboardList;
-              return (
-                <Link
-                  key={tab.key}
-                  href={href}
-                  className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition ${
-                    isActive
-                      ? "border-[#D4AF37] text-[#D4AF37]"
-                      : "border-transparent text-gray-500 hover:border-white/10 hover:text-gray-300"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.labelKey}
-                </Link>
-              );
-            })}
-          </div>
+          {/* Tab navigation is client-side for active-state detection */}
+          <BranchSlugLayoutTabs tabs={tabs} basePath={basePath} tabIcons={TAB_ICONS} />
         </div>
 
-        {/* Tab Content */}
         <div className="rounded-b-xl border border-t-0 border-white/5 bg-[#1a1a1a] p-6">
           {children}
         </div>

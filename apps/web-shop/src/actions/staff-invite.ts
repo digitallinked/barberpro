@@ -102,7 +102,7 @@ export async function inviteStaffMember(formData: FormData) {
       }
     }
 
-    revalidatePath("/staff");
+    revalidatePath("/[branchSlug]/staff", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -125,7 +125,7 @@ export async function revokeStaffAccess(staffAppUserId: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/staff");
+    revalidatePath("/[branchSlug]/staff", "page");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

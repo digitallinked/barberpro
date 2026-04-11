@@ -39,7 +39,14 @@ import {
 import { useT } from "@/lib/i18n/language-context";
 import { canAccessPage } from "@/lib/permissions";
 
-type NavItem = { labelKey: string; href: string; icon: React.ElementType; pageKey: string };
+/** Nav items marked `global: true` are not branch-scoped (e.g. /billing, /branches). */
+type NavItem = {
+  labelKey: string;
+  href: string;
+  icon: React.ElementType;
+  pageKey: string;
+  global?: boolean;
+};
 
 function useNavItems(role: string) {
   const t = useT();
@@ -67,12 +74,12 @@ function useNavItems(role: string) {
     { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet, pageKey: "expenses" },
     { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone, pageKey: "promotions" },
     { labelKey: t.nav.reports, href: "/reports", icon: BarChart3, pageKey: "reports" },
-    { labelKey: t.nav.branches, href: "/branches", icon: Store, pageKey: "branches" },
-    { labelKey: t.nav.settings, href: "/settings", icon: Settings, pageKey: "settings" },
+    { labelKey: t.nav.branches, href: "/branches", icon: Store, pageKey: "branches", global: true },
+    { labelKey: t.nav.settings, href: "/settings", icon: Settings, pageKey: "settings", global: true },
   ];
 
   const allWorkspace: NavItem[] = [
-    { labelKey: t.nav.billing, href: "/billing", icon: Banknote, pageKey: "billing" },
+    { labelKey: t.nav.billing, href: "/billing", icon: Banknote, pageKey: "billing", global: true },
   ];
 
   const filter = (items: NavItem[]) => items.filter((i) => canAccessPage(role, i.pageKey));
@@ -95,8 +102,6 @@ function useNavItems(role: string) {
 
 function isNavActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
-  // Match child routes (e.g. /staff/123 → Staff is active), but guard
-  // against /billing incorrectly activating /settings.
   return href !== "/" && pathname.startsWith(href + "/");
 }
 
@@ -105,17 +110,20 @@ function NavLink({
   pathname,
   onClick,
   collapsed,
+  branchPrefix,
 }: {
   item: NavItem;
   pathname: string;
   onClick?: () => void;
   collapsed?: boolean;
+  branchPrefix: string;
 }) {
   const Icon = item.icon;
-  const active = isNavActive(pathname, item.href);
+  const fullHref = item.global ? item.href : `${branchPrefix}${item.href}`;
+  const active = isNavActive(pathname, fullHref);
   return (
     <Link
-      href={item.href}
+      href={fullHref}
       onClick={onClick}
       title={collapsed ? item.labelKey : undefined}
       className={`flex items-center rounded-md text-sm font-medium transition-all ${
@@ -138,12 +146,14 @@ function NavGroup({
   pathname,
   onNav,
   collapsed,
+  branchPrefix,
 }: {
   label: string;
   items: NavItem[];
   pathname: string;
   onNav?: () => void;
   collapsed?: boolean;
+  branchPrefix: string;
 }) {
   if (items.length === 0) return null;
   return (
@@ -163,6 +173,7 @@ function NavGroup({
             pathname={pathname}
             onClick={onNav}
             collapsed={collapsed}
+            branchPrefix={branchPrefix}
           />
         ))}
       </div>
@@ -178,6 +189,7 @@ function SidebarContent({
   branchName,
   collapsed,
   onToggleCollapse,
+  branchPrefix,
 }: {
   pathname: string;
   onNav?: () => void;
@@ -186,6 +198,7 @@ function SidebarContent({
   branchName: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  branchPrefix: string;
 }) {
   const t = useT();
   const { NAV_OPERATIONS, NAV_CUSTOMERS, NAV_TEAM, NAV_BUSINESS, NAV_WORKSPACE } = useNavItems(userRole);
@@ -233,6 +246,7 @@ function SidebarContent({
           pathname={pathname}
           onNav={onNav}
           collapsed={collapsed}
+          branchPrefix={branchPrefix}
         />
         <NavGroup
           label={t.nav.customers}
@@ -240,6 +254,7 @@ function SidebarContent({
           pathname={pathname}
           onNav={onNav}
           collapsed={collapsed}
+          branchPrefix={branchPrefix}
         />
         <NavGroup
           label={t.nav.team}
@@ -247,6 +262,7 @@ function SidebarContent({
           pathname={pathname}
           onNav={onNav}
           collapsed={collapsed}
+          branchPrefix={branchPrefix}
         />
         <NavGroup
           label={t.nav.business}
@@ -254,6 +270,7 @@ function SidebarContent({
           pathname={pathname}
           onNav={onNav}
           collapsed={collapsed}
+          branchPrefix={branchPrefix}
         />
         <NavGroup
           label={t.nav.workspace}
@@ -261,6 +278,7 @@ function SidebarContent({
           pathname={pathname}
           onNav={onNav}
           collapsed={collapsed}
+          branchPrefix={branchPrefix}
         />
       </nav>
 
@@ -317,14 +335,17 @@ function SidebarContent({
 function MobileTabLink({
   item,
   active,
+  branchPrefix,
 }: {
   item: NavItem;
   active: boolean;
+  branchPrefix: string;
 }) {
   const Icon = item.icon;
+  const fullHref = item.global ? item.href : `${branchPrefix}${item.href}`;
   return (
     <Link
-      href={item.href}
+      href={fullHref}
       aria-current={active ? "page" : undefined}
       className={`flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-0 transition-colors active:scale-[0.97] active:opacity-90 ${
         active ? "text-[#D4AF37]" : "text-gray-500 hover:text-gray-300"
@@ -350,11 +371,13 @@ function MobileBottomNav({
   onOpenMenu,
   menuOpen,
   userRole,
+  branchPrefix,
 }: {
   pathname: string;
   onOpenMenu: () => void;
   menuOpen: boolean;
   userRole: string;
+  branchPrefix: string;
 }) {
   const t = useT();
   const { NAV_MOBILE } = useNavItems(userRole);
@@ -363,13 +386,17 @@ function MobileBottomNav({
     <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden" aria-label="Primary">
       <div className="w-full border-t border-white/10 bg-[#1a1a1a]/92 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150">
         <div className="flex h-[60px] items-end justify-around gap-0 px-1.5 pt-2">
-          {NAV_MOBILE.map((item) => (
-            <MobileTabLink
-              key={item.href}
-              item={item}
-              active={isNavActive(pathname, item.href)}
-            />
-          ))}
+          {NAV_MOBILE.map((item) => {
+            const fullHref = item.global ? item.href : `${branchPrefix}${item.href}`;
+            return (
+              <MobileTabLink
+                key={item.href}
+                item={item}
+                active={isNavActive(pathname, fullHref)}
+                branchPrefix={branchPrefix}
+              />
+            );
+          })}
           <button
             type="button"
             onClick={onOpenMenu}
@@ -412,6 +439,7 @@ function AppShellInner({ children }: AppShellProps) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
@@ -431,30 +459,45 @@ function AppShellInner({ children }: AppShellProps) {
 
   let userName = "User";
   let userRole = "owner";
-  let branchName = "Main Branch";
   let branches: { id: string; name: string; slug: string; is_hq: boolean }[] = [];
   let subscriptionStatus: string | null = null;
-  let activeBranchId: string | null = null;
-  let activeBranchName: string | null = null;
-  let isAllBranches = false;
-  let setActiveBranch: (id: string | null) => void = () => {};
 
   try {
     const tenant = useTenant();
     userName = tenant.userName;
     userRole = tenant.userRole;
-    branchName = tenant.branchName ?? "No Branch";
     branches = tenant.branches;
     subscriptionStatus = tenant.subscriptionStatus ?? null;
-    activeBranchId = tenant.activeBranchId;
-    activeBranchName = tenant.activeBranchName;
-    isAllBranches = tenant.isAllBranches;
-    setActiveBranch = tenant.setActiveBranch;
   } catch {
     // TenantProvider not available (e.g. dev mode without Supabase)
   }
 
-  const displayBranchName = isAllBranches ? t.branches.allBranches : (activeBranchName ?? branchName);
+  // Derive active branch from the URL path — first segment is the branch slug
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const slugSegment = pathSegments[0] ?? "";
+  const isAllBranches = slugSegment === "all";
+  const activeBranch = branches.find((b) => b.slug === slugSegment) ?? null;
+
+  // When on a global page (billing, settings, etc.), default to HQ branch for nav links
+  const defaultBranch = branches.find((b) => b.is_hq) ?? branches[0] ?? null;
+  const branchForNav = activeBranch ?? (isAllBranches ? null : defaultBranch);
+  const branchPrefix = branchForNav?.slug ? `/${branchForNav.slug}` : isAllBranches ? "/all" : "";
+
+  const displayBranchName = isAllBranches
+    ? t.branches.allBranches
+    : (activeBranch?.name ?? branches[0]?.name ?? "No Branch");
+
+  // The page name within the branch (second path segment onwards)
+  const isBranchScopedPath = activeBranch !== null || isAllBranches;
+  const currentSubPath = isBranchScopedPath
+    ? (pathSegments.slice(1).join("/") || "dashboard")
+    : "dashboard";
+
+  const handleBranchSwitch = (slug: string | null) => {
+    const targetSlug = slug === null ? "all" : slug;
+    router.push(`/${targetSlug}/${currentSubPath}`);
+    setBranchDropdownOpen(false);
+  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -482,6 +525,7 @@ function AppShellInner({ children }: AppShellProps) {
           branchName={displayBranchName}
           collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
+          branchPrefix={branchPrefix}
         />
       </aside>
 
@@ -508,6 +552,7 @@ function AppShellInner({ children }: AppShellProps) {
               userName={userName}
               userRole={userRole}
               branchName={displayBranchName}
+              branchPrefix={branchPrefix}
             />
           </aside>
         </div>
@@ -534,7 +579,7 @@ function AppShellInner({ children }: AppShellProps) {
                     <div className="p-1.5">
                       <button
                         type="button"
-                        onClick={() => { setActiveBranch(null); setBranchDropdownOpen(false); }}
+                        onClick={() => handleBranchSwitch(null)}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${isAllBranches ? "bg-[#D4AF37]/10 text-white" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
                       >
                         <Store className="h-4 w-4 shrink-0" />
@@ -543,12 +588,12 @@ function AppShellInner({ children }: AppShellProps) {
                       </button>
                       <div className="my-1 border-t border-white/5" />
                       {branches.map((b) => {
-                        const isActive = b.id === activeBranchId;
+                        const isActive = b.slug === slugSegment;
                         return (
                           <button
                             key={b.id}
                             type="button"
-                            onClick={() => { setActiveBranch(b.id); setBranchDropdownOpen(false); }}
+                            onClick={() => handleBranchSwitch(b.slug)}
                             className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${isActive ? "bg-[#D4AF37]/10 text-white" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
                           >
                             <Store className="h-4 w-4 shrink-0" />
@@ -613,6 +658,7 @@ function AppShellInner({ children }: AppShellProps) {
           menuOpen={open}
           onOpenMenu={() => setOpen(true)}
           userRole={userRole}
+          branchPrefix={branchPrefix}
         />
 
       </div>
