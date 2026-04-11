@@ -68,9 +68,9 @@ function formatDate(iso: string): string {
 }
 
 function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const maxRevenue = Math.max(...bars.map((b) => b.revenue), 1);
   const maxH = 80;
-  // getDailyRevenue returns English short labels: Mon Tue Wed Thu Fri Sat Sun
   const weekDayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const myNow = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
   const myDayOfWeek = myNow.getUTCDay(); // 0 = Sun
@@ -79,28 +79,61 @@ function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
       ? weekDayLabels[myDayOfWeek === 0 ? 6 : myDayOfWeek - 1]
       : null; // month view: highlight last bar
 
+  // Y-axis: 3 evenly spaced tick values (0, mid, max)
+  const yTicks = [maxRevenue, maxRevenue / 2, 0];
+  const formatY = (v: number) =>
+    v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v.toFixed(0);
+
   return (
-    <div className="flex h-28 items-end gap-1.5">
-      {bars.map((b, i) => {
-        const isToday =
-          todayLabel !== null
-            ? b.label === todayLabel
-            : i === bars.length - 1;
-        const pct = b.revenue / maxRevenue;
-        const height = Math.max(pct * maxH, b.revenue > 0 ? 5 : 2);
-        return (
-          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+    <div className="flex gap-2">
+      {/* Y-axis labels */}
+      <div className="flex flex-col justify-between pb-5 text-right">
+        {yTicks.map((v, i) => (
+          <span key={i} className="text-[9px] leading-none text-gray-600">
+            {formatY(v)}
+          </span>
+        ))}
+      </div>
+
+      {/* Bars */}
+      <div className="flex flex-1 items-end gap-1.5" style={{ height: "112px" }}>
+        {bars.map((b, i) => {
+          const isToday =
+            todayLabel !== null ? b.label === todayLabel : i === bars.length - 1;
+          const pct = b.revenue / maxRevenue;
+          const height = Math.max(pct * maxH, b.revenue > 0 ? 5 : 2);
+          const isHovered = hoveredIndex === i;
+          return (
             <div
-              title={`${b.label}: RM ${b.revenue.toFixed(2)}`}
-              style={{ height: `${height}px` }}
-              className={`w-full rounded-t transition-all ${
-                isToday ? "bg-[#D4AF37]" : b.revenue > 0 ? "bg-[#D4AF37]/40" : "bg-white/5"
-              }`}
-            />
-            <span className="text-[9px] text-gray-600">{b.label}</span>
-          </div>
-        );
-      })}
+              key={i}
+              className="relative flex flex-1 flex-col items-center gap-1"
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              {/* Tooltip */}
+              {isHovered && (
+                <div className="absolute bottom-full mb-1.5 z-10 whitespace-nowrap rounded bg-[#1a1a1a] border border-white/10 px-2 py-1 text-[10px] font-semibold text-white shadow-lg">
+                  RM {b.revenue.toFixed(2)}
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1a1a1a]" />
+                </div>
+              )}
+              <div
+                style={{ height: `${height}px` }}
+                className={`w-full rounded-t transition-all ${
+                  isHovered
+                    ? "bg-[#D4AF37]"
+                    : isToday
+                    ? "bg-[#D4AF37]"
+                    : b.revenue > 0
+                    ? "bg-[#D4AF37]/40"
+                    : "bg-white/5"
+                }`}
+              />
+              <span className="text-[9px] text-gray-600">{b.label}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
