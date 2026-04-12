@@ -440,6 +440,7 @@ export type Database = {
           name: string
           operating_hours: Json
           phone: string | null
+          slug: string
           tenant_id: string
           updated_at: string
         }
@@ -460,6 +461,7 @@ export type Database = {
           name: string
           operating_hours?: Json
           phone?: string | null
+          slug: string
           tenant_id: string
           updated_at?: string
         }
@@ -480,6 +482,7 @@ export type Database = {
           name?: string
           operating_hours?: Json
           phone?: string | null
+          slug?: string
           tenant_id?: string
           updated_at?: string
         }
@@ -630,6 +633,8 @@ export type Database = {
           id: string
           notes: string | null
           payment_method: string
+          payroll_period_id: string | null
+          receipt_url: string | null
           status: string
           supplier_id: string | null
           tenant_id: string
@@ -646,6 +651,8 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method: string
+          payroll_period_id?: string | null
+          receipt_url?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id: string
@@ -662,6 +669,8 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_method?: string
+          payroll_period_id?: string | null
+          receipt_url?: string | null
           status?: string
           supplier_id?: string | null
           tenant_id?: string
@@ -681,6 +690,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "app_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_payroll_period_id_fkey"
+            columns: ["payroll_period_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_periods"
             referencedColumns: ["id"]
           },
           {
@@ -1486,43 +1502,100 @@ export type Database = {
       }
       staff_profiles: {
         Row: {
+          address_line1: string | null
+          address_line2: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           base_salary: number
+          city: string | null
           created_at: string
+          date_of_birth: string | null
+          eis_number: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           employee_code: string | null
           employment_type: string
           epf_enabled: boolean
+          epf_number: string | null
+          gender: string | null
           id: string
           joined_at: string | null
+          marital_status: string | null
+          nationality: string | null
           notes: string | null
+          nric_number: string | null
+          num_dependents: number | null
+          postcode: string | null
           socso_enabled: boolean
+          socso_number: string | null
+          state: string | null
+          tax_ref_number: string | null
           tenant_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           base_salary?: number
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          eis_number?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           employee_code?: string | null
           employment_type?: string
           epf_enabled?: boolean
+          epf_number?: string | null
+          gender?: string | null
           id?: string
           joined_at?: string | null
+          marital_status?: string | null
+          nationality?: string | null
           notes?: string | null
+          nric_number?: string | null
+          num_dependents?: number | null
+          postcode?: string | null
           socso_enabled?: boolean
+          socso_number?: string | null
+          state?: string | null
+          tax_ref_number?: string | null
           tenant_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           base_salary?: number
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
+          eis_number?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           employee_code?: string | null
           employment_type?: string
           epf_enabled?: boolean
+          epf_number?: string | null
+          gender?: string | null
           id?: string
           joined_at?: string | null
+          marital_status?: string | null
+          nationality?: string | null
           notes?: string | null
+          nric_number?: string | null
+          num_dependents?: number | null
+          postcode?: string | null
           socso_enabled?: boolean
+          socso_number?: string | null
+          state?: string | null
+          tax_ref_number?: string | null
           tenant_id?: string
           updated_at?: string
           user_id?: string
@@ -1898,15 +1971,80 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_branch: { Args: { p_branch_id: string }; Returns: boolean }
       current_role: { Args: never; Returns: string }
       current_tenant_id: { Args: never; Returns: string }
+      generate_branch_slug: {
+        Args: { p_name: string; p_tenant_id: string }
+        Returns: string
+      }
       get_admin_role: { Args: never; Returns: string }
+      get_my_branch_id: { Args: never; Returns: string }
       get_my_owned_tenant_ids: { Args: never; Returns: string[] }
       get_my_tenant_id: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
       link_auth_user_by_email: {
         Args: { p_email: string; p_role?: string; p_tenant_slug?: string }
         Returns: string
+      }
+      report_attendance_summary: {
+        Args: { p_date_from: string; p_date_to: string; p_tenant_id: string }
+        Returns: {
+          absent: number
+          half_day: number
+          late: number
+          present: number
+          staff_id: string
+        }[]
+      }
+      report_customer_visits: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          customer_id: string
+          last_visit: string
+          visit_count: number
+        }[]
+      }
+      report_daily_revenue: {
+        Args: {
+          p_branch_id: string
+          p_end: string
+          p_start: string
+          p_tenant_id: string
+        }
+        Returns: {
+          day_label: string
+          revenue: number
+        }[]
+      }
+      report_expense_totals: {
+        Args: {
+          p_branch_id: string
+          p_end: string
+          p_start: string
+          p_tenant_id: string
+        }
+        Returns: {
+          this_month: number
+          total: number
+        }[]
+      }
+      report_low_stock_count: {
+        Args: { p_branch_id: string; p_tenant_id: string }
+        Returns: number
+      }
+      report_revenue_summary: {
+        Args: {
+          p_branch_id: string
+          p_end: string
+          p_start: string
+          p_tenant_id: string
+        }
+        Returns: {
+          total_customers: number
+          total_revenue: number
+          total_transactions: number
+        }[]
       }
     }
     Enums: {
@@ -2042,4 +2180,3 @@ export const Constants = {
     },
   },
 } as const
-
