@@ -3,26 +3,26 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
+import { serviceSchema, serviceCategorySchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function createService(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = formData.get("name") as string;
-    const duration_min = Number(formData.get("duration_min")) || 0;
-    const price = Number(formData.get("price")) || 0;
-    const category_id = (formData.get("category_id") as string) || null;
-
-    if (!name) {
-      return { success: false, error: "Name is required" };
+    const parsed = serviceSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { name, duration_min, price, category_id } = parsed.data;
 
     const { error } = await supabase.from("services").insert({
       tenant_id: tenantId,
       name,
       duration_min,
       price,
-      category_id: category_id || null,
+      category_id,
     });
 
     if (error) return { success: false, error: error.message };
@@ -38,14 +38,12 @@ export async function updateService(id: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = formData.get("name") as string;
-    const duration_min = Number(formData.get("duration_min")) || 0;
-    const price = Number(formData.get("price")) || 0;
-    const category_id = (formData.get("category_id") as string) || null;
-
-    if (!name) {
-      return { success: false, error: "Name is required" };
+    const parsed = serviceSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { name, duration_min, price, category_id } = parsed.data;
 
     const { error } = await supabase
       .from("services")
@@ -53,7 +51,7 @@ export async function updateService(id: string, formData: FormData) {
         name,
         duration_min,
         price,
-        category_id: category_id || null,
+        category_id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -91,15 +89,14 @@ export async function createServiceCategory(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = formData.get("name") as string;
-
-    if (!name) {
-      return { success: false, error: "Name is required" };
+    const parsed = serviceCategorySchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
 
     const { error } = await supabase.from("service_categories").insert({
       tenant_id: tenantId,
-      name,
+      name: parsed.data.name,
     });
 
     if (error) return { success: false, error: error.message };
@@ -115,16 +112,15 @@ export async function updateServiceCategory(id: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = formData.get("name") as string;
-
-    if (!name) {
-      return { success: false, error: "Name is required" };
+    const parsed = serviceCategorySchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
 
     const { error } = await supabase
       .from("service_categories")
       .update({
-        name,
+        name: parsed.data.name,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)

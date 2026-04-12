@@ -3,28 +3,27 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
+import { customerSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function createCustomer(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const full_name = formData.get("full_name") as string;
-    const phone = formData.get("phone") as string;
-    const email = (formData.get("email") as string) || null;
-    const date_of_birth = (formData.get("date_of_birth") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
-
-    if (!full_name || !phone) {
-      return { success: false, error: "Full name and phone are required" };
+    const parsed = customerSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { full_name, phone, email, date_of_birth, notes } = parsed.data;
 
     const { error } = await supabase.from("customers").insert({
       tenant_id: tenantId,
       full_name,
       phone,
-      email: email || null,
-      date_of_birth: date_of_birth || null,
-      notes: notes || null,
+      email,
+      date_of_birth,
+      notes,
     });
 
     if (error) return { success: false, error: error.message };
@@ -40,24 +39,21 @@ export async function updateCustomer(id: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const full_name = formData.get("full_name") as string;
-    const phone = formData.get("phone") as string;
-    const email = (formData.get("email") as string) || null;
-    const date_of_birth = (formData.get("date_of_birth") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
-
-    if (!full_name || !phone) {
-      return { success: false, error: "Full name and phone are required" };
+    const parsed = customerSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { full_name, phone, email, date_of_birth, notes } = parsed.data;
 
     const { error } = await supabase
       .from("customers")
       .update({
         full_name,
         phone,
-        email: email || null,
-        date_of_birth: date_of_birth || null,
-        notes: notes || null,
+        email,
+        date_of_birth,
+        notes,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)

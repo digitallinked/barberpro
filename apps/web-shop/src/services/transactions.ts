@@ -162,35 +162,24 @@ export async function getDashboardStats(
 ): Promise<{ data: DashboardStats | null; error: Error | null }> {
   const { start, end } = getMalaysiaDateRange(period);
 
-  let query = client
-    .from("transactions")
-    .select("id, total_amount, customer_id")
-    .eq("tenant_id", tenantId)
-    .gte("created_at", start.toISOString())
-    .lte("created_at", end.toISOString());
-
-  if (branchId) {
-    query = query.eq("branch_id", branchId);
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await client.rpc("report_revenue_summary", {
+    p_tenant_id: tenantId,
+    p_branch_id: branchId ?? null,
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+  });
 
   if (error) {
     return { data: null, error: new Error(error.message) };
   }
 
-  const transactions = data ?? [];
-  const todayRevenue = transactions.reduce(
-    (sum: number, t: { total_amount?: number }) => sum + (t.total_amount ?? 0),
-    0
-  );
-  const todayCustomers = new Set(
-    transactions.map((t: { customer_id?: string | null }) => t.customer_id).filter(Boolean)
-  ).size;
-  const totalTransactions = transactions.length;
-
+  const row = Array.isArray(data) ? data[0] : data;
   return {
-    data: { todayRevenue, todayCustomers, totalTransactions },
+    data: {
+      todayRevenue: Number(row?.total_revenue ?? 0),
+      todayCustomers: Number(row?.total_customers ?? 0),
+      totalTransactions: Number(row?.total_transactions ?? 0),
+    },
     error: null,
   };
 }
@@ -203,29 +192,21 @@ export async function getDailyRevenue(
 ): Promise<{ data: DailyRevenue[] | null; error: Error | null }> {
   const { start, end } = getMalaysiaDateRange(period);
 
-  let query = client
-    .from("transactions")
-    .select("created_at, total_amount")
-    .eq("tenant_id", tenantId)
-    .gte("created_at", start.toISOString())
-    .lte("created_at", end.toISOString());
-
-  if (branchId) {
-    query = query.eq("branch_id", branchId);
-  }
-
-  const { data, error } = await query;
+  const { data: rpcData, error } = await client.rpc("report_daily_revenue", {
+    p_tenant_id: tenantId,
+    p_branch_id: branchId ?? null,
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+  });
 
   if (error) {
     return { data: null, error: new Error(error.message) };
   }
 
-  // Aggregate by day in Malaysia timezone
+  // Build a map from the SQL result (day_label → revenue)
   const dayMap: Record<string, number> = {};
-  for (const t of data ?? []) {
-    const myDate = new Date(new Date(t.created_at).getTime() + MY_OFFSET_MS);
-    const dayKey = `${myDate.getUTCFullYear()}-${String(myDate.getUTCMonth() + 1).padStart(2, "0")}-${String(myDate.getUTCDate()).padStart(2, "0")}`;
-    dayMap[dayKey] = (dayMap[dayKey] ?? 0) + (t.total_amount ?? 0);
+  for (const row of rpcData ?? []) {
+    dayMap[row.day_label] = Number(row.revenue ?? 0);
   }
 
   const now = new Date();
@@ -233,7 +214,6 @@ export async function getDailyRevenue(
   const result: DailyRevenue[] = [];
 
   if (period === "today" || period === "week") {
-    // Build Mon–Sun labels for the current week
     const myStartOfDay = new Date(
       Date.UTC(myNow.getUTCFullYear(), myNow.getUTCMonth(), myNow.getUTCDate())
     );
@@ -248,7 +228,6 @@ export async function getDailyRevenue(
       result.push({ label: dayLabels[i], revenue: dayMap[dayKey] ?? 0 });
     }
   } else {
-    // Month: one entry per day (up to today)
     const year = myNow.getUTCFullYear();
     const month = myNow.getUTCMonth();
     const today = myNow.getUTCDate();

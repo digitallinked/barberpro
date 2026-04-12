@@ -8,24 +8,30 @@ import {
   getAttendanceSummaryForPeriod,
 } from "@/lib/payroll-calculator";
 import { calculateStatutoryDeductions } from "@/lib/malaysian-tax";
+import {
+  payrollPeriodSchema,
+  payrollStatusSchema,
+  payrollEntrySchema,
+} from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
+import { logger } from "@/lib/logger";
 
 export async function createPayrollPeriod(formData: FormData) {
   try {
     const { supabase, tenantId, appUserId } = await getAuthContext();
 
-    const period_start = formData.get("period_start") as string;
-    const period_end = formData.get("period_end") as string;
-    const branch_id = (formData.get("branch_id") as string) || null;
-
-    if (!period_start || !period_end) {
-      return { success: false, error: "Period start and end dates are required" };
+    const parsed = payrollPeriodSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { period_start, period_end, branch_id } = parsed.data;
 
     const { error } = await supabase.from("payroll_periods").insert({
       tenant_id: tenantId,
       period_start,
       period_end,
-      branch_id: branch_id || null,
+      branch_id: branch_id ?? null,
       status: "draft",
       created_by: appUserId,
     });
@@ -43,12 +49,18 @@ export async function updatePayrollPeriodStatus(id: string, status: string) {
   try {
     const { supabase, tenantId, appUserId } = await getAuthContext();
 
+    const statusParsed = payrollStatusSchema.safeParse(status);
+    if (!statusParsed.success) {
+      return { success: false, error: statusParsed.error.issues[0].message };
+    }
+
+    const validStatus = statusParsed.data;
     const updateData: Record<string, unknown> = {
-      status,
+      status: validStatus,
       updated_at: new Date().toISOString(),
     };
 
-    if (status === "approved") {
+    if (validStatus === "approved") {
       updateData.approved_at = new Date().toISOString();
       updateData.approved_by = appUserId;
     }
@@ -64,7 +76,7 @@ export async function updatePayrollPeriodStatus(id: string, status: string) {
     // When a period is marked as paid, auto-record two expense lines:
     // 1. Total gross salaries (category: salary)
     // 2. Total employer statutory contributions (category: employer_statutory)
-    if (status === "paid") {
+    if (validStatus === "paid") {
       await recordPayrollExpenses(supabase, tenantId, appUserId, id);
     }
 
@@ -184,25 +196,28 @@ export async function createPayrollEntry(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const payroll_period_id = formData.get("payroll_period_id") as string;
-    const staff_id = formData.get("staff_id") as string;
-    const base_salary = Number(formData.get("base_salary")) || 0;
-    const service_commission = Number(formData.get("service_commission")) || 0;
-    const product_commission = Number(formData.get("product_commission")) || 0;
-    const bonuses = Number(formData.get("bonuses")) || 0;
-    const deductions = Number(formData.get("deductions")) || 0;
-    const advances = Number(formData.get("advances")) || 0;
-    const notes = (formData.get("notes") as string) || null;
-    const days_worked = formData.get("days_worked") ? Number(formData.get("days_worked")) : null;
-    const total_working_days = formData.get("total_working_days") ? Number(formData.get("total_working_days")) : null;
-    const service_revenue = formData.get("service_revenue") ? Number(formData.get("service_revenue")) : null;
-    const product_revenue = formData.get("product_revenue") ? Number(formData.get("product_revenue")) : null;
-    const services_count = formData.get("services_count") ? Number(formData.get("services_count")) : null;
-    const customers_served = formData.get("customers_served") ? Number(formData.get("customers_served")) : null;
-
-    if (!payroll_period_id || !staff_id) {
-      return { success: false, error: "Payroll period and staff are required" };
+    const parsed = payrollEntrySchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const {
+      payroll_period_id,
+      staff_id,
+      base_salary,
+      service_commission,
+      product_commission,
+      bonuses,
+      deductions,
+      advances,
+      notes,
+      days_worked,
+      total_working_days,
+      service_revenue,
+      product_revenue,
+      services_count,
+      customers_served,
+    } = parsed.data;
 
     const net_payout =
       base_salary + service_commission + product_commission + bonuses - deductions - advances;
@@ -218,7 +233,7 @@ export async function createPayrollEntry(formData: FormData) {
       deductions,
       advances,
       net_payout,
-      notes: notes || null,
+      notes,
       days_worked,
       total_working_days,
       service_revenue,
@@ -240,19 +255,28 @@ export async function updatePayrollEntry(entryId: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const base_salary = Number(formData.get("base_salary")) || 0;
-    const service_commission = Number(formData.get("service_commission")) || 0;
-    const product_commission = Number(formData.get("product_commission")) || 0;
-    const bonuses = Number(formData.get("bonuses")) || 0;
-    const deductions = Number(formData.get("deductions")) || 0;
-    const advances = Number(formData.get("advances")) || 0;
-    const notes = (formData.get("notes") as string) || null;
-    const days_worked = formData.get("days_worked") ? Number(formData.get("days_worked")) : null;
-    const total_working_days = formData.get("total_working_days") ? Number(formData.get("total_working_days")) : null;
-    const service_revenue = formData.get("service_revenue") ? Number(formData.get("service_revenue")) : null;
-    const product_revenue = formData.get("product_revenue") ? Number(formData.get("product_revenue")) : null;
-    const services_count = formData.get("services_count") ? Number(formData.get("services_count")) : null;
-    const customers_served = formData.get("customers_served") ? Number(formData.get("customers_served")) : null;
+    // Use the entry schema minus period/staff IDs which aren't updated
+    const updateSchema = payrollEntrySchema.omit({ payroll_period_id: true, staff_id: true });
+    const parsed = updateSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const {
+      base_salary,
+      service_commission,
+      product_commission,
+      bonuses,
+      deductions,
+      advances,
+      notes,
+      days_worked,
+      total_working_days,
+      service_revenue,
+      product_revenue,
+      services_count,
+      customers_served,
+    } = parsed.data;
 
     const net_payout =
       base_salary + service_commission + product_commission + bonuses - deductions - advances;
@@ -267,7 +291,7 @@ export async function updatePayrollEntry(entryId: string, formData: FormData) {
         deductions,
         advances,
         net_payout,
-        notes: notes || null,
+        notes,
         days_worked,
         total_working_days,
         service_revenue,
@@ -416,7 +440,9 @@ export async function generatePayrollEntries(periodId: string) {
       if (!insertError) {
         generated++;
       } else {
-        console.error(`[generatePayrollEntries] Insert failed for staff ${staffProfileId}:`, insertError.message);
+        logger.error("[generatePayrollEntries] Insert failed for staff", insertError, {
+          action: "generatePayrollEntries",
+        });
       }
     }
 

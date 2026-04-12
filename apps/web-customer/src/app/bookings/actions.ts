@@ -11,6 +11,11 @@ type ActionResult = { success: true } | { success: false; error: string };
 export async function cancelAppointmentAction(
   appointmentId: string
 ): Promise<ActionResult> {
+  const idParsed = z.string().uuid("Invalid appointment ID").safeParse(appointmentId);
+  if (!idParsed.success) {
+    return { success: false, error: idParsed.error.issues[0].message };
+  }
+
   try {
     const supabase = await createClient();
     const {
@@ -24,7 +29,7 @@ export async function cancelAppointmentAction(
     const { data: appt } = await admin
       .from("appointments")
       .select("id, status, customers(phone)")
-      .eq("id", appointmentId)
+      .eq("id", idParsed.data)
       .maybeSingle();
 
     if (!appt) return { success: false, error: "Appointment not found" };
@@ -41,7 +46,7 @@ export async function cancelAppointmentAction(
     const { error } = await admin
       .from("appointments")
       .update({ status: "cancelled" })
-      .eq("id", appointmentId);
+      .eq("id", idParsed.data);
 
     if (error) return { success: false, error: error.message };
 

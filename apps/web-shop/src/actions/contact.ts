@@ -2,6 +2,7 @@
 
 import { Resend } from "resend";
 import { z } from "zod";
+import { logger } from "@/lib/logger";
 
 const ContactSchema = z.object({
   firstName: z.string().trim().min(1).max(50),
@@ -58,7 +59,7 @@ export async function submitContactForm(
   });
 
   if (error) {
-    console.error("[contact-form] Resend error:", error.message);
+    logger.error("[contact-form] Resend error", error, { action: "submitContactForm" });
     return {
       success: false,
       message: "Something went wrong. Please try again or email us directly at hello@barberpro.my."

@@ -80,36 +80,47 @@ export async function getAttendanceSummaries(
   dateFrom: string,
   dateTo: string
 ): Promise<{ data: AttendanceSummary[] | null; error: Error | null }> {
-  const { data, error } = await getStaffAttendance(client, tenantId, dateFrom, dateTo);
-  if (error || !data) return { data: null, error };
+  // Fetch both the SQL rollup (for counts) and the full records (for staff names) in parallel
+  const [rpcResult, fullResult] = await Promise.all([
+    client.rpc("report_attendance_summary", {
+      p_tenant_id: tenantId,
+      p_date_from: dateFrom,
+      p_date_to: dateTo,
+    }),
+    getStaffAttendance(client, tenantId, dateFrom, dateTo),
+  ]);
 
-  const byStaff = new Map<string, { name: string; records: typeof data }>();
+  if (rpcResult.error) {
+    return { data: null, error: new Error(rpcResult.error.message) };
+  }
+  if (fullResult.error || !fullResult.data) {
+    return { data: null, error: fullResult.error };
+  }
 
-  for (const record of data) {
-    const existing = byStaff.get(record.staff_id);
-    if (existing) {
-      existing.records.push(record);
-    } else {
-      byStaff.set(record.staff_id, {
-        name: record.staff?.full_name ?? "Unknown",
-        records: [record],
-      });
+  // Build a name map from the full attendance records
+  const nameMap = new Map<string, string>();
+  for (const record of fullResult.data) {
+    if (!nameMap.has(record.staff_id) && record.staff?.full_name) {
+      nameMap.set(record.staff_id, record.staff.full_name);
     }
   }
 
-  const summaries: AttendanceSummary[] = [];
-  for (const [staffId, { name, records }] of byStaff) {
-    summaries.push({
-      staffId,
-      staffName: name,
-      daysPresent: records.filter((r) => r.status === "present").length,
-      daysAbsent: records.filter((r) => r.status === "absent").length,
-      daysLate: records.filter((r) => r.status === "late").length,
-      daysLeave: records.filter((r) => r.status === "leave").length,
-      daysHalfDay: records.filter((r) => r.status === "half_day").length,
-      totalRecords: records.length,
-    });
+  // Build total record counts per staff
+  const totalMap = new Map<string, number>();
+  for (const record of fullResult.data) {
+    totalMap.set(record.staff_id, (totalMap.get(record.staff_id) ?? 0) + 1);
   }
+
+  const summaries: AttendanceSummary[] = (rpcResult.data ?? []).map((row) => ({
+    staffId: row.staff_id as string,
+    staffName: nameMap.get(row.staff_id as string) ?? "Unknown",
+    daysPresent: Number(row.present ?? 0),
+    daysAbsent: Number(row.absent ?? 0),
+    daysLate: Number(row.late ?? 0),
+    daysLeave: 0,
+    daysHalfDay: Number(row.half_day ?? 0),
+    totalRecords: totalMap.get(row.staff_id as string) ?? 0,
+  }));
 
   return { data: summaries, error: null };
 }

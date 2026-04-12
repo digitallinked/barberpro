@@ -7,6 +7,12 @@ import { paymentMethodForDb } from "@/lib/payment-method";
 import { getCustomerPublicBaseUrl } from "@/lib/env";
 import { shopCalendarDateString } from "@/lib/shop-day";
 import { SST_RATE } from "@/lib/malaysian-tax";
+import {
+  createQueueTicketSchema,
+  queueStatusSchema,
+  queuePaymentSchema,
+} from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 import { resolveEffectiveBranchId } from "@/lib/supabase/branch-resolution";
 
@@ -27,18 +33,18 @@ export async function createQueueTicket(formData: FormData) {
   try {
     const { supabase, tenantId, appUser } = await getAuthContext();
 
-    const formBranchId = (formData.get("branch_id") as string) || null;
+    const parsed = createQueueTicketSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const { branch_id: formBranchId, customer_id, service_id, preferred_staff_id, party_size } = parsed.data;
     const branch_id = await resolveEffectiveBranchId(
       supabase,
       tenantId,
       appUser.branch_id ?? null,
-      formBranchId
+      formBranchId ?? null
     );
-    const customer_id = (formData.get("customer_id") as string) || null;
-    const service_id = (formData.get("service_id") as string) || null;
-    const preferred_staff_id = (formData.get("preferred_staff_id") as string) || null;
-    const rawParty = Number(formData.get("party_size"));
-    const party_size = Number.isFinite(rawParty) ? Math.min(20, Math.max(1, Math.floor(rawParty))) : 1;
 
     if (!branch_id) {
       return { success: false, error: "No active branch found. Add a branch or contact support." };
@@ -95,8 +101,13 @@ export async function updateQueueStatus(
   try {
     const { supabase, tenantId } = await getAuthContext();
 
+    const statusParsed = queueStatusSchema.safeParse(status);
+    if (!statusParsed.success) {
+      return { success: false, error: statusParsed.error.issues[0].message };
+    }
+
     const updateData: Record<string, unknown> = {
-      status,
+      status: statusParsed.data,
       updated_at: new Date().toISOString(),
     };
 
@@ -135,17 +146,24 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
   try {
     const { supabase, tenantId, appUserId } = await getAuthContext();
 
-    const ticketId = formData.get("ticket_id") as string;
     const rawPaymentMethod = (formData.get("payment_method") as string) || "cash";
-    const paymentMethod = paymentMethodForDb(rawPaymentMethod);
-    const amountDue = Number(formData.get("amount_due")) || 0;
-    const amountReceived = Number(formData.get("amount_received")) || 0;
-    // proof_storage_path is a string set by the client after uploading the file directly to Supabase Storage
-    const proofStoragePath = (formData.get("proof_storage_path") as string) || null;
+    const parsed = queuePaymentSchema.safeParse({
+      ticket_id: formData.get("ticket_id"),
+      payment_method: paymentMethodForDb(rawPaymentMethod),
+      amount_due: formData.get("amount_due"),
+      amount_received: formData.get("amount_received"),
+      proof_storage_path: formData.get("proof_storage_path") || null,
+    });
 
-    if (!ticketId) return { success: false, error: "Ticket is required" };
-    if (amountDue <= 0) return { success: false, error: "Amount due must be greater than 0" };
-    if (amountReceived < amountDue) return { success: false, error: "Amount received is less than amount due" };
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const { ticket_id: ticketId, payment_method: paymentMethod, amount_due: amountDue, amount_received: amountReceived, proof_storage_path: proofStoragePath } = parsed.data;
+
+    if (amountReceived < amountDue) {
+      return { success: false, error: "Amount received is less than amount due" };
+    }
     if (paymentMethod === "duitnow_qr" && !proofStoragePath) {
       return { success: false, error: "Payment proof image is required for QR payment" };
     }

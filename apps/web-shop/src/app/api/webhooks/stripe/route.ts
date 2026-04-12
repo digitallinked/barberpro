@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
 import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { sendEmail } from "@/lib/email";
 import {
   subscriptionStartedEmail,
@@ -181,7 +182,8 @@ export async function POST(request: Request) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET!);
-  } catch {
+  } catch (err) {
+    logger.error("[webhook] Invalid Stripe signature", err, { action: "stripe-webhook" });
     return NextResponse.json({ error: "Invalid webhook signature" }, { status: 400 });
   }
 
@@ -198,6 +200,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
+  // Mark as processed BEFORE sending emails so Stripe retries don't cause duplicate sends.
+  const { error: insertError } = await supabase
+    .from("processed_webhook_events")
+    .insert({ event_id: event.id, event_type: event.type });
+
+  if (insertError) {
+    logger.error("[webhook] Failed to record processed event", insertError, {
+      action: "stripe-webhook",
+      eventId: event.id,
+    });
+    return NextResponse.json({ error: "Failed to record event" }, { status: 500 });
+  }
+
   try {
     switch (event.type) {
       // ── Checkout completed ──────────────────────────────────────────────────
@@ -212,7 +227,14 @@ export async function POST(request: Request) {
         if (!subId) break;
 
         const subscription = await stripe.subscriptions.retrieve(subId);
-        await syncStripeSubscriptionToDatabase(supabase, subscription);
+        try {
+          await syncStripeSubscriptionToDatabase(supabase, subscription);
+        } catch (syncErr) {
+          logger.error("[webhook] DB sync failed", syncErr, {
+            action: "stripe-webhook",
+            eventId: event.id,
+          });
+        }
 
         const info = await getSubscriberEmailInfo(supabase, subscription);
         if (info) {
@@ -237,7 +259,14 @@ export async function POST(request: Request) {
       // ── Subscription created ────────────────────────────────────────────────
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncStripeSubscriptionToDatabase(supabase, subscription);
+        try {
+          await syncStripeSubscriptionToDatabase(supabase, subscription);
+        } catch (syncErr) {
+          logger.error("[webhook] DB sync failed", syncErr, {
+            action: "stripe-webhook",
+            eventId: event.id,
+          });
+        }
 
         // Only send if not already sent via checkout.session.completed
         // (checkout.session.completed is the primary trigger; this is a fallback
@@ -266,7 +295,14 @@ export async function POST(request: Request) {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const previous = event.data.previous_attributes as Partial<Stripe.Subscription> | undefined;
-        await syncStripeSubscriptionToDatabase(supabase, subscription);
+        try {
+          await syncStripeSubscriptionToDatabase(supabase, subscription);
+        } catch (syncErr) {
+          logger.error("[webhook] DB sync failed", syncErr, {
+            action: "stripe-webhook",
+            eventId: event.id,
+          });
+        }
 
         const info = await getSubscriberEmailInfo(supabase, subscription);
         if (!info) break;
@@ -304,7 +340,14 @@ export async function POST(request: Request) {
       // ── Subscription deleted (cancelled) ────────────────────────────────────
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncStripeSubscriptionToDatabase(supabase, subscription);
+        try {
+          await syncStripeSubscriptionToDatabase(supabase, subscription);
+        } catch (syncErr) {
+          logger.error("[webhook] DB sync failed", syncErr, {
+            action: "stripe-webhook",
+            eventId: event.id,
+          });
+        }
 
         const info = await getSubscriberEmailInfo(supabase, subscription);
         if (info) {
@@ -524,13 +567,13 @@ export async function POST(request: Request) {
       default:
         break;
     }
-  } catch {
+  } catch (err) {
+    logger.error("[webhook] Unhandled error in event handler", err, {
+      action: "stripe-webhook",
+      eventId: event.id,
+    });
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
-
-  await supabase
-    .from("processed_webhook_events")
-    .insert({ event_id: event.id, event_type: event.type });
 
   return NextResponse.json({ received: true });
 }

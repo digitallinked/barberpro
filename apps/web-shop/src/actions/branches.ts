@@ -4,39 +4,28 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
+import { branchSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function createBranch(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = formData.get("name") as string;
-    const code = formData.get("code") as string;
-    const phone = (formData.get("phone") as string) || null;
-    const email = (formData.get("email") as string) || null;
-    const address = (formData.get("address") as string) || null;
-    const operating_hours = formData.get("operating_hours");
-    const is_hq = formData.get("is_hq") === "true" || formData.get("is_hq") === "1";
-    const latRaw = formData.get("latitude") as string | null;
-    const lngRaw = formData.get("longitude") as string | null;
-    const latitude = latRaw ? parseFloat(latRaw) : null;
-    const longitude = lngRaw ? parseFloat(lngRaw) : null;
-
-    if (!name || !code) {
-      return { success: false, error: "Name and code are required" };
+    const parsed = branchSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const hours = operating_hours
-      ? (typeof operating_hours === "string" ? JSON.parse(operating_hours) : operating_hours)
-      : {};
+    const { name, code, phone, email, address, operating_hours, is_hq, latitude, longitude } = parsed.data;
 
     const { error } = await supabase.from("branches").insert({
       tenant_id: tenantId,
       name,
       code,
-      phone: phone || null,
-      email: email || null,
-      address: address || null,
-      operating_hours: hours,
+      phone,
+      email,
+      address,
+      operating_hours,
       is_hq,
       checkin_token: randomUUID(),
       latitude,
@@ -56,42 +45,27 @@ export async function updateBranch(id: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = formData.get("name") as string;
-    const code = formData.get("code") as string;
-    const phone = (formData.get("phone") as string) || null;
-    const email = (formData.get("email") as string) || null;
-    const address = (formData.get("address") as string) || null;
-    const operating_hours = formData.get("operating_hours");
-    const is_hq = formData.get("is_hq") === "true" || formData.get("is_hq") === "1";
-    const latRaw = formData.get("latitude") as string | null;
-    const lngRaw = formData.get("longitude") as string | null;
-    const latitude = latRaw ? parseFloat(latRaw) : null;
-    const longitude = lngRaw ? parseFloat(lngRaw) : null;
-
-    if (!name || !code) {
-      return { success: false, error: "Name and code are required" };
+    const parsed = branchSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const updateData: Record<string, unknown> = {
-      name,
-      code,
-      phone: phone || null,
-      email: email || null,
-      address: address || null,
-      is_hq,
-      updated_at: new Date().toISOString(),
-      ...(latRaw !== null && { latitude }),
-      ...(lngRaw !== null && { longitude }),
-    };
-
-    if (operating_hours !== undefined && operating_hours !== null) {
-      updateData.operating_hours =
-        typeof operating_hours === "string" ? JSON.parse(operating_hours) : operating_hours;
-    }
+    const { name, code, phone, email, address, operating_hours, is_hq, latitude, longitude } = parsed.data;
 
     const { error } = await supabase
       .from("branches")
-      .update(updateData)
+      .update({
+        name,
+        code,
+        phone,
+        email,
+        address,
+        operating_hours,
+        is_hq,
+        latitude,
+        longitude,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id)
       .eq("tenant_id", tenantId);
 

@@ -3,34 +3,30 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
+import { appointmentSchema, appointmentStatusSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function createAppointment(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const customer_id = formData.get("customer_id") as string;
-    const service_id = formData.get("service_id") as string;
-    const barber_staff_id = (formData.get("barber_staff_id") as string) || null;
-    const branch_id = formData.get("branch_id") as string;
-    const start_at = formData.get("start_at") as string;
-    const end_at = (formData.get("end_at") as string) || null;
-    const source = (formData.get("source") as string) || "manual";
-    const notes = (formData.get("notes") as string) || null;
-
-    if (!customer_id || !service_id || !branch_id || !start_at) {
-      return { success: false, error: "Customer, service, branch, and start time are required" };
+    const parsed = appointmentSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { customer_id, service_id, barber_staff_id, branch_id, start_at, end_at, source, notes } = parsed.data;
 
     const { error } = await supabase.from("appointments").insert({
       tenant_id: tenantId,
       customer_id,
       service_id,
-      barber_staff_id: barber_staff_id || null,
+      barber_staff_id,
       branch_id,
       start_at,
-      end_at: end_at || null,
+      end_at,
       source,
-      notes: notes || null,
+      notes,
     });
 
     if (error) return { success: false, error: error.message };
@@ -46,28 +42,23 @@ export async function updateAppointment(id: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const customer_id = formData.get("customer_id") as string;
-    const service_id = formData.get("service_id") as string;
-    const barber_staff_id = (formData.get("barber_staff_id") as string) || null;
-    const branch_id = formData.get("branch_id") as string;
-    const start_at = formData.get("start_at") as string;
-    const end_at = (formData.get("end_at") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
-
-    if (!customer_id || !service_id || !branch_id || !start_at) {
-      return { success: false, error: "Customer, service, branch, and start time are required" };
+    const parsed = appointmentSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { customer_id, service_id, barber_staff_id, branch_id, start_at, end_at, notes } = parsed.data;
 
     const { error } = await supabase
       .from("appointments")
       .update({
         customer_id,
         service_id,
-        barber_staff_id: barber_staff_id || null,
+        barber_staff_id,
         branch_id,
         start_at,
-        end_at: end_at || null,
-        notes: notes || null,
+        end_at,
+        notes,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -86,10 +77,15 @@ export async function updateAppointmentStatus(id: string, status: string) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
+    const statusParsed = appointmentStatusSchema.safeParse(status);
+    if (!statusParsed.success) {
+      return { success: false, error: statusParsed.error.issues[0].message };
+    }
+
     const { error } = await supabase
       .from("appointments")
       .update({
-        status,
+        status: statusParsed.data,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)

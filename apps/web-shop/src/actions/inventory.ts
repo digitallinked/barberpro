@@ -3,36 +3,35 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext, getAuthContextWithBranch } from "./_helpers";
+import { inventoryItemSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function createInventoryItem(formData: FormData) {
   try {
     const { supabase, tenantId, effectiveBranchId } = await getAuthContextWithBranch();
 
-    const name = formData.get("name") as string;
-    const sku = (formData.get("sku") as string) || null;
-    const item_type = formData.get("item_type") as string;
-    const unit_cost = Number(formData.get("unit_cost")) || 0;
-    const sell_price = Number(formData.get("sell_price")) || null;
-    const stock_qty = Number(formData.get("stock_qty")) || 0;
-    const reorder_level = Number(formData.get("reorder_level")) || 0;
-    const supplier_id = (formData.get("supplier_id") as string) || null;
-    const branch_id = (formData.get("branch_id") as string) || effectiveBranchId || null;
-
-    if (!name || !item_type) {
-      return { success: false, error: "Name and item type are required" };
+    const raw = formDataToObject(formData);
+    const parsed = inventoryItemSchema.safeParse({
+      ...raw,
+      branch_id: raw.branch_id || effectiveBranchId || null,
+    });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { name, sku, item_type, unit_cost, sell_price, stock_qty, reorder_level, supplier_id, branch_id } = parsed.data;
 
     const { error } = await supabase.from("inventory_items").insert({
       tenant_id: tenantId,
       name,
-      sku: sku || null,
+      sku,
       item_type,
       unit_cost,
-      sell_price: sell_price ?? null,
+      sell_price,
       stock_qty,
       reorder_level,
-      supplier_id: supplier_id || null,
-      branch_id: branch_id || null,
+      supplier_id,
+      branch_id,
     });
 
     if (error) return { success: false, error: error.message };
@@ -48,32 +47,25 @@ export async function updateInventoryItem(id: string, formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContextWithBranch();
 
-    const name = formData.get("name") as string;
-    const sku = (formData.get("sku") as string) || null;
-    const item_type = formData.get("item_type") as string;
-    const unit_cost = Number(formData.get("unit_cost")) || 0;
-    const sell_price = Number(formData.get("sell_price")) || null;
-    const stock_qty = Number(formData.get("stock_qty")) ?? 0;
-    const reorder_level = Number(formData.get("reorder_level")) || 0;
-    const supplier_id = (formData.get("supplier_id") as string) || null;
-    const branch_id = (formData.get("branch_id") as string) || null;
-
-    if (!name || !item_type) {
-      return { success: false, error: "Name and item type are required" };
+    const parsed = inventoryItemSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { name, sku, item_type, unit_cost, sell_price, stock_qty, reorder_level, supplier_id, branch_id } = parsed.data;
 
     const { error } = await supabase
       .from("inventory_items")
       .update({
         name,
-        sku: sku || null,
+        sku,
         item_type,
         unit_cost,
-        sell_price: sell_price ?? null,
+        sell_price,
         stock_qty,
         reorder_level,
-        supplier_id: supplier_id || null,
-        branch_id: branch_id || null,
+        supplier_id,
+        branch_id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)

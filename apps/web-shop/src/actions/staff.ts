@@ -4,45 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
 import { isOwnerOrManager } from "@/lib/permissions";
-
-function getProfileFields(formData: FormData) {
-  return {
-    employment_type: (formData.get("employment_type") as string) || "full_time",
-    base_salary: Number(formData.get("base_salary")) || 0,
-    employee_code: (formData.get("employee_code") as string) || null,
-    joined_at: (formData.get("joined_at") as string) || null,
-    // Personal
-    nric_number: (formData.get("nric_number") as string) || null,
-    date_of_birth: (formData.get("date_of_birth") as string) || null,
-    gender: (formData.get("gender") as string) || null,
-    nationality: (formData.get("nationality") as string) || null,
-    marital_status: (formData.get("marital_status") as string) || null,
-    num_dependents: formData.get("num_dependents") !== null && formData.get("num_dependents") !== ""
-      ? Number(formData.get("num_dependents"))
-      : null,
-    // Address
-    address_line1: (formData.get("address_line1") as string) || null,
-    address_line2: (formData.get("address_line2") as string) || null,
-    city: (formData.get("city") as string) || null,
-    state: (formData.get("state") as string) || null,
-    postcode: (formData.get("postcode") as string) || null,
-    // Statutory
-    epf_number: (formData.get("epf_number") as string) || null,
-    epf_enabled: formData.get("epf_enabled") === "true",
-    socso_number: (formData.get("socso_number") as string) || null,
-    socso_enabled: formData.get("socso_enabled") === "true",
-    eis_number: (formData.get("eis_number") as string) || null,
-    tax_ref_number: (formData.get("tax_ref_number") as string) || null,
-    // Banking
-    bank_name: (formData.get("bank_name") as string) || null,
-    bank_account_number: (formData.get("bank_account_number") as string) || null,
-    // Emergency contact
-    emergency_contact_name: (formData.get("emergency_contact_name") as string) || null,
-    emergency_contact_phone: (formData.get("emergency_contact_phone") as string) || null,
-    // Notes
-    notes: (formData.get("notes") as string) || null,
-  };
-}
+import { staffMemberSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function createStaffMember(formData: FormData) {
   try {
@@ -52,25 +15,30 @@ export async function createStaffMember(formData: FormData) {
       return { success: false, error: "Only owners and managers can add staff" };
     }
 
-    const full_name = formData.get("full_name") as string;
-    const email = (formData.get("email") as string) || null;
-    const phone = (formData.get("phone") as string) || null;
-    const role = formData.get("role") as string;
-    const branch_id = (formData.get("branch_id") as string) || null;
-
-    if (!full_name || !role) {
-      return { success: false, error: "Full name and role are required" };
+    const parsed = staffMemberSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const {
+      full_name, email, phone, role, branch_id,
+      employment_type, base_salary, employee_code, joined_at,
+      nric_number, date_of_birth, gender, nationality, marital_status, num_dependents,
+      address_line1, address_line2, city, state, postcode,
+      epf_number, epf_enabled, socso_number, socso_enabled, eis_number, tax_ref_number,
+      bank_name, bank_account_number, emergency_contact_name, emergency_contact_phone,
+      notes,
+    } = parsed.data;
 
     const { data: newUser, error: newUserError } = await supabase
       .from("app_users")
       .insert({
         full_name,
-        email: email || null,
-        phone: phone || null,
+        email,
+        phone,
         role,
         tenant_id: tenantId,
-        branch_id: branch_id || null,
+        branch_id,
         is_active: true,
       })
       .select("id")
@@ -79,7 +47,14 @@ export async function createStaffMember(formData: FormData) {
     if (newUserError) return { success: false, error: newUserError.message };
     if (!newUser) return { success: false, error: "Failed to create staff user" };
 
-    const profileFields = getProfileFields(formData);
+    const profileFields = {
+      employment_type, base_salary, employee_code, joined_at,
+      nric_number, date_of_birth, gender, nationality, marital_status, num_dependents,
+      address_line1, address_line2, city, state, postcode,
+      epf_number, epf_enabled, socso_number, socso_enabled, eis_number, tax_ref_number,
+      bank_name, bank_account_number, emergency_contact_name, emergency_contact_phone,
+      notes,
+    };
 
     const { error: profileError } = await supabase.from("staff_profiles").insert({
       tenant_id: tenantId,
@@ -104,24 +79,29 @@ export async function updateStaffMember(id: string, formData: FormData) {
       return { success: false, error: "Only owners and managers can edit staff" };
     }
 
-    const full_name = formData.get("full_name") as string;
-    const email = (formData.get("email") as string) || null;
-    const phone = (formData.get("phone") as string) || null;
-    const role = formData.get("role") as string;
-    const branch_id = (formData.get("branch_id") as string) || null;
-
-    if (!full_name || !role) {
-      return { success: false, error: "Full name and role are required" };
+    const parsed = staffMemberSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const {
+      full_name, email, phone, role, branch_id,
+      employment_type, base_salary, employee_code, joined_at,
+      nric_number, date_of_birth, gender, nationality, marital_status, num_dependents,
+      address_line1, address_line2, city, state, postcode,
+      epf_number, epf_enabled, socso_number, socso_enabled, eis_number, tax_ref_number,
+      bank_name, bank_account_number, emergency_contact_name, emergency_contact_phone,
+      notes,
+    } = parsed.data;
 
     const { error: appUserError } = await supabase
       .from("app_users")
       .update({
         full_name,
-        email: email || null,
-        phone: phone || null,
+        email,
+        phone,
         role,
-        branch_id: branch_id || null,
+        branch_id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -129,7 +109,14 @@ export async function updateStaffMember(id: string, formData: FormData) {
 
     if (appUserError) return { success: false, error: appUserError.message };
 
-    const profileFields = getProfileFields(formData);
+    const profileFields = {
+      employment_type, base_salary, employee_code, joined_at,
+      nric_number, date_of_birth, gender, nationality, marital_status, num_dependents,
+      address_line1, address_line2, city, state, postcode,
+      epf_number, epf_enabled, socso_number, socso_enabled, eis_number, tax_ref_number,
+      bank_name, bank_account_number, emergency_contact_name, emergency_contact_phone,
+      notes,
+    };
 
     const { data: profile } = await supabase
       .from("staff_profiles")

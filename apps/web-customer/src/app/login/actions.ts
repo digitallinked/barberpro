@@ -1,6 +1,12 @@
 "use server";
 
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+
+const loginSchema = z.object({
+  email: z.string().trim().email("Invalid email address"),
+  password: z.string().min(1, "Password is required").max(72),
+});
 
 type LoginResult =
   | { success: true }
@@ -10,11 +16,16 @@ export async function loginAction(input: {
   email: string;
   password: string;
 }): Promise<LoginResult> {
+  const parsed = loginSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+
   try {
     const supabase = await createClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: input.email,
-      password: input.password,
+      email: parsed.data.email,
+      password: parsed.data.password,
     });
 
     if (error) {

@@ -6,6 +6,9 @@ import { createAdminClient } from "@barberpro/db/admin";
 import { getAuthContext } from "./_helpers";
 import { env } from "@/lib/env";
 import { isOwnerOrManager } from "@/lib/permissions";
+import { staffInviteSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
+import { logger } from "@/lib/logger";
 
 export async function inviteStaffMember(formData: FormData) {
   try {
@@ -15,19 +18,12 @@ export async function inviteStaffMember(formData: FormData) {
       return { success: false, error: "Only owners and managers can invite staff" };
     }
 
-    const email = (formData.get("email") as string)?.trim();
-    const fullName = (formData.get("full_name") as string)?.trim();
-    const role = formData.get("role") as string;
-    const branchId = formData.get("branch_id") as string;
-
-    if (!email || !fullName || !role || !branchId) {
-      return { success: false, error: "Email, name, role and branch are required" };
+    const parsed = staffInviteSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const validRoles = ["manager", "barber", "cashier"];
-    if (!validRoles.includes(role)) {
-      return { success: false, error: "Invalid role" };
-    }
+    const { email, full_name: fullName, role, branch_id: branchId } = parsed.data;
 
     // Verify branch belongs to this tenant
     const { data: branch } = await supabase
@@ -97,8 +93,11 @@ export async function inviteStaffMember(formData: FormData) {
       });
 
       if (inviteError) {
-        // If invite fails, mark the record with null auth_user_id so it shows as "pending"
-        console.error("Invite email failed:", inviteError.message);
+        // If invite fails, the record still shows as "pending" (null auth_user_id) — manager can resend
+        logger.error("Staff invite email failed", inviteError, {
+          action: "inviteStaffMember",
+          tenantId,
+        });
       }
     }
 

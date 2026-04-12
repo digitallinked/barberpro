@@ -34,24 +34,18 @@ export function useCustomerVisitStats() {
   return useQuery({
     queryKey: ["customer-visit-stats", tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("customer_id, created_at")
-        .eq("tenant_id", tenantId)
-        .not("customer_id", "is", null);
+      const { data, error } = await supabase.rpc("report_customer_visits", {
+        p_tenant_id: tenantId,
+      });
 
       if (error) return { data: null, error: new Error(error.message) };
 
       const visitMap = new Map<string, { count: number; lastVisit: string }>();
       for (const row of data ?? []) {
-        if (!row.customer_id) continue;
-        const existing = visitMap.get(row.customer_id);
-        if (!existing) {
-          visitMap.set(row.customer_id, { count: 1, lastVisit: row.created_at });
-        } else {
-          existing.count += 1;
-          if (row.created_at > existing.lastVisit) existing.lastVisit = row.created_at;
-        }
+        visitMap.set(row.customer_id as string, {
+          count: Number(row.visit_count ?? 0),
+          lastVisit: row.last_visit as string,
+        });
       }
       return { data: visitMap, error: null };
     },

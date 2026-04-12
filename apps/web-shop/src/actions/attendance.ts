@@ -3,22 +3,20 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
+import { attendanceSchema, bulkAttendanceRecordSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
+import { z } from "zod";
 
 export async function recordAttendance(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const staff_id = formData.get("staff_id") as string;
-    const date = formData.get("date") as string;
-    const status = (formData.get("status") as string) || "present";
-    const clock_in = (formData.get("clock_in") as string) || null;
-    const clock_out = (formData.get("clock_out") as string) || null;
-    const branch_id = (formData.get("branch_id") as string) || null;
-    const notes = (formData.get("notes") as string) || null;
-
-    if (!staff_id || !date) {
-      return { success: false, error: "Staff and date are required" };
+    const parsed = attendanceSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
+
+    const { staff_id, date, status, clock_in, clock_out, branch_id, notes } = parsed.data;
 
     const { error } = await supabase.from("staff_attendance").upsert(
       {
@@ -26,10 +24,10 @@ export async function recordAttendance(formData: FormData) {
         staff_id,
         date,
         status,
-        clock_in: clock_in || null,
-        clock_out: clock_out || null,
-        branch_id: branch_id || null,
-        notes: notes || null,
+        clock_in,
+        clock_out,
+        branch_id,
+        notes,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "tenant_id,staff_id,date" }
@@ -123,12 +121,17 @@ export async function bulkRecordAttendance(
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const rows = records.map((r) => ({
+    const validated = z.array(bulkAttendanceRecordSchema).safeParse(records);
+    if (!validated.success) {
+      return { success: false, error: validated.error.issues[0].message };
+    }
+
+    const rows = validated.data.map((r) => ({
       tenant_id: tenantId,
       staff_id: r.staff_id,
       date: r.date,
       status: r.status,
-      branch_id: r.branch_id || null,
+      branch_id: r.branch_id ?? null,
       updated_at: new Date().toISOString(),
     }));
 

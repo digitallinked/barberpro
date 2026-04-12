@@ -4,21 +4,21 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/types/database.types";
 import { getAuthContext } from "./_helpers";
+import { tenantProfileSchema, changePasswordSchema } from "@/validations/schemas";
+import { formDataToObject } from "@/lib/form-utils";
 
 export async function updateTenantProfile(formData: FormData) {
   try {
     const { supabase, tenantId } = await getAuthContext();
 
-    const name = (formData.get("name") as string) || undefined;
-    const email = (formData.get("email") as string) || undefined;
-    const phone = (formData.get("phone") as string) || undefined;
-    const address_line1 = (formData.get("address_line1") as string) || undefined;
-    const city = (formData.get("city") as string) || undefined;
-    const postcode = (formData.get("postcode") as string) || undefined;
-    const state = (formData.get("state") as string) || undefined;
-    const registration_number = (formData.get("registration_number") as string) || undefined;
+    const parsed = tenantProfileSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
 
-    const updateData: Record<string, string | undefined> = {
+    const { name, email, phone, address_line1, city, postcode, state, registration_number } = parsed.data;
+
+    const updateData: Record<string, string | null | undefined> = {
       updated_at: new Date().toISOString(),
     };
     if (name !== undefined) updateData.name = name;
@@ -88,18 +88,12 @@ export async function changePassword(formData: FormData) {
   try {
     const { supabase } = await getAuthContext();
 
-    const newPassword = formData.get("new_password") as string;
-    const confirmPassword = formData.get("confirm_password") as string;
-
-    if (!newPassword || newPassword.length < 6) {
-      return { success: false, error: "Password must be at least 6 characters" };
+    const parsed = changePasswordSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
     }
 
-    if (newPassword !== confirmPassword) {
-      return { success: false, error: "Passwords do not match" };
-    }
-
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await supabase.auth.updateUser({ password: parsed.data.new_password });
 
     if (error) return { success: false, error: error.message };
 

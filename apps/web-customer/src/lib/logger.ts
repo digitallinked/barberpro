@@ -1,18 +1,12 @@
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 export type LogContext = {
-  tenantId?: string;
   userId?: string;
   action?: string;
   path?: string;
-  /** Correlation ID for a single HTTP request */
   requestId?: string;
-  /** Wall-clock duration of an operation in milliseconds */
   durationMs?: number;
-  /** Stripe event ID for webhook handlers */
   eventId?: string;
-  /** Vercel cron job run identifier */
-  jobRunId?: string;
   [key: string]: unknown;
 };
 

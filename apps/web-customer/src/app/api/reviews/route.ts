@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 const Schema = z.object({
   slug: z.string().min(1).max(100),
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      console.error("Review insert error:", error.message);
+      logger.error("Review insert error", error, { action: "POST /api/reviews" });
       return NextResponse.json({ error: "Could not save review" }, { status: 500 });
     }
 

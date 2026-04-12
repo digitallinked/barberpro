@@ -29,41 +29,33 @@ export async function getExpenses(
 
 export async function getExpenseStats(
   client: Client,
-  tenantId: string
+  tenantId: string,
+  branchId?: string | null
 ): Promise<{
   data: { total: number; thisMonth: number } | null;
   error: Error | null;
 }> {
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]!;
+  const today = now.toISOString().split("T")[0]!;
 
-  const { data: allExpenses, error: allError } = await client
-    .from("expenses")
-    .select("amount")
-    .eq("tenant_id", tenantId)
-    .eq("status", "paid");
+  const { data, error } = await client.rpc("report_expense_totals", {
+    p_tenant_id: tenantId,
+    p_branch_id: branchId ?? null,
+    p_start: startOfMonth,
+    p_end: today,
+  });
 
-  if (allError) {
-    return { data: null, error: new Error(allError.message) };
+  if (error) {
+    return { data: null, error: new Error(error.message) };
   }
 
-  const { data: monthExpenses, error: monthError } = await client
-    .from("expenses")
-    .select("amount")
-    .eq("tenant_id", tenantId)
-    .eq("status", "paid")
-    .gte("expense_date", startOfMonth.toISOString().split("T")[0]!);
-
-  if (monthError) {
-    return { data: null, error: new Error(monthError.message) };
-  }
-
-  const total = (allExpenses ?? []).reduce((sum, e) => sum + (e.amount ?? 0), 0);
-  const thisMonth = (monthExpenses ?? []).reduce((sum, e) => sum + (e.amount ?? 0), 0);
-
+  const row = Array.isArray(data) ? data[0] : data;
   return {
-    data: { total, thisMonth },
+    data: {
+      total: Number(row?.total ?? 0),
+      thisMonth: Number(row?.this_month ?? 0),
+    },
     error: null,
   };
 }

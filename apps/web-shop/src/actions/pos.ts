@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { paymentMethodForDb, TRANSACTION_PAYMENT_METHODS } from "@/lib/payment-method";
+import { paymentMethodForDb } from "@/lib/payment-method";
+import { posTransactionSchema, linkedQueueCheckoutSchema } from "@/validations/schemas";
+import { logger } from "@/lib/logger";
 
 import { getAuthContext } from "./_helpers";
 
@@ -14,23 +16,21 @@ function proofPathBelongsToTenant(path: string | null | undefined, tenantId: str
   return first === tenantId;
 }
 
-type TransactionItem = {
-  itemType: string;
-  serviceId: string | null;
-  inventoryItemId: string | null;
-  staffId: string | null;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  lineTotal: number;
-};
-
 type CreateTransactionData = {
   branchId: string;
   customerId: string | null;
   queueTicketId: string | null;
   paymentMethod: string;
-  items: TransactionItem[];
+  items: Array<{
+    itemType: string;
+    serviceId: string | null;
+    inventoryItemId: string | null;
+    staffId: string | null;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+  }>;
   subtotal: number;
   discountAmount: number;
   taxAmount: number;
@@ -41,6 +41,14 @@ type CreateTransactionData = {
 export async function createTransaction(data: CreateTransactionData) {
   try {
     const { supabase, tenantId, appUserId } = await getAuthContext();
+
+    const parsed = posTransactionSchema.safeParse({
+      ...data,
+      paymentMethod: paymentMethodForDb(data.paymentMethod),
+    });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
 
     const {
       branchId,
@@ -53,18 +61,9 @@ export async function createTransaction(data: CreateTransactionData) {
       taxAmount,
       totalAmount,
       proofStoragePath,
-    } = data;
+    } = parsed.data;
 
-    if (!branchId || !paymentMethod || !items?.length) {
-      return { success: false, error: "Branch, payment method, and items are required" };
-    }
-
-    const methodForDb = paymentMethodForDb(paymentMethod);
-    if (!TRANSACTION_PAYMENT_METHODS.has(methodForDb)) {
-      return { success: false, error: "Invalid payment method" };
-    }
-
-    const cleanProofPath = proofStoragePath?.trim() || null;
+    const cleanProofPath = proofStoragePath ?? null;
     if (cleanProofPath && !proofPathBelongsToTenant(cleanProofPath, tenantId)) {
       return { success: false, error: "Invalid receipt path" };
     }
@@ -148,7 +147,9 @@ export async function createTransaction(data: CreateTransactionData) {
         .eq("tenant_id", tenantId);
 
       if (ticketError) {
-        console.error("[createTransaction] Failed to mark queue ticket as paid:", ticketError.message);
+        logger.error("[createTransaction] Failed to mark queue ticket as paid", ticketError, {
+          action: "createTransaction",
+        });
       }
 
       // Mark all seat members as completed so the seat panel reflects reality.
@@ -160,7 +161,9 @@ export async function createTransaction(data: CreateTransactionData) {
         .neq("status", "completed");
 
       if (seatsError) {
-        console.error("[createTransaction] Failed to mark ticket seats as completed:", seatsError.message);
+        logger.error("[createTransaction] Failed to mark ticket seats as completed", seatsError, {
+          action: "createTransaction",
+        });
       }
     }
 
@@ -198,6 +201,14 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
   try {
     const { supabase, tenantId, appUserId } = await getAuthContext();
 
+    const parsed = linkedQueueCheckoutSchema.safeParse({
+      ...data,
+      paymentMethod: paymentMethodForDb(data.paymentMethod),
+    });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
     const {
       queueTicketId,
       paymentMethod,
@@ -207,18 +218,9 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       taxAmount,
       totalAmount,
       proofStoragePath,
-    } = data;
+    } = parsed.data;
 
-    if (!queueTicketId || !paymentMethod) {
-      return { success: false, error: "Queue ticket and payment method are required" };
-    }
-
-    const methodForDb = paymentMethodForDb(paymentMethod);
-    if (!TRANSACTION_PAYMENT_METHODS.has(methodForDb)) {
-      return { success: false, error: "Invalid payment method" };
-    }
-
-    const cleanProofPath = proofStoragePath?.trim() || null;
+    const cleanProofPath = proofStoragePath ?? null;
     if (cleanProofPath && !proofPathBelongsToTenant(cleanProofPath, tenantId)) {
       return { success: false, error: "Invalid receipt path" };
     }
