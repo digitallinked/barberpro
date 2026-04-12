@@ -164,7 +164,7 @@ export async function getDashboardStats(
 
   const { data, error } = await client.rpc("report_revenue_summary", {
     p_tenant_id: tenantId,
-    p_branch_id: branchId ?? null,
+    p_branch_id: (branchId ?? null) as string,
     p_start: start.toISOString(),
     p_end: end.toISOString(),
   });
@@ -194,7 +194,7 @@ export async function getDailyRevenue(
 
   const { data: rpcData, error } = await client.rpc("report_daily_revenue", {
     p_tenant_id: tenantId,
-    p_branch_id: branchId ?? null,
+    p_branch_id: (branchId ?? null) as string,
     p_start: start.toISOString(),
     p_end: end.toISOString(),
   });

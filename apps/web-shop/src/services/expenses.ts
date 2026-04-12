@@ -41,7 +41,7 @@ export async function getExpenseStats(
 
   const { data, error } = await client.rpc("report_expense_totals", {
     p_tenant_id: tenantId,
-    p_branch_id: branchId ?? null,
+    p_branch_id: (branchId ?? null) as string,
     p_start: startOfMonth,
     p_end: today,
   });

@@ -217,11 +217,18 @@ export async function saveOnboarding(data: {
     .padEnd(2, "X") + "01";
 
   // Create default HQ branch using the shop's address
+  const branchSlug = data.shopName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60) || "hq";
+
   const { data: defaultBranch, error: branchError } = await supabase
     .from("branches")
     .insert({
       tenant_id: tenant.id,
       name: data.shopName,
+      slug: branchSlug,
       code: branchCode,
       address: addressFull || null,
       phone: data.phone || null,

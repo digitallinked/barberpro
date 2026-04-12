@@ -47,7 +47,7 @@ export async function getInventoryStats(
     countQuery,
     client.rpc("report_low_stock_count", {
       p_tenant_id: tenantId,
-      p_branch_id: branchId ?? null,
+      p_branch_id: (branchId ?? null) as string,
     }),
   ]);
 
