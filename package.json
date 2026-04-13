@@ -21,7 +21,7 @@
     "typecheck:admin": "pnpm --filter @barberpro/web-admin typecheck",
     "typecheck:customer": "pnpm --filter @barberpro/web-customer typecheck",
     "dev:mobile": "pnpm --filter @barberpro/mobile-customer dev",
-    "typecheck:mobile": "pnpm --filter @barberpro/mobile-customer typecheck"
+    "typecheck:mobile": "pnpm --filter @barberpro/mobile-customer typecheck && pnpm --filter @barberpro/mobile-staff typecheck"
   },
   "devDependencies": {}
 }

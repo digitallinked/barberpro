@@ -8,7 +8,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#1a1a2e"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
     },
     "ios": {
       "supportsTablet": true,
@@ -16,6 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1a1a2e"
       },
       "package": "my.barberpro.staff"
@@ -23,13 +32,22 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-updates",
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
           "color": "#1a1a2e"
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8bf7804e-3138-4536-a9d3-be8d786a85e0"
+      }
+    },
+    "owner": "barberpro"
   }
 }

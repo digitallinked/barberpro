@@ -1,18 +1,21 @@
 import { Redirect } from "expo-router";
-import { useEffect, useState } from "react";
-
-import { supabase } from "../lib/supabase";
+import { useStaffSession } from "../contexts/staff-session";
+import { View, ActivityIndicator } from "react-native";
 
 export default function IndexScreen() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const { session, isLoading } = useStaffSession();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session);
-    });
-  }, []);
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-brand-dark">
+        <ActivityIndicator color="#D4AF37" size="large" />
+      </View>
+    );
+  }
 
-  if (isLoggedIn === null) return null;
-
-  return isLoggedIn ? <Redirect href="/(tabs)/schedule" /> : <Redirect href="/(auth)/login" />;
+  return session ? (
+    <Redirect href="/(tabs)/home" />
+  ) : (
+    <Redirect href="/(auth)/login" />
+  );
 }

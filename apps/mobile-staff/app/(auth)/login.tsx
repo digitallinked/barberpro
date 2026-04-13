@@ -1,17 +1,27 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { router } from "expo-router";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
+import { useStaffSession } from "../../contexts/staff-session";
 
 export default function StaffLoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const { refresh } = useStaffSession();
 
   async function handleLogin() {
+    if (!email.trim() || !password) {
+      Alert.alert("Missing fields", "Please enter your email and password.");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
     setLoading(false);
 
     if (error) {
@@ -19,40 +29,64 @@ export default function StaffLoginScreen() {
       return;
     }
 
-    router.replace("/(tabs)/schedule");
+    await refresh();
+    router.replace("/(tabs)/home");
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" }}>
-      <Text style={{ fontSize: 28, fontWeight: "bold", marginBottom: 4 }}>BarberPro Staff</Text>
-      <Text style={{ fontSize: 16, color: "#666", marginBottom: 32 }}>Sign in with your staff account</Text>
-
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 16 }}
-      />
-
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 14, marginBottom: 24, fontSize: 16 }}
-      />
-
-      <TouchableOpacity
-        onPress={handleLogin}
-        disabled={loading}
-        style={{ backgroundColor: "#1a1a2e", borderRadius: 8, padding: 16, alignItems: "center", opacity: loading ? 0.6 : 1 }}
+    <SafeAreaView className="flex-1 bg-brand-dark">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
       >
-        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-          {loading ? "Signing in..." : "Sign In"}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <View className="flex-1 justify-center px-6">
+          <View className="mb-10">
+            <Text className="text-brand-gold text-4xl font-bold">BarberPro</Text>
+            <Text className="text-white text-2xl font-semibold mt-1">Staff</Text>
+            <Text className="text-white/50 mt-2 text-base">Sign in to your staff account</Text>
+          </View>
+
+          <View className="gap-3">
+            <View>
+              <Text className="text-white/70 text-sm mb-1.5 ml-1">Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="staff@example.com"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                className="bg-brand-darkcard border border-brand-border rounded-xl px-4 py-3.5 text-white text-base"
+              />
+            </View>
+
+            <View>
+              <Text className="text-white/70 text-sm mb-1.5 ml-1">Password</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                secureTextEntry
+                autoComplete="password"
+                className="bg-brand-darkcard border border-brand-border rounded-xl px-4 py-3.5 text-white text-base"
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleLogin}
+              disabled={loading}
+              className={`bg-brand-gold rounded-xl py-4 items-center mt-3 ${loading ? "opacity-60" : ""}`}
+              activeOpacity={0.8}
+            >
+              <Text className="text-brand-dark font-bold text-base">
+                {loading ? "Signing in…" : "Sign In"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -24,6 +24,8 @@ pnpm-debug.log*
 
 # local env files
 .env*.local
+apps/mobile-staff/.env
+apps/mobile-customer/.env
 
 # typescript
 *.tsbuildinfo
