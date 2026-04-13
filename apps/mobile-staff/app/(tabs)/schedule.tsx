@@ -2,10 +2,12 @@ import { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { format, addDays, isSameDay, parseISO } from "date-fns";
+import { format, addDays, formatDistanceToNow, isSameDay, parseISO } from "date-fns";
 import { useStaffSession } from "../../contexts/staff-session";
 import { useAppointments, useAppointmentActions, type Appointment } from "../../hooks/use-appointments";
 import { Badge } from "../../components/ui/badge";
+import { OfflineBanner } from "../../components/ui/offline-banner";
+import { useNetwork } from "../../hooks/use-network";
 import { isOwnerOrManager } from "../../lib/permissions";
 
 function DayPicker({
@@ -132,10 +134,11 @@ function AppointmentCard({
 export default function ScheduleScreen() {
   const { session } = useStaffSession();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const { isOffline } = useNetwork();
 
   const isManager = session ? isOwnerOrManager(session.role) : false;
 
-  const { data: appointments, isLoading, refetch } = useAppointments(
+  const { data: appointments, isLoading, isStale, dataUpdatedAt, refetch } = useAppointments(
     session?.tenantId ?? "",
     session?.branchId ?? "",
     isManager ? null : undefined
@@ -150,11 +153,17 @@ export default function ScheduleScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-dark">
+      <OfflineBanner />
       <View className="px-5 pt-4 pb-2">
         <Text className="text-white text-2xl font-bold">Schedule</Text>
         <Text className="text-white/50 text-sm">
           {format(selectedDate, "EEEE, d MMMM yyyy")}
         </Text>
+        {isOffline && isStale && dataUpdatedAt > 0 && (
+          <Text className="text-white/30 text-xs mt-0.5">
+            Cached · last synced {formatDistanceToNow(dataUpdatedAt)} ago
+          </Text>
+        )}
       </View>
 
       <DayPicker selected={selectedDate} onSelect={setSelectedDate} />

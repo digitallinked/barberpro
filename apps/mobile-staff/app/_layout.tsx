@@ -1,24 +1,38 @@
 import "../global.css";
 
 import { Stack } from "expo-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StaffSessionProvider } from "../contexts/staff-session";
+import { setupNotificationHandler } from "../lib/notifications";
+
+setupNotificationHandler().catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 30_000,
+      staleTime: 5 * 60_000,
+      gcTime: 24 * 60 * 60_000,
     },
   },
+});
+
+const persister = createAsyncStoragePersister({
+  storage: AsyncStorage,
 });
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 24 * 60 * 60 * 1000 }}
+      >
         <StaffSessionProvider>
           <StatusBar style="light" />
           <Stack screenOptions={{ headerShown: false }}>
@@ -27,7 +41,7 @@ export default function RootLayout() {
             <Stack.Screen name="(manager)" />
           </Stack>
         </StaffSessionProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </SafeAreaProvider>
   );
 }

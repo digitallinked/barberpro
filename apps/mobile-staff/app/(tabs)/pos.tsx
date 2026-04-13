@@ -16,6 +16,7 @@ import { useStaffSession } from "../../contexts/staff-session";
 import { useServices } from "../../hooks/use-services";
 import { usePromotions } from "../../hooks/use-promotions";
 import { usePosTransaction, type CartItem, type PaymentMethod } from "../../hooks/use-pos";
+import { OfflineBanner } from "../../components/ui/offline-banner";
 import { formatMYR } from "../../lib/malaysia-date";
 
 const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
@@ -29,12 +30,14 @@ function ReceiptModal({
   total,
   items,
   paymentMethod,
+  savedOffline,
   onDone,
 }: {
   visible: boolean;
   total: number;
   items: CartItem[];
   paymentMethod: PaymentMethod;
+  savedOffline: boolean;
   onDone: () => void;
 }) {
   return (
@@ -42,11 +45,26 @@ function ReceiptModal({
       <View className="flex-1 bg-black/70 items-center justify-center p-6">
         <View className="bg-brand-darkcard border border-brand-border rounded-2xl p-6 w-full max-w-sm">
           <View className="items-center mb-4">
-            <View className="bg-emerald-500/20 rounded-full w-16 h-16 items-center justify-center mb-3">
-              <Ionicons name="checkmark-circle" size={36} color="#34d399" />
+            <View
+              className={`rounded-full w-16 h-16 items-center justify-center mb-3 ${
+                savedOffline ? "bg-amber-500/20" : "bg-emerald-500/20"
+              }`}
+            >
+              <Ionicons
+                name={savedOffline ? "cloud-offline-outline" : "checkmark-circle"}
+                size={36}
+                color={savedOffline ? "#f59e0b" : "#34d399"}
+              />
             </View>
-            <Text className="text-white text-xl font-bold">Payment Received</Text>
+            <Text className="text-white text-xl font-bold">
+              {savedOffline ? "Payment Saved Offline" : "Payment Received"}
+            </Text>
             <Text className="text-brand-gold text-3xl font-bold mt-1">{formatMYR(total)}</Text>
+            {savedOffline && (
+              <Text className="text-amber-400/80 text-xs text-center mt-2">
+                Will sync to server when internet is restored
+              </Text>
+            )}
           </View>
 
           <View className="gap-1 mb-4">
@@ -89,11 +107,13 @@ export default function PosScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [discount, setDiscount] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"services" | "products">("services");
 
   const services = useServices(session?.tenantId ?? "");
   const promotions = usePromotions(session?.tenantId ?? "");
-  const { submitTransaction } = usePosTransaction(
+  const { submitWithOfflineFallback } = usePosTransaction(
     session?.tenantId ?? "",
     session?.branchId ?? "",
     session?.appUserId ?? ""
@@ -139,14 +159,21 @@ export default function PosScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Confirm",
-          onPress: () => {
-            submitTransaction.mutate(
-              { cart, paymentMethod, discountAmount: discountAmt },
-              {
-                onSuccess: () => setShowReceipt(true),
-                onError: (e) => Alert.alert("Error", e.message),
-              }
-            );
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              const result = await submitWithOfflineFallback({
+                cart,
+                paymentMethod,
+                discountAmount: discountAmt,
+              });
+              setSavedOffline(result.savedOffline);
+              setShowReceipt(true);
+            } catch (e) {
+              Alert.alert("Error", e instanceof Error ? e.message : "Checkout failed");
+            } finally {
+              setIsSubmitting(false);
+            }
           },
         },
       ]
@@ -155,6 +182,7 @@ export default function PosScreen() {
 
   function handleReceiptDone() {
     setShowReceipt(false);
+    setSavedOffline(false);
     setCart([]);
     setDiscount("");
     setPaymentMethod("cash");
@@ -164,6 +192,7 @@ export default function PosScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-dark">
+      <OfflineBanner />
       <View className="px-5 pt-4 pb-2 flex-row items-center justify-between">
         <Text className="text-white text-2xl font-bold">POS</Text>
         {cart.length > 0 && (
@@ -318,13 +347,13 @@ export default function PosScreen() {
 
             <TouchableOpacity
               onPress={handleCheckout}
-              disabled={submitTransaction.isPending || cart.length === 0}
+              disabled={isSubmitting || cart.length === 0}
               className={`bg-brand-gold rounded-xl py-3 items-center ${
-                cart.length === 0 || submitTransaction.isPending ? "opacity-40" : ""
+                cart.length === 0 || isSubmitting ? "opacity-40" : ""
               }`}
               activeOpacity={0.8}
             >
-              {submitTransaction.isPending ? (
+              {isSubmitting ? (
                 <ActivityIndicator size="small" color="#121212" />
               ) : (
                 <Text className="text-brand-dark font-bold text-sm">Checkout</Text>
@@ -339,6 +368,7 @@ export default function PosScreen() {
         total={total}
         items={cart}
         paymentMethod={paymentMethod}
+        savedOffline={savedOffline}
         onDone={handleReceiptDone}
       />
     </SafeAreaView>

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
+import { enqueueMutation } from "../lib/offline-queue";
 
 export type CartItem = {
   serviceId: string | null;
@@ -11,6 +12,10 @@ export type CartItem = {
 };
 
 export type PaymentMethod = "cash" | "qr" | "card";
+
+export type TransactionResult =
+  | { success: true; txnId: string; savedOffline: false }
+  | { success: true; txnId: null; savedOffline: true };
 
 export function usePosTransaction(tenantId: string, branchId: string, appUserId: string) {
   const queryClient = useQueryClient();
@@ -26,7 +31,7 @@ export function usePosTransaction(tenantId: string, branchId: string, appUserId:
       paymentMethod: PaymentMethod;
       customerId?: string | null;
       discountAmount?: number;
-    }) => {
+    }): Promise<TransactionResult> => {
       if (cart.length === 0) throw new Error("Cart is empty");
 
       const subtotal = cart.reduce(
@@ -72,13 +77,46 @@ export function usePosTransaction(tenantId: string, branchId: string, appUserId:
       const { error: itemsError } = await supabase.from("transaction_items").insert(items);
       if (itemsError) throw new Error(itemsError.message);
 
-      return txn.id;
+      return { success: true, txnId: txn.id, savedOffline: false };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    onError: (_err, variables) => {
+      enqueueMutation({
+        type: "pos_transaction",
+        payload: {
+          cart: variables.cart,
+          paymentMethod: variables.paymentMethod,
+          customerId: variables.customerId,
+          discountAmount: variables.discountAmount,
+          tenantId,
+          branchId,
+          appUserId,
+        },
+      });
+    },
+    onSuccess: (result) => {
+      if (!result.savedOffline) {
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      }
     },
   });
 
-  return { submitTransaction };
+  /**
+   * Submits the transaction. On network failure, queues it for later sync
+   * and returns a result indicating it was saved offline.
+   */
+  async function submitWithOfflineFallback(variables: {
+    cart: CartItem[];
+    paymentMethod: PaymentMethod;
+    customerId?: string | null;
+    discountAmount?: number;
+  }): Promise<TransactionResult> {
+    try {
+      return await submitTransaction.mutateAsync(variables);
+    } catch {
+      return { success: true, txnId: null, savedOffline: true };
+    }
+  }
+
+  return { submitTransaction, submitWithOfflineFallback };
 }

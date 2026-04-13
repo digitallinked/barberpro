@@ -2,6 +2,24 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { getMalaysiaDateRange, malaysiaDateString, type Period } from "../lib/malaysia-date";
 
+export function useStaffProfileId(appUserId: string | undefined, tenantId: string) {
+  return useQuery({
+    queryKey: ["staff-profile-id", appUserId, tenantId],
+    queryFn: async () => {
+      if (!appUserId) return null;
+      const { data } = await supabase
+        .from("staff_profiles")
+        .select("id")
+        .eq("app_user_id", appUserId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      return data?.id ?? null;
+    },
+    enabled: !!appUserId && !!tenantId,
+    staleTime: 10 * 60_000,
+  });
+}
+
 export function useDashboardStats(tenantId: string, branchId: string, period: Period) {
   return useQuery({
     queryKey: ["dashboard-stats", tenantId, branchId, period],

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { resolveStaffSession, type StaffSession } from "../lib/auth";
+import { registerForPushNotifications } from "../lib/notifications";
 
 type StaffSessionContextValue = {
   session: StaffSession | null;
@@ -25,6 +26,19 @@ export function StaffSessionProvider({ children }: { children: React.ReactNode }
     const resolved = await resolveStaffSession(supabase);
     setSession(resolved);
     setIsLoading(false);
+
+    if (resolved) {
+      const { data: profile } = await supabase
+        .from("staff_profiles")
+        .select("id")
+        .eq("app_user_id", resolved.appUserId)
+        .eq("tenant_id", resolved.tenantId)
+        .maybeSingle();
+
+      if (profile?.id) {
+        registerForPushNotifications(profile.id);
+      }
+    }
   }
 
   function clearSession() {

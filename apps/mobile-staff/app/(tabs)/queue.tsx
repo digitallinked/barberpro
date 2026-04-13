@@ -16,6 +16,9 @@ import { useStaffSession } from "../../contexts/staff-session";
 import { useQueueTickets, useQueueActions, type QueueTicket } from "../../hooks/use-queue";
 import { useServices } from "../../hooks/use-services";
 import { Badge } from "../../components/ui/badge";
+import { OfflineBanner } from "../../components/ui/offline-banner";
+import { useNetwork } from "../../hooks/use-network";
+import { formatDistanceToNow } from "date-fns";
 
 function WaitTime({ createdAt }: { createdAt: string }) {
   const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
@@ -216,11 +219,12 @@ function AddWalkInModal({
 export default function QueueScreen() {
   const { session } = useStaffSession();
   const [showAddModal, setShowAddModal] = useState(false);
+  const { isOffline } = useNetwork();
 
   const tenantId = session?.tenantId ?? "";
   const branchId = session?.branchId ?? "";
 
-  const { data: tickets, isLoading, refetch } = useQueueTickets(tenantId, branchId);
+  const { data: tickets, isLoading, isStale, dataUpdatedAt, refetch } = useQueueTickets(tenantId, branchId);
   const { updateStatus } = useQueueActions(tenantId, branchId);
 
   function handleStatusUpdate(ticketId: string, status: string, confirmMsg?: string) {
@@ -247,12 +251,18 @@ export default function QueueScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-dark">
+      <OfflineBanner />
       <View className="px-5 pt-4 pb-3 flex-row items-center justify-between">
         <View>
           <Text className="text-white text-2xl font-bold">Queue</Text>
           <Text className="text-white/50 text-sm">
             {waiting.length} waiting · {inService.length} in service
           </Text>
+          {isOffline && isStale && dataUpdatedAt > 0 && (
+            <Text className="text-white/30 text-xs mt-0.5">
+              Cached · last synced {formatDistanceToNow(dataUpdatedAt)} ago
+            </Text>
+          )}
         </View>
         <TouchableOpacity
           onPress={() => setShowAddModal(true)}

@@ -2,9 +2,12 @@ import { useState } from "react";
 import { View, Text, TouchableOpacity, Alert, RefreshControl, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { formatDistanceToNow } from "date-fns";
 import { useStaffSession } from "../../contexts/staff-session";
-import { useDashboardStats, useQueueCount, useClockInOut } from "../../hooks/use-dashboard";
+import { useDashboardStats, useQueueCount, useClockInOut, useStaffProfileId } from "../../hooks/use-dashboard";
 import { StatCard } from "../../components/ui/stat-card";
+import { OfflineBanner } from "../../components/ui/offline-banner";
+import { useNetwork } from "../../hooks/use-network";
 import { formatMYR } from "../../lib/malaysia-date";
 import type { Period } from "../../lib/malaysia-date";
 
@@ -26,14 +29,19 @@ export default function HomeScreen() {
   const [period, setPeriod] = useState<Period>("today");
   const [refreshing, setRefreshing] = useState(false);
 
+  const { isOffline } = useNetwork();
   const stats = useDashboardStats(session?.tenantId ?? "", session?.branchId ?? "", period);
   const queueCount = useQueueCount(session?.tenantId ?? "", session?.branchId ?? "");
 
-  // Clock in/out — needs staff_profile_id (looked up separately if needed)
+  const { data: staffProfileId = null } = useStaffProfileId(
+    session?.appUserId,
+    session?.tenantId ?? ""
+  );
+
   const { todayRecord, clockIn, clockOut } = useClockInOut(
     session?.tenantId ?? "",
     session?.branchId ?? "",
-    null // staffProfileId — we'd need to fetch this; for now disable clock feature
+    staffProfileId
   );
 
   async function handleRefresh() {
@@ -48,6 +56,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-dark">
+      <OfflineBanner />
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 20, paddingBottom: 32 }}
@@ -61,6 +70,11 @@ export default function HomeScreen() {
           <View>
             <Text className="text-white/60 text-sm">{getGreeting()},</Text>
             <Text className="text-white text-2xl font-bold">{session.fullName}</Text>
+            {isOffline && stats.isStale && stats.dataUpdatedAt > 0 && (
+              <Text className="text-white/30 text-xs mt-1">
+                Cached · last synced {formatDistanceToNow(stats.dataUpdatedAt)} ago
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             className="bg-brand-darkcard border border-brand-border rounded-full p-2 mt-1"
