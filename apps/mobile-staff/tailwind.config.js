@@ -13,9 +13,9 @@ module.exports = {
       colors: {
         brand: {
           gold: "#D4AF37",
-          dark: "#1a1a2e",
-          darkcard: "#16213e",
-          border: "#2a2a4a",
+          dark: "#121212",
+          darkcard: "#1c1c1c",
+          border: "#2e2e2e",
         },
       },
     },

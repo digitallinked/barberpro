@@ -1,6 +1,7 @@
 import { Tabs, Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStaffSession } from "../../contexts/staff-session";
 import { getPermissions } from "../../lib/permissions";
 
@@ -12,6 +13,8 @@ type TabConfig = {
   icon: IoniconsName;
   activeIcon: IoniconsName;
   showFor: (perms: ReturnType<typeof getPermissions>) => boolean;
+  /** Hide from tab bar (route still navigable via router.push). Defaults to true. */
+  inTabBar?: boolean;
 };
 
 const TAB_CONFIGS: TabConfig[] = [
@@ -49,6 +52,7 @@ const TAB_CONFIGS: TabConfig[] = [
     icon: "people-outline",
     activeIcon: "people",
     showFor: (p) => p.canAccessCustomers,
+    inTabBar: false,
   },
   {
     name: "commissions",
@@ -56,13 +60,14 @@ const TAB_CONFIGS: TabConfig[] = [
     icon: "cash-outline",
     activeIcon: "cash",
     showFor: (p) => p.canAccessCommissions,
+    inTabBar: false,
   },
   {
     name: "more",
     title: "More",
     icon: "menu-outline",
     activeIcon: "menu",
-    showFor: (p) => p.canAccessMore,
+    showFor: () => true,
   },
   {
     name: "profile",
@@ -70,11 +75,15 @@ const TAB_CONFIGS: TabConfig[] = [
     icon: "person-outline",
     activeIcon: "person",
     showFor: () => true,
+    inTabBar: false,
   },
 ];
 
 export default function StaffTabLayout() {
   const { session, isLoading } = useStaffSession();
+  const insets = useSafeAreaInsets();
+  /** Gesture / 3-button nav inset; small fallback when OEM reports 0 incorrectly */
+  const bottomInset = Math.max(insets.bottom, Platform.OS === "android" ? 10 : 0);
 
   if (isLoading) {
     return (
@@ -95,26 +104,28 @@ export default function StaffTabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#16213e",
-          borderTopColor: "#2a2a4a",
+          backgroundColor: "#1c1c1c",
+          borderTopColor: "rgba(255,255,255,0.1)",
           borderTopWidth: 1,
-          paddingBottom: 4,
-          height: 60,
+          paddingTop: 6,
+          paddingBottom: bottomInset,
+          height: 52 + 6 + bottomInset,
         },
         tabBarActiveTintColor: "#D4AF37",
-        tabBarInactiveTintColor: "rgba(255,255,255,0.4)",
-        tabBarLabelStyle: { fontSize: 10, marginBottom: 2 },
+        tabBarInactiveTintColor: "rgba(255,255,255,0.35)",
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginBottom: 2 },
       }}
     >
       {TAB_CONFIGS.map((tab) => {
-        const visible = tab.showFor(perms);
+        const hasPermission = tab.showFor(perms);
+        const showInBar = (tab.inTabBar ?? true) && hasPermission;
         return (
           <Tabs.Screen
             key={tab.name}
             name={tab.name}
             options={{
               title: tab.title,
-              href: visible ? undefined : null,
+              href: showInBar ? undefined : null,
               tabBarIcon: ({ focused, color }) => (
                 <Ionicons
                   name={focused ? tab.activeIcon : tab.icon}

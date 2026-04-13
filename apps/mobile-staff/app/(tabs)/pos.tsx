@@ -325,7 +325,7 @@ export default function PosScreen() {
               activeOpacity={0.8}
             >
               {submitTransaction.isPending ? (
-                <ActivityIndicator size="small" color="#1a1a2e" />
+                <ActivityIndicator size="small" color="#121212" />
               ) : (
                 <Text className="text-brand-dark font-bold text-sm">Checkout</Text>
               )}

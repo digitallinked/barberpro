@@ -57,9 +57,17 @@ export default function HomeScreen() {
         }
       >
         {/* Header */}
-        <View className="mb-6">
-          <Text className="text-white/60 text-sm">{getGreeting()},</Text>
-          <Text className="text-white text-2xl font-bold">{session.fullName}</Text>
+        <View className="mb-6 flex-row items-start justify-between">
+          <View>
+            <Text className="text-white/60 text-sm">{getGreeting()},</Text>
+            <Text className="text-white text-2xl font-bold">{session.fullName}</Text>
+          </View>
+          <TouchableOpacity
+            className="bg-brand-darkcard border border-brand-border rounded-full p-2 mt-1"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={20} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
         </View>
 
         {/* Period toggle */}

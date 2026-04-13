@@ -41,7 +41,7 @@ export function Button({
       className={`rounded-xl py-3 px-4 items-center justify-center flex-row gap-2 ${variantStyles[variant]} ${disabled || loading ? "opacity-50" : ""} ${className}`}
       activeOpacity={0.75}
     >
-      {loading && <ActivityIndicator size="small" color={variant === "primary" ? "#1a1a2e" : "#fff"} />}
+      {loading && <ActivityIndicator size="small" color={variant === "primary" ? "#121212" : "#fff"} />}
       <Text className={`text-base ${labelStyles[variant]}`}>{label}</Text>
     </TouchableOpacity>
   );

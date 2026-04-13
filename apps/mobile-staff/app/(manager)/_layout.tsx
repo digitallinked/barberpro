@@ -4,11 +4,11 @@ export default function ManagerLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: "#16213e" },
+        headerStyle: { backgroundColor: "#1c1c1c" },
         headerTintColor: "#ffffff",
         headerTitleStyle: { fontWeight: "600" },
         headerBackTitle: "Back",
-        contentStyle: { backgroundColor: "#1a1a2e" },
+        contentStyle: { backgroundColor: "#121212" },
       }}
     />
   );

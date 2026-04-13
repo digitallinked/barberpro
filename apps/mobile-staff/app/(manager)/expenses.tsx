@@ -195,7 +195,7 @@ export default function ExpensesScreen() {
         className="absolute bottom-6 right-6 bg-brand-gold w-14 h-14 rounded-full items-center justify-center shadow-lg"
         activeOpacity={0.85}
       >
-        <Ionicons name="add" size={28} color="#1a1a2e" />
+        <Ionicons name="add" size={28} color="#121212" />
       </TouchableOpacity>
 
       {showAdd && (

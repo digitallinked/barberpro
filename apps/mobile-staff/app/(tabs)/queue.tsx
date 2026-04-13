@@ -258,7 +258,7 @@ export default function QueueScreen() {
           onPress={() => setShowAddModal(true)}
           className="bg-brand-gold w-10 h-10 rounded-full items-center justify-center"
         >
-          <Ionicons name="add" size={22} color="#1a1a2e" />
+          <Ionicons name="add" size={22} color="#121212" />
         </TouchableOpacity>
       </View>
 
