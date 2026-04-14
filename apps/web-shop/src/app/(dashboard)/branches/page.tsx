@@ -4,7 +4,6 @@ import { ArrowRight, Lock, MapPin, Plus, Rocket, Store, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 
 import { useBranches } from "@/hooks";
@@ -16,7 +15,6 @@ import { PlacesAutocomplete } from "@/components/places-autocomplete";
 export default function BranchesPage() {
   const t = useT();
   const queryClient = useQueryClient();
-  const router = useRouter();
   const { data, isLoading, error } = useBranches();
   const tenant = useTenant();
 
@@ -120,9 +118,10 @@ export default function BranchesPage() {
               : !b.accepts_online_bookings && !b.accepts_walkin_queue ? "bg-red-500/10 text-red-400"
               : "bg-amber-500/10 text-amber-400";
             return (
-              <div
+              <Link
                 key={b.id}
-                className="group rounded-xl border border-white/5 bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl hover:shadow-black/20"
+                href={`/branches/${slug}`}
+                className="group block rounded-xl border border-white/5 bg-[#1a1a1a] p-5 transition hover:-translate-y-0.5 hover:border-[#D4AF37]/20 hover:shadow-xl hover:shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
               >
                 <div className="flex items-start gap-3 mb-4">
                   {logoUrl ? (
@@ -166,23 +165,7 @@ export default function BranchesPage() {
                 <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${modeBadgeColor}`}>{modeLabel}</span>
                 </div>
-
-                <div className="mt-3 flex items-center gap-2">
-                  <Link
-                    href={`/branches/${slug}`}
-                    className="flex-1 rounded-lg border border-white/10 py-2 text-center text-xs font-medium text-gray-300 transition hover:bg-white/5 hover:text-white"
-                  >
-                    {t.branches.tabOverview}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/${slug}/dashboard`)}
-                    className="rounded-lg bg-[#D4AF37]/10 px-3 py-2 text-xs font-bold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
-                  >
-                    {t.branches.setAsActive}
-                  </button>
-                </div>
-              </div>
+              </Link>
             );
           })}
         </div>
