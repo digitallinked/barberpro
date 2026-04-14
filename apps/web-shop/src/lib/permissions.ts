@@ -12,22 +12,31 @@ type RolePermission = {
 };
 
 const ALL_PAGES = [
+  // Operations
   "dashboard",
   "queue",
   "appointments",
   "pos",
+  // Customers
   "customers",
   "services",
+  // Team
   "staff",
   "payroll",
   "commissions",
+  // Business
   "inventory",
   "expenses",
   "promotions",
   "reports",
-  "branches",
-  "settings",
+  // Branch-scoped admin (owner + manager)
+  "branch_settings",
+  // Workspace-only (owner)
+  "branches_directory",
+  "workspace_profile",
+  "tax",
   "billing",
+  // User
   "profile",
 ];
 
@@ -52,12 +61,13 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermission> = {
       "expenses",
       "reports",
       "promotions",
+      "branch_settings",
       "profile",
     ],
     canManageBranches: false,
     canManageBilling: false,
     canInviteStaff: false,
-    canManageSettings: false,
+    canManageSettings: true,
     branchScope: "own",
   },
   barber: {
@@ -120,17 +130,29 @@ export function isOwnerOrManager(role: string): boolean {
  * Used to distinguish branch-scoped paths from global paths.
  */
 const GLOBAL_PAGES = new Set([
-  "billing", "branches", "settings", "profile",
+  "billing", "branches", "workspace", "profile",
 ]);
+
+/**
+ * Sub-page keys within /workspace/
+ */
+const WORKSPACE_SUB_PAGES: Record<string, string> = {
+  profile: "workspace_profile",
+  tax: "tax",
+};
 
 /**
  * Extract the page identifier from a pathname for permission checking.
  * Handles both branch-scoped paths and global paths:
- *   "/digital-linked/queue"      → "queue"
- *   "/all/dashboard"             → "dashboard"
- *   "/billing"                   → "billing"
- *   "/staff/123"                 → "staff"   (legacy flat route)
- *   "/branches/abc/settings"     → "branches"
+ *   "/digital-linked/queue"        → "queue"
+ *   "/digital-linked/settings"     → "branch_settings"
+ *   "/all/dashboard"               → "dashboard"
+ *   "/billing"                     → "billing"
+ *   "/branches"                    → "branches_directory"
+ *   "/branches/abc/settings"       → "branches_directory"
+ *   "/workspace/profile"           → "workspace_profile"
+ *   "/workspace/tax"               → "tax"
+ *   "/settings"                    → "workspace_profile" (legacy redirect)
  */
 export function pageFromPathname(pathname: string): string | null {
   const segments = pathname.split("/").filter(Boolean);
@@ -138,12 +160,32 @@ export function pageFromPathname(pathname: string): string | null {
 
   const first = segments[0]!;
 
-  if (GLOBAL_PAGES.has(first) || ALL_PAGES.includes(first)) {
+  // Workspace routes: /workspace/profile, /workspace/tax
+  if (first === "workspace") {
+    const sub = segments[1];
+    if (sub && WORKSPACE_SUB_PAGES[sub]) return WORKSPACE_SUB_PAGES[sub];
+    return "workspace_profile";
+  }
+
+  // Branches directory: /branches (any depth)
+  if (first === "branches") {
+    return "branches_directory";
+  }
+
+  // Legacy /settings → workspace_profile (handles the server redirect)
+  if (first === "settings") {
+    return "workspace_profile";
+  }
+
+  // Other true global pages: /billing, /profile
+  if (GLOBAL_PAGES.has(first)) {
     return first;
   }
 
-  // First segment is a branch slug (or "all") — the page is the second segment
-  return segments[1] ?? null;
+  // Branch-scoped paths: /:branchSlug/:page
+  const page = segments[1] ?? null;
+  if (page === "settings") return "branch_settings";
+  return page;
 }
 
 /**

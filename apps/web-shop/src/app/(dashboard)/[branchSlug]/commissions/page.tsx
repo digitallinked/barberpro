@@ -273,7 +273,7 @@ export default function CommissionsPage() {
             </div>
             {isStarter && (
               <Link
-                href="/settings?tab=billing"
+                href="/billing"
                 className="mt-4 flex items-center justify-center gap-1.5 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#D4AF37] hover:brightness-110"
               >
                 Unlock all models — RM 249/mo <ArrowRight className="h-3 w-3" />
@@ -330,7 +330,7 @@ export default function CommissionsPage() {
                   <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-500">
                     <Lock className="h-3 w-3" />
                     Percentage, Product Commission &amp; Hybrid require Professional plan.{" "}
-                    <Link href="/settings?tab=billing" className="text-[#D4AF37] hover:underline">Upgrade</Link>
+                    <Link href="/billing" className="text-[#D4AF37] hover:underline">Upgrade</Link>
                   </p>
                 )}
               </div>

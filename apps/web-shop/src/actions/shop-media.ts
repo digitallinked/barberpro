@@ -27,7 +27,7 @@ export async function saveTenantLogo(storagePath: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -46,7 +46,7 @@ export async function removeTenantLogo() {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -70,7 +70,7 @@ export async function addTenantImage(storagePath: string, sortOrder: number) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true, id: data.id };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -90,7 +90,7 @@ export async function deleteTenantImage(imageId: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -114,7 +114,7 @@ export async function reorderTenantImages(orderedIds: string[]) {
     const failed = results.find((r) => r.error);
     if (failed?.error) return { success: false, error: failed.error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

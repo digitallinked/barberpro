@@ -7,6 +7,7 @@ import {
   Banknote,
   BarChart3,
   Bell,
+  Building2,
   CalendarCheck2,
   Check,
   ChevronDown,
@@ -20,6 +21,7 @@ import {
   Megaphone,
   Menu,
   Package,
+  Scale,
   Scissors,
   Settings,
   Store,
@@ -75,11 +77,15 @@ function useNavItems(role: string) {
     { labelKey: t.nav.expenses, href: "/expenses", icon: Wallet, pageKey: "expenses" },
     { labelKey: t.nav.promotions, href: "/promotions", icon: Megaphone, pageKey: "promotions" },
     { labelKey: t.nav.reports, href: "/reports", icon: BarChart3, pageKey: "reports" },
-    { labelKey: t.nav.branches, href: "/branches", icon: Store, pageKey: "branches", global: true },
-    { labelKey: t.nav.settings, href: "/settings", icon: Settings, pageKey: "settings", global: true },
+    // Branch settings: NOT global — gets the active branch prefix automatically
+    { labelKey: t.nav.settings, href: "/settings", icon: Settings, pageKey: "branch_settings" },
   ];
 
   const allWorkspace: NavItem[] = [
+    // Owner-only workspace items
+    { labelKey: t.nav.branches, href: "/branches", icon: Store, pageKey: "branches_directory", global: true },
+    { labelKey: t.nav.businessProfile, href: "/workspace/profile", icon: Building2, pageKey: "workspace_profile", global: true },
+    { labelKey: t.nav.taxCompliance, href: "/workspace/tax", icon: Scale, pageKey: "tax", global: true },
     { labelKey: t.nav.billing, href: "/billing", icon: Banknote, pageKey: "billing", global: true },
   ];
 

@@ -21,10 +21,10 @@ export default async function BillingPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link
-            href="/settings"
+            href="/workspace/profile"
             className="mb-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-[#D4AF37]"
           >
-            <ArrowLeft className="h-3 w-3" /> Back to settings
+            <ArrowLeft className="h-3 w-3" /> Back to workspace
           </Link>
           <h2 className="text-xl font-bold text-white">Subscription &amp; billing</h2>
           <p className="mt-1 text-sm text-gray-400">

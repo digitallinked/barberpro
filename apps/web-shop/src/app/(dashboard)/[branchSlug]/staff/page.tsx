@@ -608,7 +608,7 @@ export default function StaffPage() {
             </ul>
             <div className="mt-6 flex flex-col gap-2">
               <Link
-                href="/settings?tab=billing"
+                href="/billing"
                 className="flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
               >
                 Upgrade Now — RM 249/mo <ArrowRight className="h-4 w-4" />

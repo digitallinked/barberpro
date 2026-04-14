@@ -27,7 +27,7 @@ export async function createService(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -59,7 +59,7 @@ export async function updateService(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -78,7 +78,7 @@ export async function deleteService(id: string) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -101,7 +101,7 @@ export async function createServiceCategory(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -128,7 +128,7 @@ export async function updateServiceCategory(id: string, formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

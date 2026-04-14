@@ -38,7 +38,7 @@ export async function updateTenantProfile(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -60,7 +60,7 @@ export async function updateBranchHours(branchId: string, hours: Record<string, 
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -78,7 +78,7 @@ export async function updatePreferredLanguage(language: "ms" | "en") {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -199,7 +199,7 @@ export async function changePassword(formData: FormData) {
 
     if (error) return { success: false, error: error.message };
 
-    revalidatePath("/settings");
+    revalidatePath("/workspace/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
