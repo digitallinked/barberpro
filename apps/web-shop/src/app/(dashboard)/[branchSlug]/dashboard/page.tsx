@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -10,7 +10,11 @@ import {
   CheckCircle2,
   CircleDollarSign,
   CreditCard,
+  ExternalLink,
+  ImageIcon,
   PlusCircle,
+  QrCode,
+  Receipt,
   ShoppingCart,
   TrendingDown,
   TrendingUp,
@@ -35,7 +39,8 @@ import {
 import { useTenant } from "@/components/tenant-provider";
 import { useMaybeBranchContext } from "@/components/branch-context";
 import { useT } from "@/lib/i18n/language-context";
-import type { Period } from "@/services/transactions";
+import { useSupabase } from "@/hooks/use-supabase";
+import type { Period, TransactionWithItems } from "@/services/transactions";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -65,6 +70,11 @@ function formatDate(iso: string): string {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function humanizePaymentMethod(m: string) {
+  const map: Record<string, string> = { cash: "Cash", card: "Card", ewallet: "E-wallet", qr: "QR Pay", duitnow_qr: "DuitNow QR" };
+  return map[m] ?? m.replace(/_/g, " ");
 }
 
 function MiniChart({ bars }: { bars: { label: string; revenue: number }[] }) {
@@ -142,6 +152,7 @@ export default function DashboardPage() {
   const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = useSupabase();
   const [period, setPeriod] = useState<Period>("today");
   const [showWelcome, setShowWelcome] = useState(false);
   const { userName, userRole } = useTenant();
@@ -149,6 +160,27 @@ export default function DashboardPage() {
   const activeBranchName = activeBranch?.name ?? null;
   const isAllBranches = activeBranch === null;
   const bHref = useBranchHref();
+
+  // Receipt modal state
+  const [selectedTx, setSelectedTx] = useState<TransactionWithItems | null>(null);
+  const [receiptSignedUrl, setReceiptSignedUrl] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+
+  const openTxDetail = useCallback(async (tx: TransactionWithItems) => {
+    setSelectedTx(tx);
+    setReceiptSignedUrl(null);
+    if (tx.proof_storage_path) {
+      setReceiptLoading(true);
+      const { data } = await supabase.storage.from("payment-proofs").createSignedUrl(tx.proof_storage_path, 600);
+      setReceiptSignedUrl(data?.signedUrl ?? null);
+      setReceiptLoading(false);
+    }
+  }, [supabase]);
+
+  const closeTxDetail = useCallback(() => {
+    setSelectedTx(null);
+    setReceiptSignedUrl(null);
+  }, []);
 
   useEffect(() => {
     if (searchParams.get("welcome") === "true") {
@@ -503,27 +535,47 @@ export default function DashboardPage() {
               <>
                 {/* Mobile: card list */}
                 <div className="divide-y divide-white/[0.04] sm:hidden">
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-white">
-                          {tx.customer?.full_name ?? t.dashboard.walkIn}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-gray-500">
-                          {tx.payment_method} · {formatDate(tx.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="text-sm font-bold text-white">
-                          {formatAmount(tx.total_amount)}
-                        </span>
-                        <StatusBadge
-                          status={tx.payment_status}
-                          color={tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                  {transactions.map((tx) => {
+                    const isQr = tx.payment_method === "qr" || tx.payment_method === "duitnow_qr";
+                    const hasProof = Boolean(tx.proof_storage_path);
+                    return (
+                      <button
+                        key={tx.id}
+                        type="button"
+                        onClick={() => openTxDetail(tx)}
+                        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.02]"
+                      >
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isQr ? "bg-[#D4AF37]/10" : "bg-white/5"}`}>
+                          {isQr
+                            ? <QrCode className="h-4 w-4 text-[#D4AF37]" />
+                            : <Receipt className="h-4 w-4 text-gray-400" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {tx.customer?.full_name ?? t.dashboard.walkIn}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-gray-500">
+                            {humanizePaymentMethod(tx.payment_method)} · {formatDate(tx.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="text-sm font-bold text-white">
+                            {formatAmount(tx.total_amount)}
+                          </span>
+                          {hasProof ? (
+                            <span className="flex items-center gap-0.5 rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-400">
+                              <ImageIcon className="h-2.5 w-2.5" /> Photo
+                            </span>
+                          ) : (
+                            <StatusBadge
+                              status={tx.payment_status}
+                              color={tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"}
+                            />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Desktop: full table */}
@@ -536,32 +588,50 @@ export default function DashboardPage() {
                         <th className="p-4 text-left">{t.dashboard.amount}</th>
                         <th className="p-4 text-left">{t.dashboard.status}</th>
                         <th className="p-4 text-left">{t.dashboard.date}</th>
+                        <th className="p-4 text-center">Receipt</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.map((tx) => (
-                        <tr
-                          key={tx.id}
-                          className="border-t border-white/[0.04] transition hover:bg-white/[0.02]"
-                        >
-                          <td className="p-4 font-medium text-white">
-                            {tx.customer?.full_name ?? t.dashboard.walkIn}
-                          </td>
-                          <td className="p-4 text-gray-300">{tx.payment_method}</td>
-                          <td className="p-4 font-bold text-white">
-                            {formatAmount(tx.total_amount)}
-                          </td>
-                          <td className="p-4">
-                            <StatusBadge
-                              status={tx.payment_status}
-                              color={
-                                tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"
-                              }
-                            />
-                          </td>
-                          <td className="p-4 text-gray-500">{formatDate(tx.created_at)}</td>
-                        </tr>
-                      ))}
+                      {transactions.map((tx) => {
+                        const isQr = tx.payment_method === "qr" || tx.payment_method === "duitnow_qr";
+                        const hasProof = Boolean(tx.proof_storage_path);
+                        return (
+                          <tr
+                            key={tx.id}
+                            onClick={() => openTxDetail(tx)}
+                            className="cursor-pointer border-t border-white/[0.04] transition hover:bg-white/[0.02]"
+                          >
+                            <td className="p-4 font-medium text-white">
+                              {tx.customer?.full_name ?? t.dashboard.walkIn}
+                            </td>
+                            <td className="p-4">
+                              <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${isQr ? "bg-[#D4AF37]/10 text-[#D4AF37]" : "bg-white/5 text-gray-300"}`}>
+                                {isQr && <QrCode className="h-3 w-3" />}
+                                {humanizePaymentMethod(tx.payment_method)}
+                              </span>
+                            </td>
+                            <td className="p-4 font-bold text-white">
+                              {formatAmount(tx.total_amount)}
+                            </td>
+                            <td className="p-4">
+                              <StatusBadge
+                                status={tx.payment_status}
+                                color={tx.payment_status?.toLowerCase() === "paid" ? "green" : "yellow"}
+                              />
+                            </td>
+                            <td className="p-4 text-gray-500">{formatDate(tx.created_at)}</td>
+                            <td className="p-4 text-center">
+                              {hasProof ? (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-0.5 text-xs font-semibold text-sky-400">
+                                  <ImageIcon className="h-3 w-3" /> View
+                                </span>
+                              ) : (
+                                <span className="text-gray-600">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -737,6 +807,116 @@ export default function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {/* ── Transaction receipt modal ──────────────────────────────── */}
+      {selectedTx && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={closeTxDetail}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Transaction detail"
+            className="relative z-10 flex max-h-[min(92dvh,640px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl sm:rounded-2xl"
+            style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+              <div className="flex items-center gap-2">
+                {(selectedTx.payment_method === "qr" || selectedTx.payment_method === "duitnow_qr")
+                  ? <QrCode className="h-5 w-5 text-[#D4AF37]" />
+                  : <Receipt className="h-5 w-5 text-gray-400" />}
+                <h2 className="font-bold text-white">Transaction detail</h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeTxDetail}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
+              {/* Meta */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Date</p>
+                  <p className="mt-0.5 text-sm font-semibold text-white">{formatDate(selectedTx.created_at)}</p>
+                </div>
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Customer</p>
+                  <p className="mt-0.5 text-sm font-semibold text-white">
+                    {selectedTx.customer?.full_name ?? "Walk-in"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Payment</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-[#D4AF37]">
+                    {(selectedTx.payment_method === "qr" || selectedTx.payment_method === "duitnow_qr") && <QrCode className="h-3.5 w-3.5" />}
+                    {humanizePaymentMethod(selectedTx.payment_method)}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Total</p>
+                  <p className="mt-0.5 text-sm font-bold text-[#D4AF37]">{formatAmount(selectedTx.total_amount)}</p>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Items</p>
+                <div className="overflow-hidden rounded-xl border border-white/5">
+                  {selectedTx.transaction_items.map((item, i) => (
+                    <div key={item.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t border-white/5" : ""}`}>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.quantity} × {formatAmount(item.unit_price)}</p>
+                      </div>
+                      <span className="ml-4 shrink-0 text-sm font-semibold text-gray-200">{formatAmount(item.line_total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* QR Receipt photo */}
+              {selectedTx.proof_storage_path && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">QR / DuitNow Payment Receipt</p>
+                  {receiptLoading ? (
+                    <div className="flex min-h-[160px] items-center justify-center rounded-xl border border-white/5 bg-black/30">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37]/30 border-t-[#D4AF37]" />
+                    </div>
+                  ) : receiptSignedUrl ? (
+                    <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={receiptSignedUrl} alt="Payment receipt" className="max-h-64 w-full object-contain" />
+                      <a
+                        href={receiptSignedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute right-2 top-2 flex items-center gap-1.5 rounded-lg bg-black/70 px-3 py-1.5 text-xs font-semibold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Open full size
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[80px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 text-sm text-gray-500">
+                      Could not load receipt photo
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

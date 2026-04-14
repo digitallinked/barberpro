@@ -16,6 +16,7 @@ export type TransactionWithItems = {
   paid_at: string | null;
   created_at: string;
   updated_at: string;
+  proof_storage_path: string | null;
   customer: { full_name: string; phone: string } | null;
   transaction_items: Array<{
     id: string;
@@ -99,6 +100,7 @@ export async function getTransactions(
       paid_at,
       created_at,
       updated_at,
+      proof_storage_path,
       customers (full_name, phone),
       transaction_items (id, name, item_type, service_id, inventory_item_id, staff_id, quantity, unit_price, line_total)
     `
@@ -134,6 +136,7 @@ export async function getTransactions(
       paid_at: row.paid_at as string | null,
       created_at: row.created_at as string,
       updated_at: row.updated_at as string,
+      proof_storage_path: (row.proof_storage_path as string | null) ?? null,
       customer: customer
         ? { full_name: customer.full_name as string, phone: customer.phone as string }
         : null,

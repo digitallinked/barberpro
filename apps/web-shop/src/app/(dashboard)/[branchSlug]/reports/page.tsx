@@ -6,16 +6,21 @@ import {
   ChevronDown,
   Download,
   DollarSign,
+  ExternalLink,
   FileText,
+  ImageIcon,
+  List,
   Lock,
   Package,
+  QrCode,
   Receipt,
   Scale,
   TrendingUp,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useT } from "@/lib/i18n/language-context";
 
 import {
@@ -47,6 +52,7 @@ import {
 } from "@/lib/malaysian-tax";
 import { openPrintableDocument } from "@/lib/print-pdf";
 import { downloadCsv } from "@/lib/csv-download";
+import { useSupabase } from "@/hooks/use-supabase";
 import {
   AnnualTaxSummaryChart,
   CustomerSpendBarChart,
@@ -91,14 +97,15 @@ function humanizePaymentMethod(m: string): string {
 }
 
 const TABS = [
-  { id: "revenue",    label: "Revenue",         icon: DollarSign },
-  { id: "staff",      label: "Staff",            icon: Users },
-  { id: "attendance", label: "Attendance",       icon: CalendarDays },
-  { id: "customers",  label: "Customers",        icon: Users },
-  { id: "inventory",  label: "Inventory",        icon: Package },
-  { id: "expenses",   label: "Expenses",         icon: Receipt },
-  { id: "pnl",        label: "P&L",             icon: TrendingUp },
-  { id: "annual_tax", label: "Annual tax (MY)",  icon: Scale },
+  { id: "revenue",      label: "Revenue",          icon: DollarSign },
+  { id: "transactions", label: "Transactions",      icon: List },
+  { id: "staff",        label: "Staff",             icon: Users },
+  { id: "attendance",   label: "Attendance",        icon: CalendarDays },
+  { id: "customers",    label: "Customers",         icon: Users },
+  { id: "inventory",    label: "Inventory",         icon: Package },
+  { id: "expenses",     label: "Expenses",          icon: Receipt },
+  { id: "pnl",          label: "P&L",              icon: TrendingUp },
+  { id: "annual_tax",   label: "Annual tax (MY)",   icon: Scale },
 ] as const;
 
 const PRO_ONLY_TABS = new Set<string>(["pnl", "annual_tax", "attendance"]);
@@ -213,6 +220,7 @@ const MONTH_OPTIONS = [
 
 export default function ReportsPage() {
   const t = useT();
+  const supabase = useSupabase();
   const { tenantName, tenantPlan } = useTenant();
   const activeBranch = useMaybeBranchContext();
   const activeBranchName = activeBranch?.name ?? null;
@@ -225,6 +233,31 @@ export default function ReportsPage() {
   const [periodMonthIndex, setPeriodMonthIndex] = useState(() => new Date().getMonth());
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
+
+  // Transaction detail + receipt modal
+  const [selectedTx, setSelectedTx] = useState<TransactionWithItems | null>(null);
+  const [receiptSignedUrl, setReceiptSignedUrl] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [txSearch, setTxSearch] = useState("");
+  const [txMethodFilter, setTxMethodFilter] = useState<string>("all");
+
+  const openTxDetail = useCallback(async (tx: TransactionWithItems) => {
+    setSelectedTx(tx);
+    setReceiptSignedUrl(null);
+    if (tx.proof_storage_path) {
+      setReceiptLoading(true);
+      const { data } = await supabase.storage
+        .from("payment-proofs")
+        .createSignedUrl(tx.proof_storage_path, 600);
+      setReceiptSignedUrl(data?.signedUrl ?? null);
+      setReceiptLoading(false);
+    }
+  }, [supabase]);
+
+  const closeTxDetail = useCallback(() => {
+    setSelectedTx(null);
+    setReceiptSignedUrl(null);
+  }, []);
 
   const plCalendarYear = new Date().getFullYear();
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(5000);
@@ -2271,6 +2304,341 @@ ${body}
               government systems; keep source documents and engage a tax agent where required.
             </p>
           </Card>
+        </div>
+      )}
+
+      {/* ── Transactions tab ──────────────────────────────────────────── */}
+      {activeTab === "transactions" && (() => {
+        const filtered = filteredTx
+          .filter((tx) => {
+            if (txMethodFilter !== "all" && tx.payment_method !== txMethodFilter) return false;
+            if (txSearch.trim()) {
+              const q = txSearch.toLowerCase();
+              return (
+                tx.customer?.full_name?.toLowerCase().includes(q) ||
+                tx.id.toLowerCase().includes(q) ||
+                tx.payment_method?.toLowerCase().includes(q)
+              );
+            }
+            return true;
+          });
+
+        const uniqueMethods = Array.from(new Set(filteredTx.map((tx) => tx.payment_method).filter(Boolean)));
+
+        return (
+          <div className="space-y-4">
+            {/* Summary chips */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Card className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Transactions</p>
+                <p className="mt-1.5 text-2xl font-bold text-white">{filtered.length}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Revenue</p>
+                <p className="mt-1.5 text-xl font-bold text-[#D4AF37]">
+                  {formatAmount(filtered.reduce((s, tx) => s + tx.total_amount, 0))}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">QR / DuitNow</p>
+                <p className="mt-1.5 text-xl font-bold text-emerald-400">
+                  {filtered.filter((tx) => tx.payment_method === "qr" || tx.payment_method === "duitnow_qr").length}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">With receipt photo</p>
+                <p className="mt-1.5 text-xl font-bold text-sky-400">
+                  {filtered.filter((tx) => tx.proof_storage_path).length}
+                </p>
+              </Card>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <input
+                type="search"
+                placeholder="Search customer or payment method…"
+                value={txSearch}
+                onChange={(e) => setTxSearch(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-[#D4AF37]/50 sm:max-w-xs"
+              />
+              <select
+                value={txMethodFilter}
+                onChange={(e) => setTxMethodFilter(e.target.value)}
+                className="rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-white outline-none focus:border-[#D4AF37]/50"
+              >
+                <option value="all">All methods</option>
+                {uniqueMethods.map((m) => (
+                  <option key={m} value={m}>{humanizePaymentMethod(m)}</option>
+                ))}
+              </select>
+              <span className="ml-auto text-xs text-gray-500">{filtered.length} result{filtered.length !== 1 ? "s" : ""}</span>
+            </div>
+
+            {/* Table */}
+            <Card>
+              {filtered.length === 0 ? (
+                <div className="px-5 py-16 text-center text-sm text-gray-500">No transactions match your filters.</div>
+              ) : (
+                <>
+                  {/* Mobile cards */}
+                  <div className="divide-y divide-white/[0.04] sm:hidden">
+                    {filtered.map((tx) => {
+                      const isQr = tx.payment_method === "qr" || tx.payment_method === "duitnow_qr";
+                      return (
+                        <button
+                          key={tx.id}
+                          type="button"
+                          onClick={() => openTxDetail(tx)}
+                          className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03]"
+                        >
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isQr ? "bg-[#D4AF37]/10" : "bg-white/5"}`}>
+                            {isQr
+                              ? <QrCode className="h-4 w-4 text-[#D4AF37]" />
+                              : <Receipt className="h-4 w-4 text-gray-400" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-white">
+                              {tx.customer?.full_name ?? "Walk-in"}
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {humanizePaymentMethod(tx.payment_method)} · {formatDate(tx.created_at)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span className="text-sm font-bold text-white">{formatAmount(tx.total_amount)}</span>
+                            {tx.proof_storage_path && (
+                              <span className="flex items-center gap-0.5 rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-400">
+                                <ImageIcon className="h-2.5 w-2.5" /> Photo
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                          <th className="p-4 text-left">Date</th>
+                          <th className="p-4 text-left">Customer</th>
+                          <th className="p-4 text-left">Method</th>
+                          <th className="p-4 text-left">Items</th>
+                          <th className="p-4 text-right">Subtotal</th>
+                          <th className="p-4 text-right">Total</th>
+                          <th className="p-4 text-center">Receipt</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((tx) => {
+                          const isQr = tx.payment_method === "qr" || tx.payment_method === "duitnow_qr";
+                          return (
+                            <tr
+                              key={tx.id}
+                              onClick={() => openTxDetail(tx)}
+                              className="cursor-pointer border-t border-white/[0.04] transition hover:bg-white/[0.03]"
+                            >
+                              <td className="p-4 text-gray-400 tabular-nums">{formatDate(tx.created_at)}</td>
+                              <td className="p-4 font-medium text-white">
+                                {tx.customer?.full_name ?? <span className="text-gray-500">Walk-in</span>}
+                              </td>
+                              <td className="p-4">
+                                <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${isQr ? "bg-[#D4AF37]/10 text-[#D4AF37]" : "bg-white/5 text-gray-300"}`}>
+                                  {isQr && <QrCode className="h-3 w-3" />}
+                                  {humanizePaymentMethod(tx.payment_method)}
+                                </span>
+                              </td>
+                              <td className="p-4 text-gray-400">
+                                {tx.transaction_items.length} item{tx.transaction_items.length !== 1 ? "s" : ""}
+                              </td>
+                              <td className="p-4 text-right text-gray-300 tabular-nums">{formatAmount(tx.subtotal)}</td>
+                              <td className="p-4 text-right font-semibold text-white tabular-nums">{formatAmount(tx.total_amount)}</td>
+                              <td className="p-4 text-center">
+                                {tx.proof_storage_path ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-0.5 text-xs font-semibold text-sky-400">
+                                    <ImageIcon className="h-3 w-3" /> View
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-600">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* ── Transaction detail + receipt modal ───────────────────────── */}
+      {selectedTx && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4">
+          {/* Backdrop */}
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={closeTxDetail}
+          />
+
+          {/* Panel */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Transaction detail"
+            className="relative z-10 flex max-h-[min(92dvh,680px)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#1a1a1a] shadow-2xl sm:rounded-2xl"
+            style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+              <div className="flex items-center gap-2">
+                {(selectedTx.payment_method === "qr" || selectedTx.payment_method === "duitnow_qr")
+                  ? <QrCode className="h-5 w-5 text-[#D4AF37]" />
+                  : <Receipt className="h-5 w-5 text-gray-400" />
+                }
+                <h2 className="font-bold text-white">Transaction detail</h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeTxDetail}
+                className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
+              {/* Meta row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Date</p>
+                  <p className="mt-0.5 text-sm font-semibold text-white">{formatDate(selectedTx.created_at)}</p>
+                </div>
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Customer</p>
+                  <p className="mt-0.5 text-sm font-semibold text-white">
+                    {selectedTx.customer?.full_name ?? "Walk-in"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Payment</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-[#D4AF37]">
+                    {(selectedTx.payment_method === "qr" || selectedTx.payment_method === "duitnow_qr") && (
+                      <QrCode className="h-3.5 w-3.5" />
+                    )}
+                    {humanizePaymentMethod(selectedTx.payment_method)}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-black/30 px-4 py-3">
+                  <p className="text-xs text-gray-500">Status</p>
+                  <p className={`mt-0.5 text-sm font-bold ${selectedTx.payment_status === "paid" ? "text-emerald-400" : "text-yellow-400"}`}>
+                    {selectedTx.payment_status.charAt(0).toUpperCase() + selectedTx.payment_status.slice(1)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Line items */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Items</p>
+                <div className="overflow-hidden rounded-xl border border-white/5">
+                  {selectedTx.transaction_items.map((item, i) => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center justify-between px-4 py-3 ${i > 0 ? "border-t border-white/5" : ""}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">{item.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {item.quantity} × {formatAmount(item.unit_price)}
+                        </p>
+                      </div>
+                      <span className="ml-4 shrink-0 text-sm font-semibold text-gray-200">
+                        {formatAmount(item.line_total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-1.5 rounded-xl border border-white/5 bg-black/20 px-4 py-3">
+                <div className="flex justify-between text-sm text-gray-400">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">{formatAmount(selectedTx.subtotal)}</span>
+                </div>
+                {selectedTx.discount_amount > 0 && (
+                  <div className="flex justify-between text-sm text-red-400">
+                    <span>Discount</span>
+                    <span className="tabular-nums">−{formatAmount(selectedTx.discount_amount)}</span>
+                  </div>
+                )}
+                {selectedTx.tax_amount > 0 && (
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>SST</span>
+                    <span className="tabular-nums">{formatAmount(selectedTx.tax_amount)}</span>
+                  </div>
+                )}
+                <div className="mt-2 flex justify-between border-t border-white/5 pt-2 text-base font-bold">
+                  <span className="text-white">Total</span>
+                  <span className="text-[#D4AF37] tabular-nums">{formatAmount(selectedTx.total_amount)}</span>
+                </div>
+              </div>
+
+              {/* QR Receipt photo */}
+              {selectedTx.proof_storage_path && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    QR / DuitNow Payment Receipt
+                  </p>
+                  {receiptLoading ? (
+                    <div className="flex min-h-[180px] items-center justify-center rounded-xl border border-white/5 bg-black/30">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D4AF37]/30 border-t-[#D4AF37]" />
+                    </div>
+                  ) : receiptSignedUrl ? (
+                    <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={receiptSignedUrl}
+                        alt="Payment receipt"
+                        className="max-h-72 w-full object-contain"
+                      />
+                      <a
+                        href={receiptSignedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute right-2 top-2 flex items-center gap-1.5 rounded-lg bg-black/70 px-3 py-1.5 text-xs font-semibold text-white opacity-0 backdrop-blur-sm transition group-hover:opacity-100"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Open full size
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[100px] items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 text-sm text-gray-500">
+                      Could not load receipt photo
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!selectedTx.proof_storage_path && (
+                selectedTx.payment_method === "qr" || selectedTx.payment_method === "duitnow_qr"
+              ) && (
+                <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-sm text-yellow-400">
+                  <ImageIcon className="h-4 w-4 shrink-0" />
+                  No receipt photo was attached to this QR transaction.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
