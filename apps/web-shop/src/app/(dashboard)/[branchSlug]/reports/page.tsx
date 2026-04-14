@@ -117,20 +117,64 @@ function escAttr(s: string): string {
 }
 
 /** How to interpret year + monthIndex for filtering */
-type PeriodScope = "month" | "year" | "rolling_30" | "all";
+type PeriodScope = "month" | "year" | "rolling_30" | "all" | "today" | "yesterday" | "this_week" | "last_week" | "custom";
 
 function periodBounds(
   scope: PeriodScope,
   year: number,
-  monthIndex: number
+  monthIndex: number,
+  customRange?: { start: Date; end: Date }
 ): { start: Date; end: Date } | null {
   const now = new Date();
+  const todayBase = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   if (scope === "all") return null;
+  if (scope === "today") {
+    return {
+      start: new Date(todayBase.getFullYear(), todayBase.getMonth(), todayBase.getDate(), 0, 0, 0, 0),
+      end: new Date(todayBase.getFullYear(), todayBase.getMonth(), todayBase.getDate(), 23, 59, 59, 999),
+    };
+  }
+  if (scope === "yesterday") {
+    const y = new Date(todayBase);
+    y.setDate(y.getDate() - 1);
+    return {
+      start: new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0, 0),
+      end: new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59, 999),
+    };
+  }
+  if (scope === "this_week") {
+    // Week starts Monday
+    const dow = (todayBase.getDay() + 6) % 7;
+    const mon = new Date(todayBase);
+    mon.setDate(todayBase.getDate() - dow);
+    return {
+      start: new Date(mon.getFullYear(), mon.getMonth(), mon.getDate(), 0, 0, 0, 0),
+      end: new Date(todayBase.getFullYear(), todayBase.getMonth(), todayBase.getDate(), 23, 59, 59, 999),
+    };
+  }
+  if (scope === "last_week") {
+    const dow = (todayBase.getDay() + 6) % 7;
+    const lastSun = new Date(todayBase);
+    lastSun.setDate(todayBase.getDate() - dow - 1);
+    const lastMon = new Date(lastSun);
+    lastMon.setDate(lastSun.getDate() - 6);
+    return {
+      start: new Date(lastMon.getFullYear(), lastMon.getMonth(), lastMon.getDate(), 0, 0, 0, 0),
+      end: new Date(lastSun.getFullYear(), lastSun.getMonth(), lastSun.getDate(), 23, 59, 59, 999),
+    };
+  }
   if (scope === "rolling_30") {
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     start.setDate(start.getDate() - 29);
     return { start, end };
+  }
+  if (scope === "custom") {
+    if (!customRange) return null;
+    return {
+      start: new Date(customRange.start.getFullYear(), customRange.start.getMonth(), customRange.start.getDate(), 0, 0, 0, 0),
+      end: new Date(customRange.end.getFullYear(), customRange.end.getMonth(), customRange.end.getDate(), 23, 59, 59, 999),
+    };
   }
   if (scope === "year") {
     return {
@@ -144,10 +188,19 @@ function periodBounds(
   };
 }
 
-function periodLabel(scope: PeriodScope, year: number, monthIndex: number): string {
+function periodLabel(scope: PeriodScope, year: number, monthIndex: number, customRange?: { start: Date; end: Date }): string {
   if (scope === "all") return "All loaded data";
+  if (scope === "today") return "Today";
+  if (scope === "yesterday") return "Yesterday";
+  if (scope === "this_week") return "This week";
+  if (scope === "last_week") return "Last week";
   if (scope === "rolling_30") return "Last 30 days";
   if (scope === "year") return `Year ${year}`;
+  if (scope === "custom") {
+    if (!customRange) return "Custom range";
+    const fmt = (d: Date) => d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
+    return `${fmt(customRange.start)} – ${fmt(customRange.end)}`;
+  }
   return new Date(year, monthIndex, 1).toLocaleString("en-MY", { month: "long", year: "numeric" });
 }
 
@@ -162,9 +215,10 @@ function filterTransactionsByPeriod(
   txs: TransactionWithItems[],
   scope: PeriodScope,
   year: number,
-  monthIndex: number
+  monthIndex: number,
+  customRange?: { start: Date; end: Date }
 ): TransactionWithItems[] {
-  const b = periodBounds(scope, year, monthIndex);
+  const b = periodBounds(scope, year, monthIndex, customRange);
   if (!b) return txs;
   return txs.filter((t) => {
     const d = new Date(t.created_at);
@@ -175,8 +229,34 @@ function filterTransactionsByPeriod(
 function priorPeriodBounds(
   scope: PeriodScope,
   year: number,
-  monthIndex: number
+  monthIndex: number,
+  customRange?: { start: Date; end: Date }
 ): { start: Date; end: Date } | null {
+  if (scope === "today" || scope === "yesterday") {
+    const b = periodBounds(scope, year, monthIndex);
+    if (!b) return null;
+    const dayMs = 24 * 60 * 60 * 1000;
+    return {
+      start: new Date(b.start.getTime() - dayMs),
+      end: new Date(b.end.getTime() - dayMs),
+    };
+  }
+  if (scope === "this_week" || scope === "last_week") {
+    const b = periodBounds(scope, year, monthIndex);
+    if (!b) return null;
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    return {
+      start: new Date(b.start.getTime() - weekMs),
+      end: new Date(b.end.getTime() - weekMs),
+    };
+  }
+  if (scope === "custom" && customRange) {
+    const rangeMs = customRange.end.getTime() - customRange.start.getTime();
+    return {
+      start: new Date(customRange.start.getTime() - rangeMs - 24 * 60 * 60 * 1000),
+      end: new Date(customRange.start.getTime() - 1),
+    };
+  }
   if (scope === "month") {
     const prev = new Date(year, monthIndex - 1, 1);
     return {
@@ -231,6 +311,8 @@ export default function ReportsPage() {
   const [periodScope, setPeriodScope] = useState<PeriodScope>("month");
   const [periodYear, setPeriodYear] = useState(() => new Date().getFullYear());
   const [periodMonthIndex, setPeriodMonthIndex] = useState(() => new Date().getMonth());
+  const [customStartStr, setCustomStartStr] = useState<string>(() => localDateStr(new Date()));
+  const [customEndStr, setCustomEndStr] = useState<string>(() => localDateStr(new Date()));
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -259,6 +341,14 @@ export default function ReportsPage() {
     setReceiptSignedUrl(null);
   }, []);
 
+  const customRange = useMemo(() => {
+    if (!customStartStr || !customEndStr) return undefined;
+    const s = new Date(customStartStr + "T00:00:00");
+    const e = new Date(customEndStr + "T00:00:00");
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return undefined;
+    return { start: s, end: e > s ? e : s };
+  }, [customStartStr, customEndStr]);
+
   const plCalendarYear = new Date().getFullYear();
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(5000);
   const { data: payrollPlData } = useAllPayrollEntries(plCalendarYear);
@@ -273,13 +363,13 @@ export default function ReportsPage() {
   const { data: assignmentsResult } = useStaffAssignments();
 
   const reportAttRange = useMemo(() => {
-    const b = periodBounds(periodScope, periodYear, periodMonthIndex);
+    const b = periodBounds(periodScope, periodYear, periodMonthIndex, customRange);
     if (b) return { start: localDateStr(b.start), end: localDateStr(b.end) };
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 29);
     return { start: localDateStr(start), end: localDateStr(end) };
-  }, [periodScope, periodYear, periodMonthIndex]);
+  }, [periodScope, periodYear, periodMonthIndex, customRange]);
 
   const { data: attendanceSummariesResult } = useAttendanceSummaries(
     reportAttRange.start,
@@ -330,8 +420,8 @@ export default function ReportsPage() {
   );
 
   const periodLabelStr = useMemo(
-    () => periodLabel(periodScope, periodYear, periodMonthIndex),
-    [periodScope, periodYear, periodMonthIndex]
+    () => periodLabel(periodScope, periodYear, periodMonthIndex, customRange),
+    [periodScope, periodYear, periodMonthIndex, customRange]
   );
 
   const yearOptions = useMemo(() => {
@@ -356,18 +446,18 @@ export default function ReportsPage() {
   );
 
   const filteredTx = useMemo(
-    () => filterTransactionsByPeriod(transactions, periodScope, periodYear, periodMonthIndex),
-    [transactions, periodScope, periodYear, periodMonthIndex]
+    () => filterTransactionsByPeriod(transactions, periodScope, periodYear, periodMonthIndex, customRange),
+    [transactions, periodScope, periodYear, periodMonthIndex, customRange]
   );
 
   const priorTx = useMemo(() => {
-    const pb = priorPeriodBounds(periodScope, periodYear, periodMonthIndex);
+    const pb = priorPeriodBounds(periodScope, periodYear, periodMonthIndex, customRange);
     if (!pb) return [] as TransactionWithItems[];
     return transactions.filter((t) => {
       const d = new Date(t.created_at);
       return d >= pb.start && d <= pb.end;
     });
-  }, [transactions, periodScope, periodYear, periodMonthIndex]);
+  }, [transactions, periodScope, periodYear, periodMonthIndex, customRange]);
 
   // Revenue & shared analytics for selected range
   const revenueStats = useMemo(() => {
@@ -380,12 +470,29 @@ export default function ReportsPage() {
     const priorRev = priorTx.reduce((s, t) => s + t.total_amount, 0);
     const vsPriorPct = priorRev > 0 ? ((totalRevenue - priorRev) / priorRev) * 100 : null;
 
-    const byMonth = periodScope === "year";
+    const byMonth = periodScope === "year" ||
+      (periodScope === "custom" && customRange != null &&
+        (customRange.end.getTime() - customRange.start.getTime()) > 90 * 24 * 60 * 60 * 1000);
+
+    // Use hourly granularity for single-day views
+    const isSingleDay =
+      periodScope === "today" ||
+      periodScope === "yesterday" ||
+      (periodScope === "custom" && customRange != null &&
+        customRange.start.toDateString() === customRange.end.toDateString());
+    const byHour = !byMonth && isSingleDay;
+
     const bucket = monthTx.reduce<Record<string, { total: number; count: number }>>((acc, t) => {
       const d = new Date(t.created_at);
-      const key = byMonth
-        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-        : (t.created_at.split("T")[0] ?? "");
+      let key: string;
+      if (byHour) {
+        // key = "YYYY-MM-DDTHH" — sorts correctly as string
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}`;
+      } else if (byMonth) {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        key = t.created_at.split("T")[0] ?? "";
+      }
       if (!acc[key]) acc[key] = { total: 0, count: 0 };
       acc[key]!.total += t.total_amount;
       acc[key]!.count += 1;
@@ -395,9 +502,9 @@ export default function ReportsPage() {
     const breakdown = Object.entries(bucket)
       .map(([date, v]) => ({ date, ...v }))
       .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, byMonth ? 24 : 31);
+      .slice(0, byHour ? 24 : byMonth ? 24 : 31);
 
-    const breakdownGranularity: "day" | "month" = byMonth ? "month" : "day";
+    const breakdownGranularity: "day" | "month" | "hour" = byHour ? "hour" : byMonth ? "month" : "day";
 
     const paymentMix = monthTx.reduce<Record<string, number>>((acc, t) => {
       const m = t.payment_method ?? "unknown";
@@ -454,12 +561,12 @@ export default function ReportsPage() {
       productRevenue,
       topServices,
     };
-  }, [filteredTx, priorTx, periodScope]);
+  }, [filteredTx, priorTx, periodScope, customRange]);
 
   const assignmentsList = assignmentsResult?.data ?? [];
 
   const staffPerformance = useMemo(() => {
-    const b = periodBounds(periodScope, periodYear, periodMonthIndex);
+    const b = periodBounds(periodScope, periodYear, periodMonthIndex, customRange);
     const periodStartStr = b ? localDateStr(b.start) : null;
     const periodEndStr = b ? localDateStr(b.end) : null;
 
@@ -558,6 +665,7 @@ export default function ReportsPage() {
     periodScope,
     periodYear,
     periodMonthIndex,
+    customRange,
   ]);
 
   const customerSpend = useMemo(() => {
@@ -588,7 +696,7 @@ export default function ReportsPage() {
   }, [filteredTx]);
 
   const expensesInRange = useMemo(() => {
-    const b = periodBounds(periodScope, periodYear, periodMonthIndex);
+    const b = periodBounds(periodScope, periodYear, periodMonthIndex, customRange);
     return expenses.filter((e) => {
       const raw = e.expense_date ?? e.created_at;
       if (!raw) return false;
@@ -596,7 +704,7 @@ export default function ReportsPage() {
       if (!b) return true;
       return d >= b.start && d <= b.end;
     });
-  }, [expenses, periodScope, periodYear, periodMonthIndex]);
+  }, [expenses, periodScope, periodYear, periodMonthIndex, customRange]);
 
   const expensesRangeTotal = useMemo(
     () => expensesInRange.reduce((s, e) => s + (e.amount ?? 0), 0),
@@ -699,14 +807,18 @@ export default function ReportsPage() {
 
   const revenueTrendChartData = useMemo(() => {
     const sorted = [...revenueStats.breakdown].sort((a, b) => a.date.localeCompare(b.date));
-    return sorted.map((r) => ({
-      label:
-        revenueStats.breakdownGranularity === "month"
-          ? new Date(`${r.date}-01T12:00:00`).toLocaleString("en-MY", { month: "short", year: "2-digit" })
-          : formatDate(`${r.date}T12:00:00`),
-      revenue: r.total,
-      txs: r.count,
-    }));
+    return sorted.map((r) => {
+      let label: string;
+      if (revenueStats.breakdownGranularity === "month") {
+        label = new Date(`${r.date}-01T12:00:00`).toLocaleString("en-MY", { month: "short", year: "2-digit" });
+      } else if (revenueStats.breakdownGranularity === "hour") {
+        const h = parseInt(r.date.split("T")[1] ?? "0", 10);
+        label = h === 0 ? "12 AM" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
+      } else {
+        label = formatDate(`${r.date}T12:00:00`);
+      }
+      return { label, revenue: r.total, txs: r.count };
+    });
   }, [revenueStats.breakdown, revenueStats.breakdownGranularity]);
 
   const paymentMixChartData = useMemo(
@@ -852,13 +964,18 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
         const sum = `<p><strong>Range:</strong> ${rangeLabel}</p>
           <p>Total revenue: ${escAttr(formatAmount(revenueStats.totalRevenue))} · Subtotal: ${escAttr(formatAmount(revenueStats.totalSubtotal))} · SST: ${escAttr(formatAmount(revenueStats.totalTax))}</p>
           <p>Transactions: ${revenueStats.count} · Avg ticket: ${escAttr(formatAmount(revenueStats.avg))}</p>`;
-        const timeLabel = revenueStats.breakdownGranularity === "month" ? "Month" : "Date";
+        const timeLabel = revenueStats.breakdownGranularity === "month" ? "Month" : revenueStats.breakdownGranularity === "hour" ? "Hour" : "Date";
         const daily = revenueStats.breakdown
           .map((r) => {
-            const cell =
-              revenueStats.breakdownGranularity === "month"
-                ? new Date(r.date + "-01T12:00:00").toLocaleString("en-MY", { month: "short", year: "numeric" })
-                : r.date;
+            let cell: string;
+            if (revenueStats.breakdownGranularity === "month") {
+              cell = new Date(r.date + "-01T12:00:00").toLocaleString("en-MY", { month: "short", year: "numeric" });
+            } else if (revenueStats.breakdownGranularity === "hour") {
+              const hNum = parseInt(r.date.split("T")[1] ?? "0", 10);
+              cell = hNum === 0 ? "12:00 AM" : hNum < 12 ? `${hNum}:00 AM` : hNum === 12 ? "12:00 PM" : `${hNum - 12}:00 PM`;
+            } else {
+              cell = r.date;
+            }
             return `<tr><td>${escAttr(cell)}</td><td>${r.count}</td><td class="n">${escAttr(formatAmount(r.total))}</td></tr>`;
           })
           .join("");
@@ -874,7 +991,7 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
               `<tr><td>${escAttr(r.name)}</td><td class="n">${r.qty}</td><td class="n">${escAttr(formatAmount(r.revenue))}</td></tr>`
           )
           .join("");
-        return `${sum}${h(revenueStats.breakdownGranularity === "month" ? "Monthly breakdown" : "Daily breakdown")}<table><tr><th>${timeLabel}</th><th>Tx</th><th class="n">Revenue</th></tr>${daily}</table>
+        return `${sum}${h(revenueStats.breakdownGranularity === "month" ? "Monthly breakdown" : revenueStats.breakdownGranularity === "hour" ? "Hourly breakdown" : "Daily breakdown")}<table><tr><th>${timeLabel}</th><th>Tx</th><th class="n">Revenue</th></tr>${daily}</table>
           ${h("Payment methods")}<table><tr><th>Method</th><th class="n">Amount</th><th class="n">%</th></tr>${pay}</table>
           ${h("Top services")}<table><tr><th>Service</th><th class="n">Qty</th><th class="n">Revenue</th></tr>${svc}</table>`;
       }
@@ -956,15 +1073,20 @@ th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd} .n{text-alig
     const name = `barberpro-${exportFileSlug}`;
     switch (activeTab) {
       case "revenue": {
-        const col = revenueStats.breakdownGranularity === "month" ? "Month" : "Date";
+        const col = revenueStats.breakdownGranularity === "month" ? "Month" : revenueStats.breakdownGranularity === "hour" ? "Hour" : "Date";
         downloadCsv(
           name,
           [col, "Transactions", "Revenue_RM"],
           revenueStats.breakdown.map((r) => {
-            const label =
-              revenueStats.breakdownGranularity === "month"
-                ? new Date(r.date + "-01T12:00:00").toLocaleString("en-MY", { month: "short", year: "numeric" })
-                : r.date;
+            let label: string;
+            if (revenueStats.breakdownGranularity === "month") {
+              label = new Date(r.date + "-01T12:00:00").toLocaleString("en-MY", { month: "short", year: "numeric" });
+            } else if (revenueStats.breakdownGranularity === "hour") {
+              const hNum = parseInt(r.date.split("T")[1] ?? "0", 10);
+              label = hNum === 0 ? "12:00 AM" : hNum < 12 ? `${hNum}:00 AM` : hNum === 12 ? "12:00 PM" : `${hNum - 12}:00 PM`;
+            } else {
+              label = r.date;
+            }
             return [label, r.count, r.total.toFixed(2)];
           })
         );
@@ -1234,14 +1356,39 @@ ${body}
 
       {activeTab !== "annual_tax" && (
         <div className="space-y-3">
+          {/* Quick preset chips */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Period</span>
+            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-gray-500">Period</span>
             {(() => {
               const now = new Date();
               const cy = now.getFullYear();
               const cm = now.getMonth();
               const lastMonthStart = new Date(cy, cm - 1, 1);
               const presets: { id: string; label: string; active: boolean; onClick: () => void }[] = [
+                {
+                  id: "today",
+                  label: "Today",
+                  active: periodScope === "today",
+                  onClick: () => setPeriodScope("today"),
+                },
+                {
+                  id: "yesterday",
+                  label: "Yesterday",
+                  active: periodScope === "yesterday",
+                  onClick: () => setPeriodScope("yesterday"),
+                },
+                {
+                  id: "this_week",
+                  label: "This week",
+                  active: periodScope === "this_week",
+                  onClick: () => setPeriodScope("this_week"),
+                },
+                {
+                  id: "last_week",
+                  label: "Last week",
+                  active: periodScope === "last_week",
+                  onClick: () => setPeriodScope("last_week"),
+                },
                 {
                   id: "this_month",
                   label: "This month",
@@ -1285,9 +1432,15 @@ ${body}
                 },
                 {
                   id: "all",
-                  label: "All loaded data",
+                  label: "All data",
                   active: periodScope === "all",
                   onClick: () => setPeriodScope("all"),
+                },
+                {
+                  id: "custom",
+                  label: "Custom range",
+                  active: periodScope === "custom",
+                  onClick: () => setPeriodScope("custom"),
                 },
               ];
               return presets.map((p) => (
@@ -1295,10 +1448,10 @@ ${body}
                   key={p.id}
                   type="button"
                   onClick={p.onClick}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                     p.active
                       ? "bg-[#D4AF37]/20 text-[#D4AF37] ring-1 ring-[#D4AF37]/40"
-                      : "bg-white/5 text-gray-400 hover:text-white"
+                      : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   {p.label}
@@ -1306,58 +1459,93 @@ ${body}
               ));
             })()}
           </div>
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Month</span>
-              <select
-                value={periodMonthIndex}
-                disabled={periodScope === "year" || periodScope === "rolling_30" || periodScope === "all"}
-                onChange={(e) => {
-                  setPeriodMonthIndex(Number(e.target.value));
-                  setPeriodScope("month");
-                }}
-                className="min-w-[140px] rounded-lg border border-white/10 bg-[#1a1a1a] px-2.5 py-2 text-sm text-white focus:border-[#D4AF37]/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {MONTH_OPTIONS.map((m) => (
-                  <option key={m.v} value={m.v}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Year</span>
-              <select
-                value={periodYear}
-                disabled={periodScope === "rolling_30" || periodScope === "all"}
-                onChange={(e) => {
-                  const y = Number(e.target.value);
-                  setPeriodYear(y);
-                  if (periodScope === "rolling_30" || periodScope === "all") setPeriodScope("month");
-                }}
-                className="min-w-[96px] rounded-lg border border-white/10 bg-[#1a1a1a] px-2.5 py-2 text-sm text-white focus:border-[#D4AF37]/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {yearOptions.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-gray-300">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-white/20 bg-[#1a1a1a] text-[#D4AF37] focus:ring-[#D4AF37]/40"
-                checked={periodScope === "year"}
-                disabled={periodScope === "rolling_30" || periodScope === "all"}
-                onChange={(e) => {
-                  if (e.target.checked) setPeriodScope("year");
-                  else setPeriodScope("month");
-                }}
-              />
-              <span>Whole calendar year</span>
-            </label>
-          </div>
+
+          {/* Custom date range inputs — shown only when custom is active */}
+          {periodScope === "custom" && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-[#1a1a1a] p-3">
+              <CalendarDays className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+              <label className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="font-semibold uppercase tracking-wide">From</span>
+                <input
+                  type="date"
+                  value={customStartStr}
+                  max={customEndStr}
+                  onChange={(e) => setCustomStartStr(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-[#111] px-2.5 py-1.5 text-sm text-white focus:border-[#D4AF37]/50 focus:outline-none"
+                />
+              </label>
+              <span className="text-gray-600">→</span>
+              <label className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="font-semibold uppercase tracking-wide">To</span>
+                <input
+                  type="date"
+                  value={customEndStr}
+                  min={customStartStr}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setCustomEndStr(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-[#111] px-2.5 py-1.5 text-sm text-white focus:border-[#D4AF37]/50 focus:outline-none"
+                />
+              </label>
+              {customRange && (
+                <span className="text-xs text-gray-500">
+                  {Math.round((customRange.end.getTime() - customRange.start.getTime()) / (24 * 60 * 60 * 1000)) + 1} day(s)
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Month / year picker — shown for month/year scope that isn't a quick preset */}
+          {(periodScope === "month" || periodScope === "year") && (() => {
+            const now = new Date();
+            const cy = now.getFullYear();
+            const cm = now.getMonth();
+            const lastMonthStart = new Date(cy, cm - 1, 1);
+            const isKnownPreset =
+              (periodScope === "month" && periodYear === cy && periodMonthIndex === cm) ||
+              (periodScope === "month" && periodYear === lastMonthStart.getFullYear() && periodMonthIndex === lastMonthStart.getMonth()) ||
+              (periodScope === "year" && periodYear === cy);
+            if (isKnownPreset) return null;
+            return (
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border border-white/10 bg-[#1a1a1a] p-3">
+                <CalendarDays className="h-4 w-4 shrink-0 text-gray-500" />
+                {periodScope === "month" && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Month</span>
+                    <select
+                      value={periodMonthIndex}
+                      onChange={(e) => setPeriodMonthIndex(Number(e.target.value))}
+                      className="min-w-[140px] rounded-lg border border-white/10 bg-[#111] px-2.5 py-1.5 text-sm text-white focus:border-[#D4AF37]/50 focus:outline-none"
+                    >
+                      {MONTH_OPTIONS.map((m) => (
+                        <option key={m.v} value={m.v}>{m.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Year</span>
+                  <select
+                    value={periodYear}
+                    onChange={(e) => setPeriodYear(Number(e.target.value))}
+                    className="min-w-[96px] rounded-lg border border-white/10 bg-[#111] px-2.5 py-1.5 text-sm text-white focus:border-[#D4AF37]/50 focus:outline-none"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 pb-0.5 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-white/20 bg-[#1a1a1a] text-[#D4AF37] focus:ring-[#D4AF37]/40"
+                    checked={periodScope === "year"}
+                    onChange={(e) => setPeriodScope(e.target.checked ? "year" : "month")}
+                  />
+                  <span>Whole calendar year</span>
+                </label>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1476,7 +1664,7 @@ ${body}
           <Card>
             <div className="border-b border-white/5 px-5 py-4">
               <h3 className="font-bold text-white">
-                {revenueStats.breakdownGranularity === "month" ? "Monthly breakdown" : "Daily breakdown"}
+                {revenueStats.breakdownGranularity === "month" ? "Monthly breakdown" : revenueStats.breakdownGranularity === "hour" ? "Hourly breakdown" : "Daily breakdown"}
               </h3>
               <p className="mt-0.5 text-sm text-gray-500">{periodLabelStr}</p>
             </div>
@@ -1492,7 +1680,7 @@ ${body}
                     <thead>
                       <tr className="bg-black/20 text-xs font-semibold uppercase tracking-wider text-gray-400">
                         <th className="p-4 text-left">
-                          {revenueStats.breakdownGranularity === "month" ? "Month" : "Date"}
+                          {revenueStats.breakdownGranularity === "month" ? "Month" : revenueStats.breakdownGranularity === "hour" ? "Hour" : "Date"}
                         </th>
                         <th className="p-4 text-right">Tx</th>
                         <th className="p-4 text-right">Avg / tx</th>
@@ -1508,10 +1696,13 @@ ${body}
                           <tr key={row.date} className="border-t border-white/[0.04] hover:bg-white/[0.02]">
                             <td className="p-4 font-medium text-white">
                               {revenueStats.breakdownGranularity === "month"
-                                ? new Date(`${row.date}-01T12:00:00`).toLocaleString("en-MY", {
-                                    month: "short",
-                                    year: "numeric",
-                                  })
+                                ? new Date(`${row.date}-01T12:00:00`).toLocaleString("en-MY", { month: "short", year: "numeric" })
+                                : revenueStats.breakdownGranularity === "hour"
+                                ? (() => {
+                                    const h = parseInt(row.date.split("T")[1] ?? "0", 10);
+                                    const label = h === 0 ? "12:00 AM" : h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`;
+                                    return `${label} – ${h + 1 < 12 ? `${h + 1}:00 AM` : h + 1 === 12 ? "12:00 PM" : h + 1 === 24 ? "12:00 AM" : `${h + 1 - 12}:00 PM`}`;
+                                  })()
                                 : formatDate(`${row.date}T12:00:00`)}
                             </td>
                             <td className="p-4 text-right tabular-nums text-gray-300">{row.count}</td>
