@@ -5,6 +5,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { APP_DESCRIPTION, APP_NAME } from "@/constants";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { LanguageProvider } from "@/lib/i18n/language-context";
 import { getMetadataBase } from "@/lib/env";
 
 import "./globals.css";
@@ -44,9 +46,12 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
-        <Providers>{children}</Providers>
-        <Analytics />
-        <SpeedInsights />
+        <LanguageProvider initialLanguage="ms">
+          <Providers>{children}</Providers>
+          <PwaInstallBanner />
+          <Analytics />
+          <SpeedInsights />
+        </LanguageProvider>
       </body>
     </html>
   );

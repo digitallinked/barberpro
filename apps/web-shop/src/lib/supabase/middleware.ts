@@ -167,9 +167,11 @@ export async function updateSession(request: NextRequest) {
   const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
   const isAuthRoute = authRoutes.some((r) => pathname.startsWith(r));
   const isSubscriptionPage = pathname.startsWith("/subscription-required");
+  const isPwaAsset = pathname === "/manifest.json" || pathname === "/sw.js";
   const isDashboardRoute =
     !isAuthRoute &&
     !isSubscriptionPage &&
+    !isPwaAsset &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/_next") &&
     !pathname.startsWith("/api") &&

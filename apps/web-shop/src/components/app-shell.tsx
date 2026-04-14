@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { RouteGuard } from "@/components/route-guard";
 import { useTenant } from "@/components/tenant-provider";
 import {
@@ -687,8 +686,6 @@ function AppShellInner({ children }: AppShellProps) {
         />
 
       </div>
-
-      <PwaInstallBanner />
     </div>
   );
 }
