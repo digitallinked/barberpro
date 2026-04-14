@@ -118,6 +118,7 @@ export const branchSchema = z.object({
     }),
   is_hq: z
     .union([z.boolean(), z.string()])
+    .optional()
     .transform((v) => v === true || v === "true" || v === "1"),
   latitude: z.coerce
     .number()

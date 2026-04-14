@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Settings, Store } from "lucide-react";
 import type { BranchTab } from "@/lib/permissions";
+
+const TAB_ICONS: Record<string, React.ElementType> = {
+  overview: Store,
+  settings: Settings,
+};
 
 type Props = {
   tabs: BranchTab[];
   basePath: string;
-  tabIcons: Record<string, React.ElementType>;
 };
 
-export function BranchSlugLayoutTabs({ tabs, basePath, tabIcons }: Props) {
+export function BranchSlugLayoutTabs({ tabs, basePath }: Props) {
   const pathname = usePathname();
 
   const activeTab = (() => {
@@ -25,7 +29,7 @@ export function BranchSlugLayoutTabs({ tabs, basePath, tabIcons }: Props) {
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         const href = tab.key === "overview" ? basePath : `${basePath}/${tab.key}`;
-        const Icon = tabIcons[tab.key] ?? ClipboardList;
+        const Icon = TAB_ICONS[tab.key] ?? ClipboardList;
         return (
           <Link
             key={tab.key}
