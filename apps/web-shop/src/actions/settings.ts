@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import type { Json } from "@/types/database.types";
 import { getAuthContext } from "./_helpers";
@@ -203,4 +204,39 @@ export async function changePassword(formData: FormData) {
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }
+}
+
+/**
+ * Permanently deactivates the current user's account, signs them out, and
+ * redirects to the login page. The app_users record is soft-deleted by setting
+ * is_active = false so business data (tenant, branches, transactions) is preserved.
+ */
+export async function deleteMyAccount(confirmEmail: string) {
+  try {
+    const { supabase, appUserId, user } = await getAuthContext();
+
+    // Server-side re-verification: the supplied email must match the auth user
+    const expectedEmail = user.email ?? "";
+    if (!expectedEmail || confirmEmail.trim().toLowerCase() !== expectedEmail.toLowerCase()) {
+      return { success: false, error: "Email does not match your account" };
+    }
+
+    // Soft-delete: mark the app_users record inactive so the user can no
+    // longer log in and is hidden from all tenant queries that filter is_active.
+    const { error: deactivateError } = await supabase
+      .from("app_users")
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq("id", appUserId);
+
+    if (deactivateError) {
+      return { success: false, error: deactivateError.message };
+    }
+
+    // Sign out all sessions
+    await supabase.auth.signOut({ scope: "global" });
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+
+  redirect("/login");
 }

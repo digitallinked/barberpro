@@ -18,6 +18,7 @@ import {
   Loader2,
   Camera,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +32,7 @@ import {
   getCurrentUserProfile,
   saveUserAvatar,
   removeUserAvatar,
+  deleteMyAccount,
 } from "@/actions/settings";
 import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 import { useLanguage, useT } from "@/lib/i18n/language-context";
@@ -191,6 +193,14 @@ export default function ProfilePage() {
   const [prefSuccess, setPrefSuccess] = useState<string | null>(null);
   const [selectedLang, setSelectedLang] = useState<Language>(language);
 
+  // ── Delete account state (3-level confirmation) ──
+  // Level 1: panel open, Level 2: checkbox ticked, Level 3: email typed
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteChecked, setDeleteChecked] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState("");
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Fetch full user profile (including phone) when entering edit mode
   useEffect(() => {
     if (!editing) return;
@@ -316,6 +326,22 @@ export default function ProfilePage() {
       setPrefSuccess(t.profile.preferencesSaved);
     } else {
       setPrefError(result.error ?? "Failed to save preferences");
+    }
+  }
+
+  async function handleDeleteAccount(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setDeleteError(null);
+    if (deleteEmail.trim().toLowerCase() !== tenant.userEmail.toLowerCase()) {
+      setDeleteError(t.profile.deleteEmailMismatch);
+      return;
+    }
+    setDeletePending(true);
+    const result = await deleteMyAccount(deleteEmail.trim());
+    // If we get here, deletion failed (success redirects server-side)
+    setDeletePending(false);
+    if (!result?.success) {
+      setDeleteError(result?.error ?? "Failed to delete account");
     }
   }
 
@@ -692,6 +718,122 @@ export default function ProfilePage() {
           </button>
         </form>
       </SectionCard>
+
+      {/* ── Danger Zone — delete account ─────────────────────────────── */}
+      <div className="rounded-2xl border border-red-500/20 bg-[#1a1a1a] shadow-xl shadow-black/20">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-red-500/10 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/10 ring-1 ring-red-500/20">
+              <TriangleAlert className="h-4 w-4 text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-red-400">{t.profile.dangerZoneTitle}</h3>
+              <p className="text-xs text-gray-500">{t.profile.dangerZoneSubtitle}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-5">
+          {!deleteOpen ? (
+            /* ── Level 1: show entry button ── */
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-white">{t.profile.deleteAccountTitle}</p>
+                <p className="mt-0.5 text-xs text-gray-500">{t.profile.deleteAccountWarning}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setDeleteOpen(true); setDeleteChecked(false); setDeleteEmail(""); setDeleteError(null); }}
+                className="shrink-0 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-2 text-sm font-medium text-red-400 transition hover:border-red-500/60 hover:bg-red-500/10"
+              >
+                {t.profile.deleteAccountBtn}
+              </button>
+            </div>
+          ) : (
+            /* ── Level 2 + 3: confirmation panel ── */
+            <form onSubmit={handleDeleteAccount} className="space-y-5">
+              {/* Warning box */}
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                <div className="flex items-start gap-3">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-red-300">{t.profile.deleteAccountTitle}</p>
+                    <p className="text-xs leading-relaxed text-red-400/80">{t.profile.deleteAccountWarning}</p>
+                    {tenant.userRole === "owner" && (
+                      <p className="mt-2 text-xs font-medium text-amber-400">{t.profile.deleteOwnerWarning}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 1 — Checkbox */}
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 transition hover:border-red-500/20">
+                <input
+                  type="checkbox"
+                  checked={deleteChecked}
+                  onChange={(e) => setDeleteChecked(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-red-500"
+                />
+                <span className="text-sm text-gray-300">{t.profile.deleteStep1Label}</span>
+              </label>
+
+              {/* Step 2 — Email confirmation (only enabled after step 1) */}
+              <div className={`space-y-1.5 transition-opacity ${deleteChecked ? "opacity-100" : "pointer-events-none opacity-30"}`}>
+                <label className="block text-xs font-medium uppercase tracking-wider text-gray-400">
+                  {t.profile.deleteStep2Label}
+                </label>
+                <input
+                  type="email"
+                  value={deleteEmail}
+                  onChange={(e) => { setDeleteEmail(e.target.value); setDeleteError(null); }}
+                  placeholder={t.profile.deleteStep2Placeholder}
+                  disabled={!deleteChecked || deletePending}
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-red-500/20 bg-[#111] px-3.5 py-2.5 text-sm text-white placeholder-gray-600 outline-none transition focus:border-red-500/50 focus:ring-2 focus:ring-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <p className="text-[11px] text-gray-600">{t.profile.deleteStep2Hint}: <span className="font-medium text-gray-400">{tenant.userEmail}</span></p>
+              </div>
+
+              {/* Error */}
+              {deleteError && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              {/* Step 3 — Final buttons */}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={
+                    !deleteChecked ||
+                    deleteEmail.trim().toLowerCase() !== tenant.userEmail.toLowerCase() ||
+                    deletePending
+                  }
+                  className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-900/30 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {deletePending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {deletePending ? t.profile.deleteConfirming : t.profile.deleteConfirmBtn}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteOpen(false); setDeleteChecked(false); setDeleteEmail(""); setDeleteError(null); }}
+                  disabled={deletePending}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white disabled:opacity-50"
+                >
+                  {t.profile.deleteCancelBtn}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
