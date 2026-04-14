@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useStaffSession } from "../../contexts/staff-session";
 import { useMyEarnings, useAllStaffEarnings } from "../../hooks/use-commissions";
 import { isOwnerOrManager } from "../../lib/permissions";
@@ -97,6 +98,18 @@ export default function CommissionsScreen() {
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color="#D4AF37" size="large" />
           </View>
+        ) : myEarnings.isError ? (
+          <View className="flex-1 items-center justify-center gap-3 px-6">
+            <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.2)" />
+            <Text className="text-white/40 text-base text-center">Failed to load your earnings</Text>
+            <TouchableOpacity
+              onPress={() => myEarnings.refetch()}
+              className="px-6 py-2.5 bg-white/10 border border-white/20 rounded-xl"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white/60 text-sm">Retry</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View className="px-5 gap-4">
             <View className="flex-row gap-3">
@@ -131,6 +144,18 @@ export default function CommissionsScreen() {
         allEarnings.isLoading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color="#D4AF37" size="large" />
+          </View>
+        ) : allEarnings.isError ? (
+          <View className="flex-1 items-center justify-center gap-3 px-6">
+            <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.2)" />
+            <Text className="text-white/40 text-base text-center">Failed to load staff earnings</Text>
+            <TouchableOpacity
+              onPress={() => allEarnings.refetch()}
+              className="px-6 py-2.5 bg-white/10 border border-white/20 rounded-xl"
+              activeOpacity={0.8}
+            >
+              <Text className="text-white/60 text-sm">Retry</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList

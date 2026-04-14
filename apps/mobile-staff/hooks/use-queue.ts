@@ -5,6 +5,17 @@ import { supabase } from "../lib/supabase";
 import { malaysiaDateString } from "../lib/malaysia-date";
 import { enqueueMutation } from "../lib/offline-queue";
 
+function isNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("network request failed") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("network error") ||
+    msg.includes("timeout")
+  );
+}
+
 export type QueueTicket = {
   id: string;
   queue_number: string;
@@ -162,12 +173,14 @@ export function useQueueActions(tenantId: string, branchId: string) {
       );
       return { previous };
     },
-    onError: async (_err, { ticketId, status }, context) => {
+    onError: async (err, { ticketId, status }, context) => {
       const queueDay = malaysiaDateString();
       if (context?.previous) {
         queryClient.setQueryData(["queue-tickets", tenantId, branchId, queueDay], context.previous);
       }
-      enqueueMutation({ type: "queue_update", payload: { ticketId, status, tenantId } });
+      if (isNetworkError(err)) {
+        enqueueMutation({ type: "queue_update", payload: { ticketId, status, tenantId } });
+      }
     },
     onSuccess: invalidate,
   });
@@ -231,15 +244,17 @@ export function useQueueActions(tenantId: string, branchId: string) {
       queryClient.setQueryData<QueueTicket[]>(key, [...(previous ?? []), tempTicket]);
       return { previous };
     },
-    onError: async (_err, { customerName, serviceId, partySize }, context) => {
+    onError: async (err, { customerName, serviceId, partySize }, context) => {
       const queueDay = malaysiaDateString();
       if (context?.previous) {
         queryClient.setQueryData(["queue-tickets", tenantId, branchId, queueDay], context.previous);
       }
-      enqueueMutation({
-        type: "queue_walkin",
-        payload: { customerName, serviceId, partySize, tenantId, branchId },
-      });
+      if (isNetworkError(err)) {
+        enqueueMutation({
+          type: "queue_walkin",
+          payload: { customerName, serviceId, partySize, tenantId, branchId },
+        });
+      }
     },
     onSuccess: invalidate,
   });

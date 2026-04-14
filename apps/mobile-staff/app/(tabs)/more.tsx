@@ -1,13 +1,14 @@
 import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import type { Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useStaffSession } from "../../contexts/staff-session";
 import { getPermissions, getRoleLabel } from "../../lib/permissions";
 import { supabase } from "../../lib/supabase";
 
 type MenuItemConfig = {
-  route: string;
+  route: Href;
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   show: (perms: ReturnType<typeof getPermissions>) => boolean;
@@ -175,7 +176,7 @@ export default function MoreScreen() {
                 key={item.route}
                 icon={item.icon}
                 label={item.label}
-                onPress={() => router.push(item.route as never)}
+                onPress={() => router.push(item.route)}
                 last={i === quickItems.length - 1}
               />
             ))}
@@ -191,7 +192,7 @@ export default function MoreScreen() {
                 key={item.route}
                 icon={item.icon}
                 label={item.label}
-                onPress={() => router.push(item.route as never)}
+                onPress={() => router.push(item.route)}
                 last={i === managerItems.length - 1}
               />
             ))}

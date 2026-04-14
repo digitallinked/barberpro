@@ -79,7 +79,9 @@ export function useAppointments(
         } satisfies Appointment;
       });
     },
-    enabled: !!tenantId && !!branchId,
+    // For non-managers staffProfileId is resolved asynchronously; keep disabled until it arrives
+    // (undefined = still loading, null = manager/all, string = filter by staff)
+    enabled: !!tenantId && !!branchId && staffProfileId !== undefined,
     refetchInterval: 30_000,
   });
 }

@@ -15,12 +15,16 @@ export type NetworkState = {
  */
 export function useNetwork(): NetworkState {
   const queryClient = useQueryClient();
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(true); // optimistic; corrected immediately below
   const [pendingCount, setPendingCount] = useState(0);
   const wasOfflineRef = useRef(false);
 
   useEffect(() => {
     getPendingCount().then(setPendingCount);
+    // Seed accurate initial connectivity state before the first NetInfo event fires
+    NetInfo.fetch().then((state) => {
+      setIsOnline(!!(state.isConnected && state.isInternetReachable !== false));
+    });
   }, []);
 
   useEffect(() => {

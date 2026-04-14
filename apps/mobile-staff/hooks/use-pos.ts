@@ -2,6 +2,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { enqueueMutation } from "../lib/offline-queue";
 
+/** True only for connectivity failures (fetch aborted, no route to host, etc.) */
+function isNetworkError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("network request failed") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("network error") ||
+    msg.includes("timeout")
+  );
+}
+
 export type CartItem = {
   serviceId: string | null;
   inventoryItemId: string | null;
@@ -75,23 +87,30 @@ export function usePosTransaction(tenantId: string, branchId: string, appUserId:
       }));
 
       const { error: itemsError } = await supabase.from("transaction_items").insert(items);
-      if (itemsError) throw new Error(itemsError.message);
+      if (itemsError) {
+        // Compensate: roll back the already-inserted transaction to avoid orphaned records
+        await supabase.from("transactions").delete().eq("id", txn.id).eq("tenant_id", tenantId);
+        throw new Error(itemsError.message);
+      }
 
       return { success: true, txnId: txn.id, savedOffline: false };
     },
-    onError: (_err, variables) => {
-      enqueueMutation({
-        type: "pos_transaction",
-        payload: {
-          cart: variables.cart,
-          paymentMethod: variables.paymentMethod,
-          customerId: variables.customerId,
-          discountAmount: variables.discountAmount,
-          tenantId,
-          branchId,
-          appUserId,
-        },
-      });
+    onError: (err, variables) => {
+      // Only enqueue for offline replay on genuine network failures
+      if (isNetworkError(err)) {
+        enqueueMutation({
+          type: "pos_transaction",
+          payload: {
+            cart: variables.cart,
+            paymentMethod: variables.paymentMethod,
+            customerId: variables.customerId,
+            discountAmount: variables.discountAmount,
+            tenantId,
+            branchId,
+            appUserId,
+          },
+        });
+      }
     },
     onSuccess: (result) => {
       if (!result.savedOffline) {
@@ -113,8 +132,12 @@ export function usePosTransaction(tenantId: string, branchId: string, appUserId:
   }): Promise<TransactionResult> {
     try {
       return await submitTransaction.mutateAsync(variables);
-    } catch {
-      return { success: true, txnId: null, savedOffline: true };
+    } catch (err) {
+      // Only treat genuine network failures as offline — re-throw application/DB errors
+      if (isNetworkError(err)) {
+        return { success: true, txnId: null, savedOffline: true };
+      }
+      throw err;
     }
   }
 

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useStaffSession } from "../../../contexts/staff-session";
 import { useStaffMembers } from "../../../hooks/use-staff";
 import { getRoleLabel } from "../../../lib/permissions";
+import type { UserRole } from "../../../lib/auth";
 import { format, parseISO } from "date-fns";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
@@ -65,7 +66,7 @@ export default function StaffDetailScreen() {
         <View className="flex-row gap-2 mt-1">
           <View className="bg-brand-gold/10 border border-brand-gold/30 rounded-full px-3 py-0.5">
             <Text className="text-brand-gold text-xs font-semibold">
-              {getRoleLabel(staff.role as never)}
+              {getRoleLabel(staff.role as UserRole)}
             </Text>
           </View>
           <View

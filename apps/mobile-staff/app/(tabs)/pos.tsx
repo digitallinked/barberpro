@@ -14,7 +14,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useStaffSession } from "../../contexts/staff-session";
 import { useServices } from "../../hooks/use-services";
-import { usePromotions } from "../../hooks/use-promotions";
 import { usePosTransaction, type CartItem, type PaymentMethod } from "../../hooks/use-pos";
 import { OfflineBanner } from "../../components/ui/offline-banner";
 import { formatMYR } from "../../lib/malaysia-date";
@@ -112,7 +111,6 @@ export default function PosScreen() {
   const [activeTab, setActiveTab] = useState<"services" | "products">("services");
 
   const services = useServices(session?.tenantId ?? "");
-  const promotions = usePromotions(session?.tenantId ?? "");
   const { submitWithOfflineFallback } = usePosTransaction(
     session?.tenantId ?? "",
     session?.branchId ?? "",

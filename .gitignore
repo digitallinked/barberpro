@@ -26,6 +26,8 @@ pnpm-debug.log*
 .env*.local
 apps/mobile-staff/.env
 apps/mobile-customer/.env
+# Play Store API key — never commit (use EAS secrets / CI)
+apps/mobile-staff/google-service-account.json
 
 # typescript
 *.tsbuildinfo

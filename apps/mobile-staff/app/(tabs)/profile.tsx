@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useStaffSession } from "../../contexts/staff-session";
 import { supabase } from "../../lib/supabase";
 import { getRoleLabel } from "../../lib/permissions";
@@ -116,7 +117,11 @@ export default function ProfileScreen() {
 
         {/* App info */}
         <View className="bg-brand-darkcard border border-brand-border rounded-2xl px-4 mb-4">
-          <ProfileRow icon="information-circle-outline" label="Version" value="1.0.0" />
+          <ProfileRow
+            icon="information-circle-outline"
+            label="Version"
+            value={Constants.expoConfig?.version ?? "1.0.0"}
+          />
           <View className="flex-row items-center gap-3 py-3.5">
             <Ionicons name="shield-checkmark-outline" size={20} color="rgba(255,255,255,0.4)" />
             <Text className="text-white/50 text-sm">Secured by BarberPro</Text>

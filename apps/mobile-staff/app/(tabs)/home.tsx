@@ -46,8 +46,11 @@ export default function HomeScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await Promise.all([stats.refetch(), queueCount.refetch()]);
-    setRefreshing(false);
+    try {
+      await Promise.all([stats.refetch(), queueCount.refetch()]);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   const isClockedIn = !!todayRecord?.clock_in && !todayRecord?.clock_out;
@@ -102,6 +105,17 @@ export default function HomeScreen() {
         </View>
 
         {/* Stats grid */}
+        {stats.isError && (
+          <TouchableOpacity
+            onPress={() => stats.refetch()}
+            className="flex-row items-center gap-2 bg-red-900/20 border border-red-700/30 rounded-xl px-4 py-3 mb-4"
+            activeOpacity={0.8}
+          >
+            <Ionicons name="alert-circle-outline" size={16} color="#f87171" />
+            <Text className="text-red-400 text-sm flex-1">Failed to load stats</Text>
+            <Text className="text-red-400/60 text-xs">Tap to retry</Text>
+          </TouchableOpacity>
+        )}
         <View className="flex-row gap-3 mb-3">
           <StatCard
             className="flex-1"

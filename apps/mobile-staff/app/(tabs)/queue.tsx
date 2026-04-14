@@ -219,12 +219,22 @@ function AddWalkInModal({
 export default function QueueScreen() {
   const { session } = useStaffSession();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { isOffline } = useNetwork();
 
   const tenantId = session?.tenantId ?? "";
   const branchId = session?.branchId ?? "";
 
   const { data: tickets, isLoading, isStale, dataUpdatedAt, refetch } = useQueueTickets(tenantId, branchId);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const { updateStatus } = useQueueActions(tenantId, branchId);
 
   function handleStatusUpdate(ticketId: string, status: string, confirmMsg?: string) {
@@ -288,7 +298,7 @@ export default function QueueScreen() {
           contentContainerStyle={{ padding: 20, paddingTop: 4 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={false} onRefresh={refetch} tintColor="#D4AF37" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#D4AF37" />
           }
           renderItem={({ item }) => (
             <QueueCard

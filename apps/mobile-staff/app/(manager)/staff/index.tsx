@@ -1,10 +1,12 @@
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
 import { router, useNavigation } from "expo-router";
+import type { Href } from "expo-router";
 import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useStaffSession } from "../../../contexts/staff-session";
 import { useStaffMembers } from "../../../hooks/use-staff";
 import { getRoleLabel } from "../../../lib/permissions";
+import type { UserRole } from "../../../lib/auth";
 
 export default function StaffListScreen() {
   const { session } = useStaffSession();
@@ -35,7 +37,7 @@ export default function StaffListScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => router.push(`/(manager)/staff/${item.staff_profile_id}` as never)}
+              onPress={() => router.push(`/(manager)/staff/${item.staff_profile_id}` as Href)}
               className="bg-brand-darkcard border border-brand-border rounded-2xl px-4 py-3.5 mb-2 flex-row items-center justify-between"
               activeOpacity={0.8}
             >
@@ -56,7 +58,7 @@ export default function StaffListScreen() {
                 <View>
                   <Text className="text-white font-semibold">{item.full_name}</Text>
                   <View className="flex-row items-center gap-2 mt-0.5">
-                    <Text className="text-white/50 text-xs">{getRoleLabel(item.role as never)}</Text>
+                    <Text className="text-white/50 text-xs">{getRoleLabel(item.role as UserRole)}</Text>
                     {!item.is_active && (
                       <Text className="text-red-400 text-xs">· Inactive</Text>
                     )}

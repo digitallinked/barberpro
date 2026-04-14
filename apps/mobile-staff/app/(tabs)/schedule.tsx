@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, addDays, formatDistanceToNow, isSameDay, parseISO } from "date-fns";
 import { useStaffSession } from "../../contexts/staff-session";
 import { useAppointments, useAppointmentActions, type Appointment } from "../../hooks/use-appointments";
+import { useStaffProfileId } from "../../hooks/use-dashboard";
 import { Badge } from "../../components/ui/badge";
 import { OfflineBanner } from "../../components/ui/offline-banner";
 import { useNetwork } from "../../hooks/use-network";
@@ -134,16 +135,35 @@ function AppointmentCard({
 export default function ScheduleScreen() {
   const { session } = useStaffSession();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
   const { isOffline } = useNetwork();
 
   const isManager = session ? isOwnerOrManager(session.role) : false;
 
-  const { data: appointments, isLoading, isStale, dataUpdatedAt, refetch } = useAppointments(
+  // For non-managers, resolve staff_profiles.id so we can scope appointments to only theirs
+  const { data: staffProfileId } = useStaffProfileId(
+    isManager ? undefined : session?.appUserId,
+    session?.tenantId ?? ""
+  );
+
+  // null = manager (no filter), string = filter by staff, undefined = still loading (query disabled)
+  const appointmentsStaffId: string | null | undefined = isManager ? null : staffProfileId;
+
+  const { data: appointments, isLoading, isError, isStale, dataUpdatedAt, refetch } = useAppointments(
     session?.tenantId ?? "",
     session?.branchId ?? "",
-    isManager ? null : undefined
+    appointmentsStaffId
   );
   const { updateStatus } = useAppointmentActions(session?.tenantId ?? "");
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const filtered = (appointments ?? []).filter((apt) =>
     isSameDay(parseISO(apt.start_at), selectedDate)
@@ -172,6 +192,18 @@ export default function ScheduleScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#D4AF37" size="large" />
         </View>
+      ) : isError ? (
+        <View className="flex-1 items-center justify-center gap-3 px-6">
+          <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.2)" />
+          <Text className="text-white/40 text-base text-center">Failed to load schedule</Text>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            className="px-6 py-2.5 bg-white/10 border border-white/20 rounded-xl"
+            activeOpacity={0.8}
+          >
+            <Text className="text-white/60 text-sm">Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : filtered.length === 0 ? (
         <View className="flex-1 items-center justify-center gap-2">
           <Ionicons name="calendar-outline" size={48} color="rgba(255,255,255,0.2)" />
@@ -186,7 +218,7 @@ export default function ScheduleScreen() {
           contentContainerStyle={{ padding: 20, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={false} onRefresh={refetch} tintColor="#D4AF37" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#D4AF37" />
           }
           renderItem={({ item }) => (
             <AppointmentCard

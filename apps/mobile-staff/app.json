@@ -16,19 +16,43 @@
       "policy": "appVersion"
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "url": "https://u.expo.dev/8bf7804e-3138-4536-a9d3-be8d786a85e0",
+      "fallbackToCacheTimeout": 0,
+      "enabled": true
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "my.barberpro.staff"
+      "bundleIdentifier": "my.barberpro.staff",
+      "infoPlist": {
+        "NSUserNotificationUsageDescription": "BarberPro Staff uses notifications to alert you about queue updates and new appointments.",
+        "NSCameraUsageDescription": "BarberPro Staff uses the camera to scan QR codes for payments.",
+        "NSPhotoLibraryUsageDescription": "BarberPro Staff uses your photo library to upload profile photos.",
+        "NSLocationWhenInUseUsageDescription": "BarberPro Staff may use your location to show nearby branches."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1a1a2e"
       },
-      "package": "my.barberpro.staff"
+      "package": "my.barberpro.staff",
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.INTERNET"
+      ]
     },
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#121212",
+      "translucent": false
+    },
+    "privacy": "https://barberpro.my/privacy",
     "plugins": [
       "expo-router",
       "expo-secure-store",

@@ -58,7 +58,12 @@ export async function registerForPushNotifications(staffProfileId: string): Prom
 
     if (finalStatus !== "granted") return;
 
-    const { data: token } = await Notifications.getExpoPushTokenAsync();
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+
+    const { data: token } = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined
+    );
     if (!token) return;
 
     const { error } = await supabase
@@ -69,7 +74,8 @@ export async function registerForPushNotifications(staffProfileId: string): Prom
     if (!error) {
       await storage.setItem(PUSH_TOKEN_REGISTERED_KEY, staffProfileId);
     }
-  } catch {
-    // Push registration is non-critical; fail silently
+  } catch (err) {
+    // Push registration is non-critical, but log in dev for visibility
+    if (__DEV__) console.warn("[notifications] registerForPushNotifications failed:", err);
   }
 }
