@@ -2,7 +2,7 @@
   "expo": {
     "name": "BarberPro Staff",
     "slug": "barberpro-staff",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "scheme": "barberpro-staff",
     "icon": "./assets/icon.png",
