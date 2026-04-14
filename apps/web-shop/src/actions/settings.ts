@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/types/database.types";
 import { getAuthContext } from "./_helpers";
-import { tenantProfileSchema, changePasswordSchema } from "@/validations/schemas";
+import { tenantProfileSchema, changePasswordSchema, userProfileSchema } from "@/validations/schemas";
 import { formDataToObject } from "@/lib/form-utils";
 
 export async function updateTenantProfile(formData: FormData) {
@@ -78,6 +78,62 @@ export async function updatePreferredLanguage(language: "ms" | "en") {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/settings");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function getCurrentUserProfile() {
+  try {
+    const { supabase, appUserId } = await getAuthContext();
+
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("full_name, email, phone")
+      .eq("id", appUserId)
+      .single();
+
+    if (error || !data) return { success: false, error: error?.message ?? "Not found" };
+
+    return {
+      success: true,
+      data: {
+        full_name: data.full_name ?? "",
+        email: (data.email as string | null) ?? "",
+        phone: (data.phone as string | null) ?? "",
+      },
+    };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function updateUserProfile(formData: FormData) {
+  try {
+    const { supabase, appUserId } = await getAuthContext();
+
+    const parsed = userProfileSchema.safeParse(formDataToObject(formData));
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const { full_name, phone } = parsed.data;
+
+    const updateData: Record<string, string | null | undefined> = {
+      full_name,
+      updated_at: new Date().toISOString(),
+    };
+    if (phone !== undefined) updateData.phone = phone;
+
+    const { error } = await supabase
+      .from("app_users")
+      .update(updateData)
+      .eq("id", appUserId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/profile");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

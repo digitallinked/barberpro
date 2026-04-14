@@ -462,3 +462,8 @@ export const changePasswordSchema = z
     message: "Passwords do not match",
     path: ["confirm_password"],
   });
+
+export const userProfileSchema = z.object({
+  full_name: trimmedString(100),
+  phone: optionalString(30),
+});
