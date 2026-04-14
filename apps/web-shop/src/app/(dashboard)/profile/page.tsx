@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Globe,
@@ -16,19 +16,33 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Camera,
+  Trash2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useTenant } from "@/components/tenant-provider";
+import { useSupabase } from "@/hooks";
 import { signOut } from "@/actions/auth";
 import {
   changePassword,
   updatePreferredLanguage,
   updateUserProfile,
   getCurrentUserProfile,
+  saveUserAvatar,
+  removeUserAvatar,
 } from "@/actions/settings";
+import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 import { useLanguage, useT } from "@/lib/i18n/language-context";
 import type { Language } from "@/lib/i18n/translations";
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function avatarPublicUrl(storagePath: string): string {
+  return shopMediaObjectPublicUrl(storagePath);
+}
 
 // ─── Reusable alert banners ───────────────────────────────────────────────────
 
@@ -112,14 +126,50 @@ const inputClass =
 const readOnlyClass =
   "w-full rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 text-sm text-gray-400 cursor-default select-all";
 
+// ─── Avatar component ─────────────────────────────────────────────────────────
+
+function Avatar({
+  src,
+  initials,
+  size = "lg",
+  className = "",
+}: {
+  src?: string | null;
+  initials: string;
+  size?: "sm" | "lg";
+  className?: string;
+}) {
+  const dim = size === "lg" ? "h-20 w-20 text-2xl rounded-2xl" : "h-10 w-10 text-sm rounded-full";
+  return src ? (
+    <img
+      src={src}
+      alt="Profile photo"
+      className={`${dim} border-2 border-[#D4AF37]/30 object-cover shadow-lg shadow-[#D4AF37]/10 ${className}`}
+    />
+  ) : (
+    <div
+      className={`${dim} flex items-center justify-center border-2 border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/25 to-[#D4AF37]/10 font-bold text-[#D4AF37] shadow-lg shadow-[#D4AF37]/10 ${className}`}
+    >
+      {initials}
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const tenant = useTenant();
+  const supabase = useSupabase();
   const t = useT();
   const { language, setLanguage } = useLanguage();
+
+  // ── Avatar state ──
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>(tenant.userAvatarUrl);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   // ── Account edit state ──
   const [editing, setEditing] = useState(false);
@@ -152,14 +202,73 @@ export default function ProfilePage() {
       }
       setLoadingProfile(false);
     });
-  }, [editing, tenant.userName]);
+  }, [editing, tenant.userName, tenant.userPhone]);
+
+  // ── Avatar handlers ──
+
+  async function handleAvatarUpload(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setAvatarError("Only JPEG, PNG, or WebP images are allowed.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarError("Photo must be smaller than 5 MB.");
+      return;
+    }
+
+    setAvatarError(null);
+    setAvatarUploading(true);
+
+    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const storagePath = `${tenant.tenantId}/avatars/${tenant.appUserId}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("shop-media")
+      .upload(storagePath, file, { upsert: true, contentType: file.type });
+
+    if (uploadError) {
+      setAvatarError(uploadError.message);
+      setAvatarUploading(false);
+      return;
+    }
+
+    const result = await saveUserAvatar(storagePath);
+    setAvatarUploading(false);
+
+    if (!result.success) {
+      setAvatarError(result.error ?? "Failed to save photo");
+      return;
+    }
+
+    setAvatarUrl(storagePath);
+    router.refresh();
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarError(null);
+    setAvatarUploading(true);
+
+    if (avatarUrl) {
+      await supabase.storage.from("shop-media").remove([avatarUrl]);
+    }
+    const result = await removeUserAvatar();
+    setAvatarUploading(false);
+
+    if (!result.success) {
+      setAvatarError(result.error ?? "Failed to remove photo");
+      return;
+    }
+
+    setAvatarUrl("");
+    router.refresh();
+  }
 
   function handleCancelEdit() {
     setEditing(false);
     setProfileError(null);
     setProfileSuccess(null);
     setEditName(tenant.userName);
-    setEditPhone("");
+    setEditPhone(tenant.userPhone);
   }
 
   async function handleProfileSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -221,6 +330,8 @@ export default function ProfilePage() {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  const avatarSrc = avatarUrl ? avatarPublicUrl(avatarUrl) : null;
+
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       {/* Page header */}
@@ -235,23 +346,52 @@ export default function ProfilePage() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#D4AF37]/5 blur-3xl" />
 
         <div className="flex items-center gap-5">
-          {/* Avatar */}
+          {/* Avatar with upload overlay */}
           <div className="relative shrink-0">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/25 to-[#D4AF37]/10 text-2xl font-bold text-[#D4AF37] shadow-lg shadow-[#D4AF37]/10">
-              {initials}
-            </div>
-            <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-[#1a1a1a]">
-              <div className="h-2 w-2 rounded-full bg-white" />
-            </div>
+            <Avatar src={avatarSrc} initials={initials} size="lg" />
+
+            {/* Camera overlay button */}
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              title={t.profile.changePhoto}
+              className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 opacity-0 transition hover:bg-black/50 hover:opacity-100 disabled:cursor-not-allowed"
+            >
+              {avatarUploading ? (
+                <Loader2 className="h-6 w-6 animate-spin text-white" />
+              ) : (
+                <Camera className="h-6 w-6 text-white" />
+              )}
+            </button>
+
+            {/* Hidden file input */}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleAvatarUpload(file);
+                e.target.value = "";
+              }}
+            />
           </div>
 
           {/* Info */}
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-lg font-bold text-white">{tenant.userName}</h3>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 text-sm text-gray-400">
-                <Mail className="h-3.5 w-3.5 text-gray-500" />
+            <div className="mt-1 flex flex-col gap-1">
+              <div className="flex min-w-0 items-center gap-1.5 text-sm text-gray-400">
+                <Mail className="h-3.5 w-3.5 shrink-0 text-gray-500" />
                 <span className="truncate">{tenant.userEmail}</span>
+              </div>
+              <div className="flex min-w-0 items-center gap-1.5 text-sm text-gray-400">
+                <Phone className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                <span className={tenant.userPhone.trim() ? "truncate" : "italic text-gray-500"}>
+                  {tenant.userPhone.trim() ? tenant.userPhone : t.profile.phoneNotSet}
+                </span>
               </div>
             </div>
             <div className="mt-2.5 flex flex-wrap gap-2">
@@ -276,6 +416,38 @@ export default function ProfilePage() {
             </button>
           )}
         </div>
+
+        {/* Avatar actions row */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:border-[#D4AF37]/30 hover:bg-[#D4AF37]/5 hover:text-[#D4AF37] disabled:opacity-50"
+          >
+            {avatarUploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+            {avatarSrc ? t.profile.changePhoto : t.profile.uploadPhoto}
+          </button>
+          {avatarSrc && (
+            <button
+              type="button"
+              onClick={() => void handleAvatarRemove()}
+              disabled={avatarUploading}
+              className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:border-red-500/40 hover:bg-red-500/10 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t.profile.removePhoto}
+            </button>
+          )}
+          <span className="text-[10px] text-gray-600">JPEG, PNG, WebP · max 5 MB</span>
+        </div>
+        {avatarError && (
+          <p className="mt-2 text-xs text-red-400">{avatarError}</p>
+        )}
       </div>
 
       {/* ── Account info / Edit form ──────────────────────────────────── */}
@@ -390,6 +562,19 @@ export default function ProfilePage() {
                   {t.profile.email}
                 </p>
                 <p className="mt-0.5 truncate text-sm text-gray-300">{tenant.userEmail}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+              <Phone className="h-4 w-4 shrink-0 text-gray-500" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-gray-500">
+                  {t.profile.phone}
+                </p>
+                <p
+                  className={`mt-0.5 truncate text-sm ${tenant.userPhone.trim() ? "text-gray-300" : "italic text-gray-500"}`}
+                >
+                  {tenant.userPhone.trim() ? tenant.userPhone : t.profile.phoneNotSet}
+                </p>
               </div>
             </div>
           </div>

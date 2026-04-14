@@ -84,6 +84,51 @@ export async function updatePreferredLanguage(language: "ms" | "en") {
   }
 }
 
+export async function saveUserAvatar(storagePath: string) {
+  try {
+    const { supabase, appUserId, tenantId } = await getAuthContext();
+
+    // Validate path belongs to this tenant
+    if (!storagePath || storagePath.includes("..") || storagePath.startsWith("/")) {
+      return { success: false, error: "Invalid storage path" };
+    }
+    const firstSegment = storagePath.split("/").filter(Boolean)[0];
+    if (firstSegment !== tenantId) {
+      return { success: false, error: "Invalid storage path" };
+    }
+
+    const { error } = await supabase
+      .from("app_users")
+      .update({ avatar_url: storagePath, updated_at: new Date().toISOString() })
+      .eq("id", appUserId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+export async function removeUserAvatar() {
+  try {
+    const { supabase, appUserId } = await getAuthContext();
+
+    const { error } = await supabase
+      .from("app_users")
+      .update({ avatar_url: null, updated_at: new Date().toISOString() })
+      .eq("id", appUserId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 export async function getCurrentUserProfile() {
   try {
     const { supabase, appUserId } = await getAuthContext();

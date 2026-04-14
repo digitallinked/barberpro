@@ -18,6 +18,10 @@ export type TenantContext = {
   appUserId: string;
   userName: string;
   userEmail: string;
+  /** Phone from app_users; may be empty if not set */
+  userPhone: string;
+  /** Avatar storage path under shop-media bucket; empty string when not set */
+  userAvatarUrl: string;
   userRole: string;
   branchId: string | null;
   branchName: string | null;
@@ -35,7 +39,7 @@ export const getCurrentTenant = cache(async function getCurrentTenant(): Promise
 
   const { data: appUser } = await supabase
     .from("app_users")
-    .select("id, tenant_id, branch_id, full_name, email, role")
+    .select("id, tenant_id, branch_id, full_name, email, phone, avatar_url, role")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -86,6 +90,8 @@ export const getCurrentTenant = cache(async function getCurrentTenant(): Promise
     appUserId: appUser.id,
     userName: appUser.full_name,
     userEmail: appUser.email ?? user.email ?? "",
+    userPhone: (appUser.phone as string | null) ?? "",
+    userAvatarUrl: (appUser.avatar_url as string | null) ?? "",
     userRole: appUser.role,
     branchId: activeBranch?.id ?? null,
     branchName: activeBranch?.name ?? null,

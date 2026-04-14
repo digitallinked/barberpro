@@ -36,6 +36,7 @@ import { useTenant } from "@/components/tenant-provider";
 import {
   WalkInQueueModalProvider,
 } from "@/components/walk-in-queue-modal-context";
+import { shopMediaObjectPublicUrl } from "@barberpro/db/shop-media";
 import { useT } from "@/lib/i18n/language-context";
 import { canAccessPage } from "@/lib/permissions";
 
@@ -186,6 +187,7 @@ function SidebarContent({
   onNav,
   userName,
   userRole,
+  userAvatarUrl,
   branchName,
   collapsed,
   onToggleCollapse,
@@ -195,6 +197,7 @@ function SidebarContent({
   onNav?: () => void;
   userName: string;
   userRole: string;
+  userAvatarUrl: string;
   branchName: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -211,6 +214,8 @@ function SidebarContent({
     .slice(0, 2);
 
   const roleLabel = userRole.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const avatarSrc = userAvatarUrl ? shopMediaObjectPublicUrl(userAvatarUrl) : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -311,13 +316,23 @@ function SidebarContent({
             pathname === "/profile" ? "bg-[#D4AF37]/10" : ""
           } ${collapsed ? "justify-center" : "gap-3"}`}
         >
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition ${
-            pathname === "/profile"
-              ? "border-[#D4AF37] bg-[#D4AF37]/20 text-[#D4AF37]"
-              : "border-[#D4AF37]/40 bg-[#D4AF37]/20 text-[#D4AF37]"
-          }`}>
-            {initials}
-          </div>
+          {avatarSrc ? (
+            <img
+              src={avatarSrc}
+              alt={userName}
+              className={`h-10 w-10 shrink-0 rounded-full border-2 object-cover transition ${
+                pathname === "/profile" ? "border-[#D4AF37]" : "border-[#D4AF37]/40"
+              }`}
+            />
+          ) : (
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition ${
+              pathname === "/profile"
+                ? "border-[#D4AF37] bg-[#D4AF37]/20 text-[#D4AF37]"
+                : "border-[#D4AF37]/40 bg-[#D4AF37]/20 text-[#D4AF37]"
+            }`}>
+              {initials}
+            </div>
+          )}
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">{userName}</p>
@@ -459,6 +474,7 @@ function AppShellInner({ children }: AppShellProps) {
 
   let userName = "User";
   let userRole = "owner";
+  let userAvatarUrl = "";
   let branches: { id: string; name: string; slug: string; is_hq: boolean }[] = [];
   let subscriptionStatus: string | null = null;
 
@@ -466,6 +482,7 @@ function AppShellInner({ children }: AppShellProps) {
     const tenant = useTenant();
     userName = tenant.userName;
     userRole = tenant.userRole;
+    userAvatarUrl = tenant.userAvatarUrl;
     branches = tenant.branches;
     subscriptionStatus = tenant.subscriptionStatus ?? null;
   } catch {
@@ -522,6 +539,7 @@ function AppShellInner({ children }: AppShellProps) {
           pathname={pathname}
           userName={userName}
           userRole={userRole}
+          userAvatarUrl={userAvatarUrl}
           branchName={displayBranchName}
           collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
@@ -551,6 +569,7 @@ function AppShellInner({ children }: AppShellProps) {
               onNav={() => setOpen(false)}
               userName={userName}
               userRole={userRole}
+              userAvatarUrl={userAvatarUrl}
               branchName={displayBranchName}
               branchPrefix={branchPrefix}
             />
