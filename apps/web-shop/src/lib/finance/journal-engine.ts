@@ -37,14 +37,15 @@ async function resolveAccountId(
   tenantId: string,
   code: string
 ): Promise<string | null> {
-  const { data } = await client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table added by migration, types will regenerate
+  const { data } = await (client as any)
     .from("chart_of_accounts")
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("code", code)
     .eq("is_active", true)
     .single();
-  return data?.id ?? null;
+  return (data as { id: string } | null)?.id ?? null;
 }
 
 /**
@@ -91,7 +92,9 @@ export async function postJournalEntry(
     });
   }
 
-  const { data: entry, error: entryError } = await client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- table added by migration, types will regenerate
+  const db = client as any;
+  const { data: entry, error: entryError } = await db
     .from("journal_entries")
     .insert({
       tenant_id: tenantId,
@@ -110,20 +113,20 @@ export async function postJournalEntry(
 
   const lineRows = resolvedLines.map((rl) => ({
     tenant_id: tenantId,
-    journal_entry_id: entry.id,
+    journal_entry_id: (entry as { id: string }).id,
     account_id: rl.accountId,
     debit_amount: rl.debitAmount,
     credit_amount: rl.creditAmount,
     description: rl.description,
   }));
 
-  const { error: linesError } = await client.from("journal_lines").insert(lineRows);
+  const { error: linesError } = await db.from("journal_lines").insert(lineRows);
 
   if (linesError) {
     return { success: false, error: linesError.message };
   }
 
-  return { success: true, journalEntryId: entry.id };
+  return { success: true, journalEntryId: (entry as { id: string }).id };
 }
 
 // ─── Pre-built posting templates ────────────────────────────────────────────
