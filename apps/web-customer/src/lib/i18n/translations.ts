@@ -255,6 +255,49 @@ export const translations = {
       step4Desc:
         "Kumpul mata kesetiaan dengan setiap kunjungan. Buka tahap Perak dan Emas. Tebus mata untuk perkhidmatan percuma di kedai kegemaran anda.",
     },
+    about: {
+      metaTitle: "Tentang Kami | BarberPro.my",
+      metaDesc:
+        "BarberPro.my dibina untuk memudahkan pengalaman kedai gunting anda di Malaysia. Cari kedai, buat temujanji, pantau giliran, dan kumpul ganjaran.",
+      badge: "Dibuat di Malaysia",
+      heroTitle: "Kunjungan Barber Anda,",
+      heroHighlight: "Dipermudahkan",
+      heroDesc:
+        "BarberPro.my menghubungkan pelanggan Malaysia dengan kedai gunting terbaik. Cari, tempah, pantau giliran, dan kumpul ganjaran, semuanya percuma.",
+      problemTitle: "Kami Selesaikan Masalah Biasa",
+      problemDesc:
+        "Beratur panjang tanpa tahu berapa lama menunggu. Payah nak tempah tanpa kena telefon. BarberPro.my wujud untuk menyelesaikan masalah ini.",
+      problemCard1Title: "Tiada Lagi Menunggu Tanpa Kepastian",
+      problemCard1Desc:
+        "Pantau kedudukan giliran anda secara langsung dari telefon. Tahu dengan tepat bila tiba giliran anda sebelum melangkah ke kedai.",
+      problemCard2Title: "Tempah Bila-Bila Masa",
+      problemCard2Desc:
+        "Tak perlu telefon, tak perlu WhatsApp kedai. Pilih masa, barber, dan perkhidmatan anda dalam beberapa saat dari mana sahaja.",
+      problemCard3Title: "Cari Kedai Berhampiran",
+      problemCard3Desc:
+        "Semak kedai gunting yang disahkan di kawasan anda, lengkap dengan perkhidmatan, harga, dan ulasan pelanggan sebenar.",
+      benefitsTitle: "Apa Yang Anda Dapat",
+      benefitsDesc: "Semua percuma untuk pelanggan. Tiada bayaran tersembunyi.",
+      b1Title: "Terokai Kedai Gunting",
+      b1Desc:
+        "Semak kedai berdekatan dengan status giliran langsung, senarai perkhidmatan, dan harga. Tak perlu keluar rumah pun boleh tahu.",
+      b2Title: "Tempah dalam Sekelip Mata",
+      b2Desc:
+        "Kunci slot temujanji dalam talian bila-bila masa. Pengesahan segera, tiada panggilan perlu dibuat.",
+      b3Title: "Pantau Giliran Masa Nyata",
+      b3Desc:
+        "Dapatkan tiket giliran digital. Pantau kedudukan anda dari jauh supaya anda tiba tepat pada masanya.",
+      b4Title: "Kumpul Mata Ganjaran",
+      b4Desc:
+        "Setiap kunjungan beri mata kesetiaan. Buka tahap dan tebus mata untuk perkhidmatan percuma di kedai kegemaran anda.",
+      freeTitle: "Percuma untuk Pelanggan, Selama-lamanya",
+      freeDesc:
+        "Mendaftar, mencari, menempah, dan memantau giliran adalah percuma sepenuhnya. Kami dibayar oleh kedai gunting yang menggunakan platform kami, bukan oleh anda.",
+      ctaTitle: "Cuba Sekarang",
+      ctaDesc: "Cari kedai gunting berdekatan dan buat temujanji pertama anda.",
+      browseShops: "Semak Kedai",
+      createAccount: "Buka Akaun Percuma",
+    },
     forBusinesses: {
       badge: "BarberPro untuk Pemilik Kedai Gunting",
       heroTitle: "Dibina untuk",
@@ -649,6 +692,49 @@ export const translations = {
       step4Title: "Earn Rewards",
       step4Desc:
         "Collect loyalty points with every visit. Unlock Silver and Gold tiers. Redeem points for free services at your favourite shops.",
+    },
+    about: {
+      metaTitle: "About Us | BarberPro.my",
+      metaDesc:
+        "BarberPro.my makes your barber visit easier across Malaysia. Find shops, book appointments, track your queue, and earn rewards.",
+      badge: "Made in Malaysia",
+      heroTitle: "Your Barber Visit,",
+      heroHighlight: "Sorted",
+      heroDesc:
+        "BarberPro.my connects Malaysian customers with the best barbershops around them. Find, book, track your queue, and earn rewards. All free.",
+      problemTitle: "We Fix the Usual Frustrations",
+      problemDesc:
+        "Long queues with no idea how long the wait is. Booking that means calling or messaging the shop. BarberPro.my exists to fix both.",
+      problemCard1Title: "No More Blind Waiting",
+      problemCard1Desc:
+        "Track your queue position live from your phone. Know exactly when it's your turn before you even leave the house.",
+      problemCard2Title: "Book Any Time",
+      problemCard2Desc:
+        "No calls, no WhatsApp messages to the shop. Pick your time, barber, and service in seconds from wherever you are.",
+      problemCard3Title: "Find Shops Near You",
+      problemCard3Desc:
+        "Browse verified barbershops in your area with services, pricing, and real customer reviews. All in one place.",
+      benefitsTitle: "What You Get",
+      benefitsDesc: "Everything is free for customers. No hidden charges.",
+      b1Title: "Discover Barbershops",
+      b1Desc:
+        "Browse nearby shops with live queue status, service lists, and pricing. Know what to expect before you walk in.",
+      b2Title: "Book in Seconds",
+      b2Desc:
+        "Lock in an appointment online at any time. Instant confirmation, no phone call required.",
+      b3Title: "Track Your Queue Live",
+      b3Desc:
+        "Get a digital queue ticket and track your spot remotely so you show up right on time.",
+      b4Title: "Earn Loyalty Rewards",
+      b4Desc:
+        "Every visit earns loyalty points. Unlock tiers and redeem points for free services at your favourite shops.",
+      freeTitle: "Free for Customers, Always",
+      freeDesc:
+        "Signing up, searching, booking, and tracking your queue is completely free. We're paid by the barbershops that use our platform, not by you.",
+      ctaTitle: "Give It a Try",
+      ctaDesc: "Find a barbershop near you and make your first appointment today.",
+      browseShops: "Browse Shops",
+      createAccount: "Create Free Account",
     },
     forBusinesses: {
       badge: "BarberPro for Barbershop Owners",
