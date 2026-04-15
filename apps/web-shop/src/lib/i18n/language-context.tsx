@@ -9,7 +9,8 @@ import {
 } from "react";
 import { translations, type Language, type Translations } from "./translations";
 
-const STORAGE_KEY = "barberpro-lang";
+export const STORAGE_KEY = "barberpro-lang";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 /**
  * Custom DOM event dispatched whenever the active language changes.
@@ -27,6 +28,14 @@ type LanguageContextValue = {
 
 const LanguageCtx = createContext<LanguageContextValue | null>(null);
 
+function persistLanguage(lang: Language) {
+  localStorage.setItem(STORAGE_KEY, lang);
+  // Also write a cookie so the server can read the preference and render the
+  // correct language on the first request, avoiding hydration mismatches.
+  document.cookie = `${STORAGE_KEY}=${lang}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+  window.dispatchEvent(new CustomEvent<Language>(LANG_CHANGE_EVENT, { detail: lang }));
+}
+
 export function LanguageProvider({
   initialLanguage,
   children,
@@ -34,40 +43,25 @@ export function LanguageProvider({
   initialLanguage: Language;
   children: ReactNode;
 }) {
-  // Read localStorage synchronously on first render to avoid a language flash.
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-      if (stored === "ms" || stored === "en") return stored;
-    }
-    return initialLanguage;
-  });
+  // Start with initialLanguage — this MUST match what the server rendered.
+  // The root layout reads the language cookie and passes the correct value here,
+  // so server and client always agree on first render (no hydration mismatch).
+  const [language, setLanguageState] = useState<Language>(initialLanguage);
 
   useEffect(() => {
+    // On first mount, ensure localStorage and the cookie are written so future
+    // server renders also get the right initialLanguage.
     const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-    if (stored === "ms" || stored === "en") {
-      // A user preference already exists — honour it.
-      if (stored !== language) setLanguageState(stored);
-    } else {
-      // No preference stored yet (first-time user or cleared storage).
-      // Persist this provider's initial language and notify any out-of-tree
-      // listeners (e.g. PwaInstallBanner) so they can update immediately.
-      localStorage.setItem(STORAGE_KEY, initialLanguage);
-      window.dispatchEvent(
-        new CustomEvent<Language>(LANG_CHANGE_EVENT, { detail: initialLanguage })
-      );
+    if (!stored) {
+      persistLanguage(initialLanguage);
     }
-    // Only run once on mount — initialLanguage is stable from the server render.
+    // Only run once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function setLanguage(lang: Language) {
     setLanguageState(lang);
-    localStorage.setItem(STORAGE_KEY, lang);
-    // Notify global listeners that sit outside the React context tree.
-    window.dispatchEvent(
-      new CustomEvent<Language>(LANG_CHANGE_EVENT, { detail: lang })
-    );
+    persistLanguage(lang);
   }
 
   return (

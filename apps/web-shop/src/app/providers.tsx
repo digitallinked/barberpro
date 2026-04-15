@@ -5,12 +5,14 @@ import { type ReactNode, useState } from "react";
 
 import { LanguageProvider } from "@/lib/i18n/language-context";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
+import type { Language } from "@/lib/i18n/translations";
 
 type ProvidersProps = {
   children: ReactNode;
+  initialLanguage: Language;
 };
 
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children, initialLanguage }: ProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -25,7 +27,7 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider initialLanguage="ms">
+      <LanguageProvider initialLanguage={initialLanguage}>
         {children}
         <CookieConsentBanner />
       </LanguageProvider>
