@@ -392,6 +392,15 @@ export const translations = {
       genericStep1: "Buka menu browser atau cari ikon pasang dalam bar alamat.",
       genericStep2: "Pilih Pasang aplikasi atau Tambah ke Skrin Utama jika ada.",
     },
+    // ── Cookie Consent ───────────────────────────────────────────────
+    cookies: {
+      message:
+        "Kami menggunakan kuki untuk meningkatkan pengalaman anda, menganalisis trafik laman web, dan memperibadikan kandungan. Dengan meneruskan, anda bersetuju dengan penggunaan kuki kami.",
+      learnMore: "Ketahui lebih lanjut",
+      acceptAll: "Terima Semua",
+      decline: "Tolak",
+      ariaLabel: "Notis persetujuan kuki",
+    },
   },
   en: {
     nav: {
@@ -777,6 +786,15 @@ export const translations = {
       safariStep2: "Choose Add to Home Screen or Add to Dock, depending on your device.",
       genericStep1: "Open the browser menu or look for an install icon in the address bar.",
       genericStep2: "Choose Install app or Add to Home Screen if available.",
+    },
+    // ── Cookie Consent ───────────────────────────────────────────────
+    cookies: {
+      message:
+        "We use cookies to improve your experience, analyse website traffic, and personalise content. By continuing, you agree to our use of cookies.",
+      learnMore: "Learn more",
+      acceptAll: "Accept All",
+      decline: "Decline",
+      ariaLabel: "Cookie consent notice",
     },
   },
 } as const;

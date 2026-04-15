@@ -821,6 +821,15 @@ export const translations = {
       footerCompany: "Syarikat",
       footerSupport: "Sokongan",
     },
+    // ── Cookie Consent ───────────────────────────────────────────────
+    cookies: {
+      message:
+        "Kami menggunakan kuki untuk meningkatkan pengalaman anda, menganalisis trafik laman web, dan memperibadikan kandungan. Dengan meneruskan, anda bersetuju dengan penggunaan kuki kami.",
+      learnMore: "Ketahui lebih lanjut",
+      acceptAll: "Terima Semua",
+      decline: "Tolak",
+      ariaLabel: "Notis persetujuan kuki",
+    },
   },
 
   en: {
@@ -1642,6 +1651,15 @@ export const translations = {
       footerProduct: "Product",
       footerCompany: "Company",
       footerSupport: "Support",
+    },
+    // ── Cookie Consent ───────────────────────────────────────────────
+    cookies: {
+      message:
+        "We use cookies to improve your experience, analyse website traffic, and personalise content. By continuing, you agree to our use of cookies.",
+      learnMore: "Learn more",
+      acceptAll: "Accept All",
+      decline: "Decline",
+      ariaLabel: "Cookie consent notice",
     },
   },
 } as const;
