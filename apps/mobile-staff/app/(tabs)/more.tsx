@@ -173,7 +173,7 @@ export default function MoreScreen() {
             <SectionHeader label="Quick Access" />
             {quickItems.map((item, i) => (
               <MenuItem
-                key={item.route}
+                key={String(item.route)}
                 icon={item.icon}
                 label={item.label}
                 onPress={() => router.push(item.route)}
@@ -189,7 +189,7 @@ export default function MoreScreen() {
             <SectionHeader label="Management" />
             {managerItems.map((item, i) => (
               <MenuItem
-                key={item.route}
+                key={String(item.route)}
                 icon={item.icon}
                 label={item.label}
                 onPress={() => router.push(item.route)}
