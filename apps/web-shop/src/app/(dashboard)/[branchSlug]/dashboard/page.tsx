@@ -36,6 +36,7 @@ import {
   useQueueStats,
   useBranchHref,
 } from "@/hooks";
+import { GettingStartedChecklist } from "@/components/getting-started-checklist";
 import { useTenant } from "@/components/tenant-provider";
 import { useMaybeBranchContext } from "@/components/branch-context";
 import { useT } from "@/lib/i18n/language-context";
@@ -304,6 +305,9 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
+
+      {/* Getting Started checklist — shown to owners until all tasks complete */}
+      <GettingStartedChecklist />
 
       {/* Welcome row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

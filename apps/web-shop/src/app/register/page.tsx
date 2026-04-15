@@ -342,9 +342,9 @@ function RegisterContent() {
     setStep("payment");
   };
 
-  // Step 4: Start free trial — go directly to dashboard (no card required)
+  // Step 4: Start free trial — send to setup wizard before dashboard
   const handleStartTrial = () => {
-    router.push("/dashboard");
+    router.push("/onboarding");
   };
 
   const currentStepIndex = STEP_ORDER.indexOf(step);
