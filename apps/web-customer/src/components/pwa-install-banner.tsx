@@ -31,6 +31,11 @@ export function PwaInstallBanner() {
   const [state, setState] = useState<InstallState>("idle");
   const [showHelp, setShowHelp] = useState(false);
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
+  const manualFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function isDismissed(): boolean {
+    return sessionStorage.getItem(DISMISSED_KEY) === "1";
+  }
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -38,26 +43,35 @@ export function PwaInstallBanner() {
     }
 
     if (isInStandaloneMode()) return;
-    if (sessionStorage.getItem(DISMISSED_KEY)) return;
+    if (isDismissed()) return;
 
     if (isIos()) {
       setState("ios");
       return;
     }
 
-    const manualFallbackTimer = window.setTimeout(() => {
+    manualFallbackTimerRef.current = window.setTimeout(() => {
+      manualFallbackTimerRef.current = null;
+      if (isDismissed()) return;
       setState((current) => (current === "idle" ? "manual" : current));
     }, 1500);
 
     const handler = (e: Event) => {
+      if (isDismissed()) return;
       e.preventDefault();
-      window.clearTimeout(manualFallbackTimer);
+      if (manualFallbackTimerRef.current !== null) {
+        window.clearTimeout(manualFallbackTimerRef.current);
+        manualFallbackTimerRef.current = null;
+      }
       deferredPrompt.current = e as BeforeInstallPromptEvent;
       setState("prompt");
     };
 
     const installedHandler = () => {
-      window.clearTimeout(manualFallbackTimer);
+      if (manualFallbackTimerRef.current !== null) {
+        window.clearTimeout(manualFallbackTimerRef.current);
+        manualFallbackTimerRef.current = null;
+      }
       setState("installed");
     };
 
@@ -65,7 +79,10 @@ export function PwaInstallBanner() {
     window.addEventListener("appinstalled", installedHandler);
 
     return () => {
-      window.clearTimeout(manualFallbackTimer);
+      if (manualFallbackTimerRef.current !== null) {
+        window.clearTimeout(manualFallbackTimerRef.current);
+        manualFallbackTimerRef.current = null;
+      }
       window.removeEventListener("beforeinstallprompt", handler);
       window.removeEventListener("appinstalled", installedHandler);
     };
@@ -73,6 +90,10 @@ export function PwaInstallBanner() {
 
   function dismiss() {
     sessionStorage.setItem(DISMISSED_KEY, "1");
+    if (manualFallbackTimerRef.current !== null) {
+      window.clearTimeout(manualFallbackTimerRef.current);
+      manualFallbackTimerRef.current = null;
+    }
     setState("idle");
   }
 
