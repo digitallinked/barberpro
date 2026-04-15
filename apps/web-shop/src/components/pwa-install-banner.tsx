@@ -60,7 +60,7 @@ export function PwaInstallBanner() {
   const [state, setState] = useState<InstallState>("idle");
   const [showHelp, setShowHelp] = useState(false);
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
-  const manualFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualFallbackTimerRef = useRef<number | null>(null);
 
   function isDismissed(): boolean {
     return sessionStorage.getItem(DISMISSED_KEY) === "1";
