@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { env } from "@/lib/env";
 import { ClientProviders } from "@/components/client-providers";
 import { ActiveQueueBanner } from "@/components/active-queue-banner";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 import "./globals.css";
 
@@ -18,11 +19,22 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "BarberPro — Cari & Tempah Barber Anda",
   description: "Terokai kedai gunting berdekatan. Buat temujanji, pantau giliran, dan kumpul mata ganjaran.",
-  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL)
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "BarberPro",
+  },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
-  viewportFit: "cover"
+  viewportFit: "cover",
+  themeColor: "#D4AF37",
 };
 
 type RootLayoutProps = {
@@ -36,6 +48,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <ClientProviders>
           {children}
           <ActiveQueueBanner />
+          <PwaInstallBanner />
         </ClientProviders>
         <Analytics />
         <SpeedInsights />

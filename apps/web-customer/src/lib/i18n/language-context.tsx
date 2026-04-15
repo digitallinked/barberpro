@@ -32,18 +32,20 @@ export function LanguageProvider({
 }: {
   children: ReactNode;
 }) {
-  const [language, setLanguageState] = useState<Language>("ms");
+  // Read localStorage synchronously on first render to avoid a language flash.
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
+      if (stored === "ms" || stored === "en") return stored;
+    }
+    return "ms";
+  });
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-    if (stored === "ms" || stored === "en") {
-      setLanguageState(stored);
-      persistLanguage(stored);
-    } else {
-      persistLanguage("ms");
-    }
-    // Update the html lang attribute to match the language
-    document.documentElement.lang = stored === "en" ? "en" : "ms";
+    const resolved = stored === "ms" || stored === "en" ? stored : "ms";
+    persistLanguage(resolved);
+    document.documentElement.lang = resolved;
   }, []);
 
   function setLanguage(lang: Language) {
