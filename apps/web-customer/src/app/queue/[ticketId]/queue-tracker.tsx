@@ -142,7 +142,7 @@ export function QueueTracker({ ticketId, queueNumber, initialStatus, branchId, b
     const url = window.location.href;
     if (navigator.share) {
       try {
-        await navigator.share({ title: `Queue ${displayNumber} — ${branchName}`, url });
+        await navigator.share({ title: `Queue ${displayNumber} at ${branchName}`, url });
       } catch {
         // user cancelled
       }

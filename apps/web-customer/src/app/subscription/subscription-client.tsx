@@ -146,7 +146,7 @@ export function SubscriptionClient({
       {wasCanceled && !error && (
         <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          Checkout was cancelled — no charge was made.
+          Checkout was cancelled. No charge was made.
         </div>
       )}
 
@@ -196,7 +196,7 @@ export function SubscriptionClient({
             <Zap className="h-4 w-4 shrink-0" />
             {daysLeft > 0
               ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left on your free trial.`
-              : "Your trial has ended — you'll be charged at the next billing cycle."}
+              : "Your trial has ended. You'll be charged at the next billing cycle."}
           </div>
         )}
 
@@ -238,7 +238,7 @@ export function SubscriptionClient({
         </div>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          Payments are securely processed by Stripe. Cancel anytime from Manage billing — no questions asked.
+          Payments are securely processed by Stripe. Cancel anytime from Manage billing, no questions asked.
         </p>
       </div>
 

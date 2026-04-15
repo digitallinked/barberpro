@@ -62,7 +62,7 @@ const faqs = [
       },
       {
         q: "Can customers see the queue from their phone?",
-        a: "Yes. You can share a public queue link that customers can open on their phone to see their position and estimated wait time. No app download required — it works in any mobile browser."
+        a: "Yes. You can share a public queue link that customers can open on their phone to see their position and estimated wait time. No app download required. It works in any mobile browser."
       },
       {
         q: "How does the TV display board work?",
@@ -108,7 +108,7 @@ const faqs = [
       },
       {
         q: "How is payroll calculated?",
-        a: "At the end of each pay period (weekly, bi-weekly, or monthly — your choice), the system totals each barber's completed services and calculates their commission automatically based on your rules. You review, approve, and can export the payroll summary to PDF."
+        a: "At the end of each pay period (weekly, bi-weekly, or monthly), the system totals each barber's completed services and calculates their commission automatically based on your rules. You review, approve, and can export the payroll summary to PDF."
       },
       {
         q: "Can barbers see their own earnings?",

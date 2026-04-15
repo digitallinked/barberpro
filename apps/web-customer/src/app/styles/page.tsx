@@ -60,7 +60,7 @@ export default async function StylesPage() {
 
 function PlusGate({ isLoggedIn }: { isLoggedIn: boolean }) {
   const perks = [
-    "AI Haircut Styler — upload your photo & try styles",
+    "AI Haircut Styler | Upload your photo & try styles",
     "Save & share looks with your barber",
     "Access curated style inspiration boards",
     "Priority queue at all partner shops",

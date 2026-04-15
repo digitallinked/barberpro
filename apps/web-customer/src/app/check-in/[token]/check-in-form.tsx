@@ -322,7 +322,7 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
               <div>
                 <label htmlFor="phone" className="mb-1.5 block text-xs font-medium text-gray-400">
                   Phone number{" "}
-                  <span className="text-gray-600 font-normal">(optional — for updates)</span>
+                  <span className="text-gray-600 font-normal">(optional, for updates)</span>
                 </label>
                 <input
                   id="phone"
@@ -391,7 +391,7 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
         {/* ── Service Picker ── */}
         {hasServices && Array.from({ length: partySize }, (_, memberIndex) => {
           const selectedIds = memberServiceIds[memberIndex] ?? [];
-          const label = partySize === 1 ? "Services" : `Person ${memberIndex + 1} — Services`;
+          const label = partySize === 1 ? "Services" : `Person ${memberIndex + 1}: Services`;
           const totalPrice = selectedIds.reduce((sum, id) => {
             const s = services.find((sv) => sv.id === id);
             return sum + (s?.price ?? 0);
@@ -409,9 +409,9 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
               </div>
               <p className="text-xs text-gray-600 mb-4">
                 {partySize === 1
-                  ? "Pick one or more — e.g. Haircut + Beard Trim"
+                  ? "Pick one or more, e.g. Haircut + Beard Trim"
                   : memberIndex === 0
-                    ? "Pick your services — you can select multiple"
+                    ? "Pick your services, you can select multiple"
                     : `Pick services for person ${memberIndex + 1}`}
               </p>
 
@@ -450,7 +450,7 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
 
               {selectedIds.length === 0 && (
                 <p className="mt-3 text-[11px] text-gray-600">
-                  Optional — skip if unsure
+                  Optional, skip if unsure
                 </p>
               )}
               {selectedIds.length > 1 && (

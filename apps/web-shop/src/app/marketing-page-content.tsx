@@ -68,7 +68,7 @@ function POSScreen() {
   return (
     <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#0d0d0d] shadow-2xl shadow-black/50">
       <div className="flex items-center justify-between bg-black/60 px-4 py-3">
-        <span className="text-xs font-semibold text-white">POS — Checkout</span>
+        <span className="text-xs font-semibold text-white">POS · Checkout</span>
         <span className="text-xs text-gray-400">Customer #A21</span>
       </div>
       <div className="space-y-2 p-4">
@@ -114,7 +114,7 @@ function PayrollScreen() {
   return (
     <div className="overflow-hidden rounded-2xl border border-white/5 bg-[#0d0d0d] shadow-2xl shadow-black/50">
       <div className="flex items-center justify-between bg-black/60 px-4 py-3">
-        <span className="text-xs font-semibold text-white">Payroll — March 2024</span>
+        <span className="text-xs font-semibold text-white">Payroll · March 2024</span>
         <span className="text-xs text-[#d4af37]">Auto-calculated</span>
       </div>
       <div className="space-y-2 p-4">
@@ -285,7 +285,7 @@ export function MarketingPageContent() {
       initials: "ZI",
     },
     {
-      quote: "I run 4 branches and BarberPro.my helps me see everything in one dashboard. Sales, staff performance, inventory — all real-time. Worth every ringgit.",
+      quote: "I run 4 branches and BarberPro.my helps me see everything in one dashboard. Sales, staff performance, inventory, all real-time. Worth every ringgit.",
       author: "Muthu Kumar",
       role: "Owner, Kumar's Barber Empire",
       initials: "MK",

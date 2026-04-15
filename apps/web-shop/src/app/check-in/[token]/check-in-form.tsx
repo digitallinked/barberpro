@@ -168,7 +168,7 @@ export function CheckInForm({ branchName, branchId, token, services }: Props) {
             <div>
               <label htmlFor="phone" className="mb-1.5 block text-xs font-medium text-gray-400">
                 Phone number{" "}
-                <span className="text-gray-600 font-normal">(optional — for updates)</span>
+                <span className="text-gray-600 font-normal">(optional, for updates)</span>
               </label>
               <input
                 id="phone"
@@ -280,7 +280,7 @@ export function CheckInForm({ branchName, branchId, token, services }: Props) {
 
               {!selectedId && (
                 <p className="mt-2.5 text-[11px] text-gray-600">
-                  Optional — skip if unsure
+                  Optional, skip if unsure
                 </p>
               )}
             </div>

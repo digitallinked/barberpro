@@ -17,7 +17,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "BarberPro — Cari & Tempah Barber Anda",
+  title: "BarberPro | Cari & Tempah Barber Anda",
   description: "Terokai kedai gunting berdekatan. Buat temujanji, pantau giliran, dan kumpul mata ganjaran.",
   metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
   manifest: "/manifest.json",

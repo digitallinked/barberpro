@@ -106,7 +106,7 @@ export function QueueJoinedSheet({ queueNumber, branchName, branchId, ticketId }
               <span className="text-[10px]">🔔</span>
             </div>
             <p className="text-xs text-gray-400 leading-relaxed">
-              A banner will stay on-screen while you wait — we&apos;ll alert you with a sound when your turn comes.
+              A banner will stay on-screen while you wait. We&apos;ll alert you with a sound when your turn comes.
             </p>
           </div>
 

@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const post = await getPost(slug);
   if (!post) {
     const b = translations[locale].blog;
-    return { title: `${b.noPosts} — BarberPro` };
+    return { title: `${b.noPosts} | BarberPro` };
   }
 
   const resolved = resolveBlogPost(post, locale);
@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     : [];
 
   return {
-    title: `${resolved.title} — BarberPro Blog`,
+    title: `${resolved.title} | BarberPro Blog`,
     description:
       resolved.excerpt ?? `Read ${resolved.title} on the BarberPro Blog.`,
     openGraph: {

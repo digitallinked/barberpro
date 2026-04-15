@@ -157,7 +157,7 @@ export function BillingSettingsClient({ snapshot, stripeConfigured }: Props) {
             <Zap className="h-4 w-4 shrink-0" />
             {daysLeft > 0
               ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining in your free trial.`
-              : "Your trial ended — subscription charges will begin soon."}
+              : "Your trial ended. Subscription charges will begin soon."}
           </div>
         )}
 

@@ -110,7 +110,7 @@ function CalledOverlay({
         onClick={handleGo}
         className="w-full max-w-xs rounded-2xl bg-[#D4AF37] py-4 text-base font-black text-[#111] shadow-xl shadow-[#D4AF37]/30 transition hover:brightness-110 active:scale-[0.97]"
       >
-        Got it — I&apos;m heading over →
+        Got it, heading over →
       </button>
 
       <button

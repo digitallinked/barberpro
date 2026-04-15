@@ -269,7 +269,7 @@ export function ReviewsSection({ slug, isLoggedIn, canReview, initialReviews }: 
       {/* Reviews list */}
       {reviews.length === 0 ? (
         <div className="rounded-xl border border-border bg-card px-5 py-10 text-center">
-          <p className="text-sm text-muted-foreground">No reviews yet — be the first!</p>
+          <p className="text-sm text-muted-foreground">No reviews yet. Be the first!</p>
         </div>
       ) : (
         <div className="space-y-3">
