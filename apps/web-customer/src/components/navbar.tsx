@@ -4,8 +4,9 @@ import { Scissors } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 import { BottomNav } from "./bottom-nav";
-import { ProfileMenu } from "./profile-menu";
 import { NavDesktopLinks } from "./nav-desktop-links";
+import { NavbarHeaderShell } from "./navbar-header-shell";
+import { ProfileMenu } from "./profile-menu";
 
 export async function Navbar() {
   const supabase = await createClient();
@@ -33,7 +34,7 @@ export async function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0d1013]/95 backdrop-blur">
+      <NavbarHeaderShell>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
@@ -60,7 +61,7 @@ export async function Navbar() {
             avatarUrl={avatarUrl}
           />
         </div>
-      </header>
+      </NavbarHeaderShell>
 
       {/* Mobile bottom navigation */}
       <BottomNav isLoggedIn={!!user} customerName={customerName} />
