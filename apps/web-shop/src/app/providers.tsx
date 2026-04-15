@@ -3,6 +3,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 
+import { LanguageProvider } from "@/lib/i18n/language-context";
+
 type ProvidersProps = {
   children: ReactNode;
 };
@@ -21,6 +23,8 @@ export function Providers({ children }: ProvidersProps) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <LanguageProvider initialLanguage="ms">{children}</LanguageProvider>
+    </QueryClientProvider>
   );
 }

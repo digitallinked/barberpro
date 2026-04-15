@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { RouteGuard } from "@/components/route-guard";
 import { useTenant } from "@/components/tenant-provider";
 import {
@@ -646,6 +647,7 @@ function AppShellInner({ children }: AppShellProps) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher />
             <button
               type="button"
               className="relative rounded-md p-2 text-gray-400 transition hover:text-white"

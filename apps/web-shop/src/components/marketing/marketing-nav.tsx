@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Scissors, X } from "lucide-react";
 
+import { LanguageSwitcher } from "@/components/language-switcher";
+
 export function MarketingNav() {
   const pathname = usePathname();
   const isHome = pathname === "/";
@@ -45,6 +47,7 @@ export function MarketingNav() {
           ))}
         </nav>
         <div className="hidden items-center gap-3 md:flex">
+          <LanguageSwitcher />
           <Link
             href="/login"
             className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:text-white"
@@ -81,6 +84,9 @@ export function MarketingNav() {
               </Link>
             ))}
           </nav>
+          <div className="mt-3 flex justify-center">
+            <LanguageSwitcher />
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Link
               href="/login"
