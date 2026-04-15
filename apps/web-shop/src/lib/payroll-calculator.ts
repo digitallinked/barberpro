@@ -147,7 +147,7 @@ export async function calculateStaffCommission(
     if (itemType === "service") {
       serviceRevenue += lineTotal;
       servicesCount += qty;
-    } else if (itemType === "product") {
+    } else if (itemType === "product" || itemType === "retail") {
       productRevenue += lineTotal;
     } else {
       serviceRevenue += lineTotal;

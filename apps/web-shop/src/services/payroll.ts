@@ -173,8 +173,9 @@ export async function getAllPayrollEntries(
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
-  if (yearStart) query = query.gte("created_at", yearStart);
-  if (yearEnd)   query = query.lte("created_at", yearEnd);
+  // Filter by payroll period dates (not entry created_at) for correct annual bucketing
+  if (yearStart) query = query.gte("payroll_periods.period_end", yearStart);
+  if (yearEnd)   query = query.lte("payroll_periods.period_start", yearEnd);
 
   const { data, error } = await query;
   if (error) return { data: null, error: new Error(error.message) };

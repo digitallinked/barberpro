@@ -5,10 +5,15 @@ import { revalidatePath } from "next/cache";
 import { paymentMethodForDb } from "@/lib/payment-method";
 import { posTransactionSchema, linkedQueueCheckoutSchema } from "@/validations/schemas";
 import { logger } from "@/lib/logger";
+import {
+  computeTransactionTotals,
+  validateClientTotals,
+  roundMYR,
+  type LineItemInput,
+} from "@/lib/finance";
 
 import { getAuthContext } from "./_helpers";
 
-/** Client uploads to this path first; must stay under the signed-in tenant prefix. */
 function proofPathBelongsToTenant(path: string | null | undefined, tenantId: string): boolean {
   if (!path || typeof path !== "string") return false;
   if (path.includes("..") || path.startsWith("/")) return false;
@@ -56,10 +61,7 @@ export async function createTransaction(data: CreateTransactionData) {
       queueTicketId,
       paymentMethod,
       items,
-      subtotal,
       discountAmount,
-      taxAmount,
-      totalAmount,
       proofStoragePath,
     } = parsed.data;
 
@@ -67,6 +69,49 @@ export async function createTransaction(data: CreateTransactionData) {
     if (cleanProofPath && !proofPathBelongsToTenant(cleanProofPath, tenantId)) {
       return { success: false, error: "Invalid receipt path" };
     }
+
+    // Server-authoritative: recompute totals from line items
+    const lineInputs: LineItemInput[] = items.map((item) => ({
+      itemType: item.itemType === "service" ? "service" : "product",
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      staffId: item.staffId || null,
+      serviceId: item.serviceId || null,
+      inventoryItemId: item.inventoryItemId || null,
+      name: item.name,
+    }));
+
+    const serverTotals = computeTransactionTotals(lineInputs, discountAmount);
+
+    // Validate client values against server computation
+    const validation = validateClientTotals(
+      parsed.data.subtotal,
+      parsed.data.taxAmount,
+      parsed.data.totalAmount,
+      serverTotals
+    );
+    if (!validation.valid) {
+      logger.error("[createTransaction] Client total validation failed", { reason: validation.reason }, { action: "createTransaction" });
+    }
+
+    // Always use server-computed values for persistence
+    const { subtotal, taxAmount, totalAmount } = serverTotals;
+
+    // Idempotency: if queue ticket is already paid, reject
+    if (queueTicketId) {
+      const { data: existingTicket } = await supabase
+        .from("queue_tickets")
+        .select("status")
+        .eq("id", queueTicketId)
+        .eq("tenant_id", tenantId)
+        .single();
+
+      if (existingTicket?.status === "paid") {
+        return { success: false, error: "This queue ticket has already been paid" };
+      }
+    }
+
+    const now = new Date().toISOString();
 
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
@@ -78,11 +123,11 @@ export async function createTransaction(data: CreateTransactionData) {
         payment_method: paymentMethod,
         cashier_user_id: appUserId,
         subtotal,
-        discount_amount: discountAmount,
+        discount_amount: roundMYR(discountAmount),
         tax_amount: taxAmount,
         total_amount: totalAmount,
         payment_status: "paid",
-        paid_at: new Date().toISOString(),
+        paid_at: now,
         proof_storage_path: cleanProofPath,
       })
       .select("id")
@@ -91,7 +136,7 @@ export async function createTransaction(data: CreateTransactionData) {
     if (txError) return { success: false, error: txError.message };
     if (!transaction) return { success: false, error: "Failed to create transaction" };
 
-    const transactionItems = items.map((item) => ({
+    const transactionItems = serverTotals.items.map((item) => ({
       tenant_id: tenantId,
       transaction_id: transaction.id,
       item_type: item.itemType,
@@ -110,49 +155,59 @@ export async function createTransaction(data: CreateTransactionData) {
 
     if (itemsError) return { success: false, error: itemsError.message };
 
-    for (const item of items) {
+    // Stock deduction + inventory movement audit trail
+    for (const item of serverTotals.items) {
       if (item.itemType === "product" && item.inventoryItemId && item.quantity > 0) {
         const { data: invItem } = await supabase
           .from("inventory_items")
-          .select("stock_qty")
+          .select("stock_qty, branch_id, unit_cost")
           .eq("id", item.inventoryItemId)
           .eq("tenant_id", tenantId)
           .single();
 
         if (invItem) {
           const newQty = Math.max(0, invItem.stock_qty - item.quantity);
-          await supabase
+          const { error: updateError } = await supabase
             .from("inventory_items")
-            .update({
-              stock_qty: newQty,
-              updated_at: new Date().toISOString(),
-            })
+            .update({ stock_qty: newQty, updated_at: now })
             .eq("id", item.inventoryItemId)
             .eq("tenant_id", tenantId);
+
+          if (updateError) {
+            logger.error("[createTransaction] Stock update failed", updateError, { action: "createTransaction" });
+          }
+
+          // Record inventory movement for audit trail
+          const { error: movementError } = await supabase.from("inventory_movements").insert({
+            tenant_id: tenantId,
+            inventory_item_id: item.inventoryItemId,
+            branch_id: invItem.branch_id,
+            movement_type: "sale",
+            quantity: item.quantity,
+            reason: `POS sale — transaction ${transaction.id}`,
+            reference_id: transaction.id,
+            unit_cost_at_time: invItem.unit_cost ?? null,
+            created_by: appUserId,
+          });
+
+          if (movementError) {
+            logger.error("[createTransaction] Inventory movement insert failed", movementError, { action: "createTransaction" });
+          }
         }
       }
     }
 
     if (queueTicketId) {
-      const now = new Date().toISOString();
-
       const { error: ticketError } = await supabase
         .from("queue_tickets")
-        .update({
-          status: "paid",
-          completed_at: now,
-          updated_at: now,
-        })
+        .update({ status: "paid", completed_at: now, updated_at: now })
         .eq("id", queueTicketId)
         .eq("tenant_id", tenantId);
 
       if (ticketError) {
-        logger.error("[createTransaction] Failed to mark queue ticket as paid", ticketError, {
-          action: "createTransaction",
-        });
+        logger.error("[createTransaction] Failed to mark queue ticket as paid", ticketError, { action: "createTransaction" });
       }
 
-      // Mark all seat members as completed so the seat panel reflects reality.
       const { error: seatsError } = await supabase
         .from("queue_ticket_seats")
         .update({ status: "completed", completed_at: now, updated_at: now })
@@ -161,9 +216,7 @@ export async function createTransaction(data: CreateTransactionData) {
         .neq("status", "completed");
 
       if (seatsError) {
-        logger.error("[createTransaction] Failed to mark ticket seats as completed", seatsError, {
-          action: "createTransaction",
-        });
+        logger.error("[createTransaction] Failed to mark ticket seats as completed", seatsError, { action: "createTransaction" });
       }
     }
 
@@ -213,10 +266,6 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       queueTicketId,
       paymentMethod,
       products,
-      subtotal,
-      discountAmount,
-      taxAmount,
-      totalAmount,
       proofStoragePath,
     } = parsed.data;
 
@@ -261,6 +310,7 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       return { success: false, error: "All seated members must have a barber assigned before payment" };
     }
 
+    // Look up authoritative service prices from DB
     const serviceIds = [...new Set(seats.map((s) => s.service_id).filter(Boolean) as string[])];
     const serviceMap = new Map<string, { name: string; price: number }>();
     if (serviceIds.length > 0) {
@@ -274,6 +324,36 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       }
     }
 
+    // Build authoritative line items from DB prices
+    const lineInputs: LineItemInput[] = [
+      ...seats.map((member) => {
+        const svc = member.service_id ? serviceMap.get(member.service_id) : null;
+        return {
+          itemType: "service" as const,
+          unitPrice: svc?.price ?? 0,
+          quantity: 1,
+          staffId: member.staff_id,
+          serviceId: member.service_id || null,
+          inventoryItemId: null,
+          name: svc?.name ?? "Walk-in Service",
+        };
+      }),
+      ...(products ?? []).map((p) => ({
+        itemType: "product" as const,
+        unitPrice: p.unitPrice,
+        quantity: p.quantity,
+        staffId: null,
+        serviceId: null,
+        inventoryItemId: p.inventoryItemId || null,
+        name: p.name,
+      })),
+    ];
+
+    const discountAmount = parsed.data.discountAmount ?? 0;
+    const serverTotals = computeTransactionTotals(lineInputs, discountAmount);
+
+    const now = new Date().toISOString();
+
     const { data: transaction, error: txError } = await supabase
       .from("transactions")
       .insert({
@@ -283,12 +363,12 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
         queue_ticket_id: ticket.id,
         payment_method: paymentMethod,
         cashier_user_id: appUserId,
-        subtotal,
-        discount_amount: discountAmount,
-        tax_amount: taxAmount,
-        total_amount: totalAmount,
+        subtotal: serverTotals.subtotal,
+        discount_amount: serverTotals.discountAmount,
+        tax_amount: serverTotals.taxAmount,
+        total_amount: serverTotals.totalAmount,
         payment_status: "paid",
-        paid_at: new Date().toISOString(),
+        paid_at: now,
         proof_storage_path: cleanProofPath,
       })
       .select("id")
@@ -298,37 +378,19 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       return { success: false, error: txError?.message ?? "Failed to create transaction" };
     }
 
-    const serviceItems = seats.map((member) => {
-      const svc = member.service_id ? serviceMap.get(member.service_id) : null;
-      const price = svc?.price ?? 0;
-      return {
-        tenant_id: tenantId,
-        transaction_id: transaction.id,
-        item_type: "service",
-        service_id: member.service_id || null,
-        inventory_item_id: null,
-        staff_id: member.staff_id,
-        name: svc?.name ?? "Walk-in Service",
-        quantity: 1,
-        unit_price: price,
-        line_total: price,
-      };
-    });
-
-    const productItems = (products ?? []).map((p) => ({
+    const allItems = serverTotals.items.map((item) => ({
       tenant_id: tenantId,
       transaction_id: transaction.id,
-      item_type: "product",
-      service_id: null,
-      inventory_item_id: p.inventoryItemId || null,
-      staff_id: null,
-      name: p.name,
-      quantity: p.quantity,
-      unit_price: p.unitPrice,
-      line_total: p.lineTotal,
+      item_type: item.itemType,
+      service_id: item.serviceId || null,
+      inventory_item_id: item.inventoryItemId || null,
+      staff_id: item.staffId || null,
+      name: item.name,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      line_total: item.lineTotal,
     }));
 
-    const allItems = [...serviceItems, ...productItems];
     if (allItems.length > 0) {
       const { error: itemsError } = await supabase
         .from("transaction_items")
@@ -336,11 +398,12 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
       if (itemsError) return { success: false, error: itemsError.message };
     }
 
+    // Stock deduction + inventory movement audit trail for products
     for (const p of products ?? []) {
       if (p.inventoryItemId && p.quantity > 0) {
         const { data: invItem } = await supabase
           .from("inventory_items")
-          .select("stock_qty")
+          .select("stock_qty, branch_id, unit_cost")
           .eq("id", p.inventoryItemId)
           .eq("tenant_id", tenantId)
           .single();
@@ -349,14 +412,24 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
           const newQty = Math.max(0, invItem.stock_qty - p.quantity);
           await supabase
             .from("inventory_items")
-            .update({ stock_qty: newQty, updated_at: new Date().toISOString() })
+            .update({ stock_qty: newQty, updated_at: now })
             .eq("id", p.inventoryItemId)
             .eq("tenant_id", tenantId);
+
+          await supabase.from("inventory_movements").insert({
+            tenant_id: tenantId,
+            inventory_item_id: p.inventoryItemId,
+            branch_id: invItem.branch_id,
+            movement_type: "sale",
+            quantity: p.quantity,
+            reason: `Linked queue sale — transaction ${transaction.id}`,
+            reference_id: transaction.id,
+            unit_cost_at_time: invItem.unit_cost ?? null,
+            created_by: appUserId,
+          });
         }
       }
     }
-
-    const now = new Date().toISOString();
 
     await supabase
       .from("queue_tickets")

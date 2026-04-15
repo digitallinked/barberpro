@@ -91,7 +91,10 @@ export function calculateSocso(grossWage: number, age = 30): SocsoResult {
   // Insurable wage cap: RM5,000
   const insurable = Math.min(grossWage, 5_000);
 
-  // Approximation: employee ~0.5%, employer ~1.75% (table-based but close for mid-range)
+  // ADVISORY: These are percentage approximations of the gazetted SOCSO contribution
+  // table. Actual SOCSO uses wage-band lookup tables from PERKESO. These estimates are
+  // close for wages in the RM1,500–RM4,000 range but may diverge at extremes.
+  // For filing accuracy, verify against the official PERKESO portal.
   const employeeContribution = round2(insurable * 0.005);
   const employerContribution = round2(insurable * 0.0175);
 
@@ -291,8 +294,13 @@ export interface AnnualTaxSummary {
 
 /**
  * Estimate annual income tax for a self-employed individual (Form B).
- * @param grossRevenue       Total business revenue for the year (RM)
- * @param allowableExpenses  Deductible business expenses (RM)
+ *
+ * IMPORTANT: grossRevenue should be the NET taxable revenue (after removing
+ * SST collected). SST is a consumption tax collected on behalf of RMCD —
+ * it is not business income. Payroll costs should be included in allowableExpenses.
+ *
+ * @param grossRevenue       Net business revenue for the year, excluding SST (RM)
+ * @param allowableExpenses  Deductible business expenses including payroll (RM)
  * @param relief             Total personal/statutory relief (RM) — default RM9,000
  * @param assessmentYear     Override assessment year (default: current year − 1)
  */

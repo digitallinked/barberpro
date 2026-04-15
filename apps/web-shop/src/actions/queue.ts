@@ -6,24 +6,18 @@ import { revalidatePath } from "next/cache";
 import { paymentMethodForDb } from "@/lib/payment-method";
 import { getCustomerPublicBaseUrl } from "@/lib/env";
 import { shopCalendarDateString } from "@/lib/shop-day";
-import { SST_RATE } from "@/lib/malaysian-tax";
 import {
   createQueueTicketSchema,
   queueStatusSchema,
   queuePaymentSchema,
 } from "@/validations/schemas";
 import { formDataToObject } from "@/lib/form-utils";
+import { splitSstFromTotal, roundMYR } from "@/lib/finance";
+import { logger } from "@/lib/logger";
 
 import { resolveEffectiveBranchId } from "@/lib/supabase/branch-resolution";
 
 import { getAuthContext } from "./_helpers";
-
-/** Back-calculate subtotal + tax from a total (SST-inclusive) amount. */
-function splitSstFromTotal(total: number): { subtotal: number; taxAmount: number } {
-  const subtotal = Math.round((total / (1 + SST_RATE)) * 100) / 100;
-  const taxAmount = Math.round((total - subtotal) * 100) / 100;
-  return { subtotal, taxAmount };
-}
 
 function isUniqueViolation(err: { code?: string; message?: string }): boolean {
   return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
@@ -179,6 +173,11 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
       return { success: false, error: ticketError?.message ?? "Queue ticket not found" };
     }
 
+    // Idempotency guard: reject if already paid
+    if (ticket.status === "paid") {
+      return { success: false, error: "This queue ticket has already been paid" };
+    }
+
     // Fetch seat members for group tickets.
     const { data: seatMembers } = await supabase
       .from("queue_ticket_seats")
@@ -213,13 +212,15 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
 
     if (txError || !transaction) return { success: false, error: txError?.message ?? "Failed to create payment" };
 
-    if (isGroupTicket) {
-      // Create one transaction_item per seated member, each attributed to their barber.
-      // This feeds commission calculations correctly per-barber.
-      for (const member of seatMembers!) {
-        let memberServiceName = "Walk-in Service";
-        let memberUnitPrice = amountDue / seatMembers!.length; // fallback: split evenly
+    const now = new Date().toISOString();
 
+    if (isGroupTicket) {
+      // Look up authoritative service prices from DB, then proportionally
+      // allocate line totals so they sum exactly to subtotal.
+      const memberPrices: Array<{ member: typeof seatMembers extends (infer T)[] | null ? T : never; serviceName: string; catalogPrice: number }> = [];
+      for (const member of seatMembers!) {
+        let serviceName = "Walk-in Service";
+        let catalogPrice = subtotal / seatMembers!.length;
         if (member.service_id) {
           const { data: svc } = await supabase
             .from("services")
@@ -228,29 +229,49 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
             .eq("tenant_id", tenantId)
             .single();
           if (svc) {
-            memberServiceName = svc.name;
-            memberUnitPrice = Number(svc.price ?? memberUnitPrice);
+            serviceName = svc.name;
+            catalogPrice = Number(svc.price ?? catalogPrice);
           }
         }
+        memberPrices.push({ member, serviceName, catalogPrice });
+      }
 
-        const { error: itemError } = await supabase.from("transaction_items").insert({
+      // Proportionally distribute subtotal across members to ensure sum matches header
+      const catalogTotal = memberPrices.reduce((s, m) => s + m.catalogPrice, 0);
+      const itemRows = memberPrices.map((mp, idx) => {
+        let lineTotal: number;
+        if (catalogTotal > 0) {
+          lineTotal = roundMYR((mp.catalogPrice / catalogTotal) * subtotal);
+        } else {
+          lineTotal = roundMYR(subtotal / memberPrices.length);
+        }
+        // Last item absorbs rounding remainder
+        if (idx === memberPrices.length - 1) {
+          const sumSoFar = memberPrices.slice(0, -1).reduce((s, _, i) => {
+            const lt = catalogTotal > 0
+              ? roundMYR((memberPrices[i].catalogPrice / catalogTotal) * subtotal)
+              : roundMYR(subtotal / memberPrices.length);
+            return s + lt;
+          }, 0);
+          lineTotal = roundMYR(subtotal - sumSoFar);
+        }
+        return {
           tenant_id: tenantId,
           transaction_id: transaction.id,
           item_type: "service",
-          service_id: member.service_id,
+          service_id: mp.member.service_id,
           inventory_item_id: null,
-          staff_id: member.staff_id,
-          name: memberServiceName,
+          staff_id: mp.member.staff_id,
+          name: mp.serviceName,
           quantity: 1,
-          unit_price: memberUnitPrice,
-          line_total: memberUnitPrice,
-        });
+          unit_price: lineTotal,
+          line_total: lineTotal,
+        };
+      });
 
-        if (itemError) return { success: false, error: itemError.message };
-      }
+      const { error: itemsError } = await supabase.from("transaction_items").insert(itemRows);
+      if (itemsError) return { success: false, error: itemsError.message };
 
-      // Mark all members completed.
-      const now = new Date().toISOString();
       const { error: membersError } = await supabase
         .from("queue_ticket_seats")
         .update({ status: "completed", completed_at: now, updated_at: now })
@@ -258,9 +279,11 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
         .eq("tenant_id", tenantId)
         .neq("status", "cancelled");
 
-      if (membersError) return { success: false, error: membersError.message };
+      if (membersError) {
+        logger.error("[completeQueueTicketWithPayment] Failed to mark seats completed", membersError, { action: "completeQueueTicketWithPayment" });
+      }
     } else {
-      // Single-person ticket: one transaction_item attributed to the assigned barber.
+      // Single-person ticket — line_total = subtotal (matches header identity)
       let serviceName = "Walk-in Service";
       if (ticket.service_id) {
         const { data: service } = await supabase
@@ -281,23 +304,16 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
         staff_id: ticket.assigned_staff_id,
         name: serviceName,
         quantity: 1,
-        unit_price: amountDue,
-        line_total: amountDue,
+        unit_price: subtotal,
+        line_total: subtotal,
       });
 
       if (itemError) return { success: false, error: itemError.message };
     }
 
-    // The proof file was already uploaded client-side; proofStoragePath holds its storage key.
-    const warning: string | null = null;
-
     const { error: queueError } = await supabase
       .from("queue_tickets")
-      .update({
-        status: "paid",
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "paid", completed_at: now, updated_at: now })
       .eq("id", ticket.id)
       .eq("tenant_id", tenantId);
 
@@ -306,7 +322,7 @@ export async function completeQueueTicketWithPayment(formData: FormData) {
     revalidatePath("/[branchSlug]/queue", "page");
     revalidatePath("/[branchSlug]/pos", "page");
     revalidatePath("/[branchSlug]/dashboard", "page");
-    return { success: true, warning };
+    return { success: true, warning: null as string | null };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
   }

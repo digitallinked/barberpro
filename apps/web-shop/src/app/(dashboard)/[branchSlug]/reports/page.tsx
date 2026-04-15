@@ -460,14 +460,15 @@ export default function ReportsPage() {
   }, [transactions, periodScope, periodYear, periodMonthIndex, customRange]);
 
   // Revenue & shared analytics for selected range
+  // CRITICAL: only include paid transactions in revenue calculations
   const revenueStats = useMemo(() => {
-    const monthTx = filteredTx;
+    const monthTx = filteredTx.filter((t) => t.payment_status === "paid");
     const totalRevenue = monthTx.reduce((sum, t) => sum + t.total_amount, 0);
     const totalSubtotal = monthTx.reduce((sum, t) => sum + t.subtotal, 0);
     const totalTax = monthTx.reduce((sum, t) => sum + t.tax_amount, 0);
     const count = monthTx.length;
     const avg = count > 0 ? totalRevenue / count : 0;
-    const priorRev = priorTx.reduce((s, t) => s + t.total_amount, 0);
+    const priorRev = priorTx.filter((t) => t.payment_status === "paid").reduce((s, t) => s + t.total_amount, 0);
     const vsPriorPct = priorRev > 0 ? ((totalRevenue - priorRev) / priorRev) * 100 : null;
 
     const byMonth = periodScope === "year" ||
@@ -612,7 +613,7 @@ export default function ReportsPage() {
         if (it.item_type === "service") {
           cur.serviceRevenue += it.line_total;
           cur.servicesCount += qty;
-        } else if (it.item_type === "product") {
+        } else if (it.item_type === "product" || it.item_type === "retail") {
           cur.productRevenue += it.line_total;
         } else {
           cur.serviceRevenue += it.line_total;
@@ -674,7 +675,7 @@ export default function ReportsPage() {
       { name: string; phone: string; visits: number; spend: number; lastAt: string }
     >();
     for (const t of filteredTx) {
-      if (!t.customer_id) continue;
+      if (!t.customer_id || t.payment_status !== "paid") continue;
       const cur = map.get(t.customer_id) ?? {
         name: t.customer?.full_name ?? "Customer",
         phone: t.customer?.phone ?? "",
@@ -754,7 +755,9 @@ export default function ReportsPage() {
       payrollBonus: 0,
     }));
     for (const tx of transactions) {
-      const d = new Date(tx.created_at);
+      if (tx.payment_status !== "paid") continue;
+      const dateStr = tx.paid_at ?? tx.created_at;
+      const d = new Date(dateStr);
       if (d.getFullYear() === year) {
         const m = d.getMonth();
         if (months[m]) months[m].revenue += tx.total_amount ?? 0;
@@ -891,7 +894,9 @@ export default function ReportsPage() {
     let grossRevenue = 0;
     let taxCollected = 0;
     for (const tx of transactions) {
-      const d = new Date(tx.created_at);
+      if (tx.payment_status !== "paid") continue;
+      const dateStr = tx.paid_at ?? tx.created_at;
+      const d = new Date(dateStr);
       if (d >= start && d <= end) {
         grossRevenue += tx.total_amount ?? 0;
         taxCollected += tx.tax_amount ?? 0;
@@ -904,9 +909,14 @@ export default function ReportsPage() {
       const d = new Date(raw.includes("T") ? raw : `${raw}T12:00:00`);
       if (d >= start && d <= end) expenseTotal += ex.amount ?? 0;
     }
-    const summary = calculateAnnualTax(grossRevenue, expenseTotal, PERSONAL_RELIEF, taxYear);
-    return { grossRevenue, taxCollected, expenseTotal, summary };
-  }, [transactions, expenses, taxYear]);
+    // SST collected is not business income — exclude it from gross revenue for tax purposes
+    const netTaxableRevenue = grossRevenue - taxCollected;
+    // Payroll is a deductible business expense
+    const payrollTotal = payrollTaxYearEntries.reduce((s, e) => s + (e.net_payout ?? 0), 0);
+    const totalAllowableExpenses = expenseTotal + payrollTotal;
+    const summary = calculateAnnualTax(netTaxableRevenue, totalAllowableExpenses, PERSONAL_RELIEF, taxYear);
+    return { grossRevenue, taxCollected, expenseTotal, payrollTotal, netTaxableRevenue, totalAllowableExpenses, summary };
+  }, [transactions, expenses, taxYear, payrollTaxYearEntries]);
 
   function printAnnualTaxPack() {
     const { grossRevenue, taxCollected, expenseTotal, summary } = annualTaxData;
