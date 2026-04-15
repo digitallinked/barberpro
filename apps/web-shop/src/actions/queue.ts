@@ -452,7 +452,7 @@ export async function getQueueCheckinUrl(requestedBranchId?: string | null) {
 
     const { data: branch, error } = await supabase
       .from("branches")
-      .select("checkin_token")
+      .select("checkin_token, slug")
       .eq("id", branchId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
@@ -480,7 +480,7 @@ export async function getQueueCheckinUrl(requestedBranchId?: string | null) {
     }
 
     const baseUrl = getCustomerPublicBaseUrl();
-    const url = `${baseUrl}/check-in/${token}`;
+    const url = `${baseUrl}/${branch.slug}/check-in/${token}`;
     return { success: true as const, url };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -508,9 +508,16 @@ export async function rotateQueueCheckinToken(requestedBranchId?: string | null)
 
     if (error) return { success: false, error: error.message };
 
+    const { data: branch } = await supabase
+      .from("branches")
+      .select("slug")
+      .eq("id", branchId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
     revalidatePath("/[branchSlug]/queue", "page");
     const baseUrl = getCustomerPublicBaseUrl();
-    const url = `${baseUrl}/check-in/${token}`;
+    const url = `${baseUrl}/${branch?.slug ?? branchId}/check-in/${token}`;
     return { success: true as const, url };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
