@@ -51,13 +51,13 @@ export const getStaffMembersServer = unstable_cache(
  */
 export const getServicesServer = unstable_cache(
   async (tenantId: string): Promise<{
-    data: Array<{ id: string; name: string; price: number; duration_minutes: number; category_id: string | null }> | null;
+    data: Array<{ id: string; name: string; price: number; duration_min: number; category_id: string | null }> | null;
     error: string | null;
   }> => {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("services")
-      .select("id, name, price, duration_minutes, category_id")
+      .select("id, name, price, duration_min, category_id")
       .eq("tenant_id", tenantId)
       .eq("is_active", true)
       .order("name");
