@@ -3,6 +3,12 @@ import type { Database } from "@/types/database.types";
 
 type Client = SupabaseClient<Database>;
 
+// New RPCs added by migration — types will regenerate once migrations are applied.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rpc(client: Client, name: string, args: Record<string, unknown>) {
+  return (client as any).rpc(name, args);
+}
+
 // ─── Revenue Detail ─────────────────────────────────────────────────────────
 
 export type RevenueDetail = {
@@ -23,7 +29,7 @@ export async function getRevenueDetail(
   start: string,
   end: string
 ): Promise<{ data: RevenueDetail | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_revenue_detail", {
+  const { data, error } = await rpc(client, "report_revenue_detail", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -63,7 +69,7 @@ export async function getPaymentMix(
   start: string,
   end: string
 ): Promise<{ data: PaymentMixRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_payment_mix", {
+  const { data, error } = await rpc(client, "report_payment_mix", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -101,7 +107,7 @@ export async function getStaffPerformance(
   start: string,
   end: string
 ): Promise<{ data: StaffPerformanceRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_staff_performance", {
+  const { data, error } = await rpc(client, "report_staff_performance", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -140,7 +146,7 @@ export async function getRevenueTimeseries(
   end: string,
   granularity: "hour" | "day" | "month" = "day"
 ): Promise<{ data: RevenueTimeseriesRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_revenue_timeseries", {
+  const { data, error } = await rpc(client, "report_revenue_timeseries", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -177,7 +183,7 @@ export async function getPnlMonthly(
   branchId: string | undefined,
   year: number
 ): Promise<{ data: PnlMonthRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_pnl_monthly", {
+  const { data, error } = await rpc(client, "report_pnl_monthly", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_year: year,
@@ -215,7 +221,7 @@ export async function getTaxCollection(
   start: string,
   end: string
 ): Promise<{ data: TaxCollectionSummary | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_tax_collection", {
+  const { data, error } = await rpc(client, "report_tax_collection", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -254,7 +260,7 @@ export async function getCustomerSpend(
   end: string,
   limit = 25
 ): Promise<{ data: CustomerSpendRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_customer_spend", {
+  const { data, error } = await rpc(client, "report_customer_spend", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -290,7 +296,7 @@ export async function getExpenseSummary(
   start: string,
   end: string
 ): Promise<{ data: ExpenseSummaryRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_expense_summary", {
+  const { data, error } = await rpc(client, "report_expense_summary", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
     p_start: start,
@@ -321,7 +327,7 @@ export async function getCustomerStatsBranchAware(
   tenantId: string,
   branchId?: string
 ): Promise<{ data: CustomerStatsResult | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_customer_stats", {
+  const { data, error } = await rpc(client, "report_customer_stats", {
     p_tenant_id: tenantId,
     p_branch_id: (branchId ?? null) as string,
   });
@@ -356,7 +362,7 @@ export async function getPayrollSummary(
   start: string,
   end: string
 ): Promise<{ data: PayrollSummaryRow[] | null; error: Error | null }> {
-  const { data, error } = await client.rpc("report_payroll_summary", {
+  const { data, error } = await rpc(client, "report_payroll_summary", {
     p_tenant_id: tenantId,
     p_start: start,
     p_end: end,
