@@ -29,7 +29,9 @@ export type TenantContext = {
   branches: { id: string; name: string; slug: string; is_hq: boolean }[];
 };
 
-export const getCurrentTenant = cache(async function getCurrentTenant(): Promise<TenantContext | null> {
+export const getCurrentTenant = cache(async function getCurrentTenant(
+  branchSlug?: string | null
+): Promise<TenantContext | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -70,7 +72,11 @@ export const getCurrentTenant = cache(async function getCurrentTenant(): Promise
     .order("is_hq", { ascending: false });
 
   const branchList = branches ?? [];
-  const activeBranchId = pickEffectiveBranchId(branchList, appUser.branch_id, null);
+  // If a URL branch slug is provided, use that branch's ID as the requested branch
+  const slugBranchId = branchSlug
+    ? (branchList.find((b) => b.slug === branchSlug)?.id ?? null)
+    : null;
+  const activeBranchId = pickEffectiveBranchId(branchList, appUser.branch_id, slugBranchId);
   const activeBranch = branchList.find((b) => b.id === activeBranchId) ?? null;
 
   const preferredLanguage = (preferredLang === "en" ? "en" : "ms") as Language;
