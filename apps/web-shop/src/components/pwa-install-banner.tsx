@@ -30,33 +30,18 @@ function isInStandaloneMode(): boolean {
 }
 
 function getInstallInstructions(t: Translations): InstallInstructions {
-  const userAgent = navigator.userAgent.toLowerCase();
+  const ua = navigator.userAgent.toLowerCase();
 
-  if (userAgent.includes("edg/")) {
-    return {
-      label: t.pwa.browserEdge,
-      steps: [t.pwa.edgeStep1, t.pwa.edgeStep2],
-    };
+  if (ua.includes("edg/")) {
+    return { label: t.pwa.browserEdge, steps: [t.pwa.edgeStep1, t.pwa.edgeStep2] };
   }
-
-  if (userAgent.includes("chrome/") && !userAgent.includes("edg/")) {
-    return {
-      label: t.pwa.browserChrome,
-      steps: [t.pwa.chromeStep1, t.pwa.chromeStep2],
-    };
+  if (ua.includes("chrome/") && !ua.includes("edg/")) {
+    return { label: t.pwa.browserChrome, steps: [t.pwa.chromeStep1, t.pwa.chromeStep2] };
   }
-
-  if (userAgent.includes("safari/") && !userAgent.includes("chrome/")) {
-    return {
-      label: t.pwa.browserSafari,
-      steps: [t.pwa.safariStep1, t.pwa.safariStep2],
-    };
+  if (ua.includes("safari/") && !ua.includes("chrome/")) {
+    return { label: t.pwa.browserSafari, steps: [t.pwa.safariStep1, t.pwa.safariStep2] };
   }
-
-  return {
-    label: t.pwa.browserGeneric,
-    steps: [t.pwa.genericStep1, t.pwa.genericStep2],
-  };
+  return { label: t.pwa.browserGeneric, steps: [t.pwa.genericStep1, t.pwa.genericStep2] };
 }
 
 export function PwaInstallBanner() {
@@ -70,20 +55,14 @@ export function PwaInstallBanner() {
       navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     }
 
-    // Already installed — never show
     if (isInStandaloneMode()) return;
-
-    // Already dismissed by user — never show again this session
     if (sessionStorage.getItem(DISMISSED_KEY)) return;
 
-    // iOS Safari — can't intercept install, show manual guide
     if (isIos()) {
       setState("ios");
       return;
     }
 
-    // Desktop Chrome / Edge / Android Chrome — show a manual fallback
-    // first, then upgrade to a native install CTA if the browser exposes it.
     const manualFallbackTimer = window.setTimeout(() => {
       setState((current) => (current === "idle" ? "manual" : current));
     }, 1500);
@@ -101,8 +80,6 @@ export function PwaInstallBanner() {
     };
 
     window.addEventListener("beforeinstallprompt", handler);
-
-    // If already installed via a different path (e.g. browser bar)
     window.addEventListener("appinstalled", installedHandler);
 
     return () => {
@@ -129,7 +106,7 @@ export function PwaInstallBanner() {
     deferredPrompt.current = null;
   }
 
-  const instructions = state === "manual" || state === "ios" ? getInstallInstructions(t) : null;
+  const instructions = (state === "manual" || state === "ios") ? getInstallInstructions(t) : null;
 
   if (state === "idle" || state === "installed") return null;
 
@@ -139,38 +116,58 @@ export function PwaInstallBanner() {
       aria-label={t.pwa.ariaLabel}
       className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 lg:bottom-6 lg:left-auto lg:right-6 lg:translate-x-0"
     >
-      <div className="flex items-start gap-3 rounded-2xl border border-[#D4AF37]/30 bg-[#1a1a1a] p-4 shadow-2xl shadow-black/60 backdrop-blur-md">
-        {/* Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37]/15">
-          <img src="/icon-192.png" alt="BarberPro" className="h-7 w-7 rounded-lg" />
-        </div>
+      <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#1a1a1a] p-4 shadow-2xl shadow-black/60 backdrop-blur-md">
 
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white leading-snug">
+        {/* ── Header row: icon · title · dismiss ── */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#D4AF37]/15">
+            <img src="/icon-192.png" alt="BarberPro" className="h-6 w-6 rounded-lg" />
+          </div>
+
+          <p className="flex-1 text-sm font-semibold leading-snug text-white">
             {t.pwa.title}
           </p>
+
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label={t.pwa.dismissAria}
+            className="-mr-1 rounded-lg p-1.5 text-gray-500 transition hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* ── Body: description + help — indented to align with title ── */}
+        <div className="ml-12 mt-2 space-y-2">
           {state === "prompt" && (
-            <p className="mt-0.5 text-xs text-gray-400 leading-snug">
+            <p className="text-xs leading-snug text-gray-400">
               {t.pwa.promptDescription}
             </p>
           )}
+
           {state === "ios" && (
-            <p className="mt-0.5 text-xs text-gray-400 leading-snug">
-              {t.pwa.iosTapPrefix} <Share className="mx-0.5 inline h-3 w-3 text-gray-300" />{" "}
+            <p className="text-xs leading-snug text-gray-400">
+              {t.pwa.iosTapPrefix}{" "}
+              <Share className="mx-0.5 inline h-3 w-3 text-gray-300" />{" "}
               <span className="font-medium text-gray-300">"{t.pwa.addToHomeScreen}"</span>.
             </p>
           )}
+
           {state === "manual" && (
-            <p className="mt-0.5 text-xs text-gray-400 leading-snug">
+            <p className="text-xs leading-snug text-gray-400">
               {t.pwa.manualPrefix}{" "}
-              <span className="font-medium text-gray-300">"{t.pwa.installApp}"</span> {t.pwa.or}{" "}
+              <span className="font-medium text-gray-300">"{t.pwa.installApp}"</span>{" "}
+              {t.pwa.or}{" "}
               <span className="font-medium text-gray-300">"{t.pwa.addToHomeScreen}"</span>.
             </p>
           )}
+
           {showHelp && instructions && (
-            <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3">
-              <p className="text-xs font-semibold text-white">{t.pwa.helpTitlePrefix} {instructions.label}</p>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="text-xs font-semibold text-white">
+                {t.pwa.helpTitlePrefix} {instructions.label}
+              </p>
               <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs leading-snug text-gray-300">
                 {instructions.steps.map((step) => (
                   <li key={step}>{step}</li>
@@ -178,38 +175,32 @@ export function PwaInstallBanner() {
               </ol>
             </div>
           )}
+
+          {/* ── Action button ── */}
+          <div className="pt-0.5">
+            {state === "prompt" && (
+              <button
+                type="button"
+                onClick={install}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#D4AF37] py-2 text-xs font-bold text-[#111111] transition hover:brightness-110 active:scale-95"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {t.pwa.installApp}
+              </button>
+            )}
+
+            {(state === "manual" || state === "ios") && (
+              <button
+                type="button"
+                onClick={() => setShowHelp((v) => !v)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 py-2 text-xs font-medium text-gray-200 transition hover:border-[#D4AF37]/40 hover:text-white"
+              >
+                {showHelp ? t.pwa.hideHelp : t.pwa.howToInstall}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-1.5 self-start">
-          {state === "prompt" && (
-            <button
-              type="button"
-              onClick={install}
-              className="flex items-center gap-1.5 rounded-lg bg-[#D4AF37] px-3 py-1.5 text-xs font-bold text-[#111111] transition hover:brightness-110 active:scale-95"
-            >
-              <Download className="h-3.5 w-3.5" />
-              {t.pwa.installApp}
-            </button>
-          )}
-          {(state === "manual" || state === "ios") && (
-            <button
-              type="button"
-              onClick={() => setShowHelp((current) => !current)}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-gray-200 transition hover:border-white/20 hover:text-white"
-            >
-              {showHelp ? t.pwa.hideHelp : t.pwa.howToInstall}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={dismiss}
-            aria-label={t.pwa.dismissAria}
-            className="rounded-lg p-1.5 text-gray-500 transition hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
       </div>
     </div>
   );

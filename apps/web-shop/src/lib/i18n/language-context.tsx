@@ -26,14 +26,16 @@ export function LanguageProvider({
   initialLanguage: Language;
   children: ReactNode;
 }) {
-  const [language, setLanguageState] = useState<Language>(initialLanguage);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-    if (stored === "ms" || stored === "en") {
-      setLanguageState(stored);
+  // Read localStorage synchronously on first render so any provider (including
+  // the global root one) immediately uses the user's saved preference rather
+  // than flashing the default language.
+  const [language, setLanguageState] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
+      if (stored === "ms" || stored === "en") return stored;
     }
-  }, []);
+    return initialLanguage;
+  });
 
   function setLanguage(lang: Language) {
     setLanguageState(lang);
