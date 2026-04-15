@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
 import { branchSchema } from "@/validations/schemas";
@@ -35,6 +35,7 @@ export async function createBranch(formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/branches");
+    revalidateTag("branches");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -72,6 +73,7 @@ export async function updateBranch(id: string, formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/branches");
+    revalidateTag("branches");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -100,6 +102,7 @@ export async function updateBranchMode(
 
     revalidatePath("/branches");
     revalidatePath(`/branches/${id}`);
+    revalidateTag("branches");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -119,6 +122,7 @@ export async function deleteBranch(id: string) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/branches");
+    revalidateTag("branches");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

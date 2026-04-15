@@ -12,5 +12,6 @@ export function useTenantProfile() {
   return useQuery({
     queryKey: ["tenant-profile", tenantId],
     queryFn: () => getTenantProfile(supabase, tenantId),
+    staleTime: 15 * 60 * 1000, // 15 min — tenant profile rarely changes mid-session
   });
 }

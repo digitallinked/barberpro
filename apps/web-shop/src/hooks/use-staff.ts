@@ -6,7 +6,9 @@ import { useTenant } from "@/components/tenant-provider";
 import { useEffectiveBranchId } from "./use-effective-branch";
 import { getStaffMembers, getStaffMember, getStaffStats } from "@/services/staff";
 
-export function useStaffMembers(explicitBranchId?: string | null) {
+const STAFF_STALE = 10 * 60 * 1000; // 10 min — staff roster changes rarely mid-session
+
+export function useStaffMembers(explicitBranchId?: string | null, enabled = true) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
   const branchId = useEffectiveBranchId(explicitBranchId);
@@ -14,6 +16,8 @@ export function useStaffMembers(explicitBranchId?: string | null) {
   return useQuery({
     queryKey: ["staff", tenantId, branchId ?? "all"],
     queryFn: () => getStaffMembers(supabase, tenantId, branchId),
+    staleTime: STAFF_STALE,
+    enabled,
   });
 }
 
@@ -24,6 +28,7 @@ export function useStaffMember(id: string) {
     queryKey: ["staff", id],
     queryFn: () => getStaffMember(supabase, id),
     enabled: !!id,
+    staleTime: STAFF_STALE,
   });
 }
 
@@ -34,5 +39,6 @@ export function useStaffStats() {
   return useQuery({
     queryKey: ["staff-stats", tenantId],
     queryFn: () => getStaffStats(supabase, tenantId),
+    staleTime: 5 * 60 * 1000,
   });
 }

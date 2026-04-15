@@ -13,6 +13,8 @@ export type TenantContext = {
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
   stripeSubscriptionId: string | null;
+  /** Whether the owner has completed onboarding — only meaningful when userRole === "owner" */
+  onboardingCompleted: boolean | null;
   preferredLanguage: Language;
   userId: string;
   appUserId: string;
@@ -50,7 +52,7 @@ export const getCurrentTenant = cache(async function getCurrentTenant(
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug, plan, subscription_status, trial_ends_at, stripe_subscription_id")
+    .select("id, name, slug, plan, subscription_status, trial_ends_at, stripe_subscription_id, onboarding_completed")
     .eq("id", appUser.tenant_id)
     .single();
 
@@ -91,6 +93,7 @@ export const getCurrentTenant = cache(async function getCurrentTenant(
     subscriptionStatus: tenantAny.subscription_status as string | null ?? null,
     trialEndsAt: tenantAny.trial_ends_at as string | null ?? null,
     stripeSubscriptionId: tenantAny.stripe_subscription_id as string | null ?? null,
+    onboardingCompleted: (tenantAny.onboarding_completed as boolean | null) ?? null,
     preferredLanguage,
     userId: user.id,
     appUserId: appUser.id,

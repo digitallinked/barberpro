@@ -17,16 +17,7 @@ type DashboardLayoutProps = {
 
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   if (hasSupabaseEnv()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      redirect("/login");
-    }
-
-    // Resolve tenant context first — works for both owners and staff
+    // getCurrentTenant resolves auth + tenant + branch in one cached call (React cache())
     const tenantCtx = await getCurrentTenant();
     if (!tenantCtx) {
       redirect("/login");
@@ -34,39 +25,31 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
     const isOwner = tenantCtx.userRole === "owner";
 
-    // Owner-specific onboarding and subscription checks
     if (isOwner) {
-      const { data: tenant } = await supabase
-        .from("tenants")
-        .select("onboarding_completed, subscription_status, trial_ends_at, stripe_subscription_id")
-        .eq("owner_auth_id", user.id)
-        .maybeSingle();
-
-      if (!tenant?.onboarding_completed) {
-        const step = tenant ? "payment" : "onboarding";
-        redirect(`/register?step=${step}`);
+      // Onboarding check — uses onboardingCompleted already fetched inside getCurrentTenant
+      if (!tenantCtx.onboardingCompleted) {
+        redirect(`/register?step=payment`);
       }
 
-      const tenantAny = tenant as Record<string, unknown>;
-      const trialEndsAt = tenantAny.trial_ends_at as string | null;
-      const stripeSubId = tenantAny.stripe_subscription_id as string | null;
       const isDbOnlyTrialing =
-        tenant.subscription_status === "trialing" &&
-        !stripeSubId &&
-        trialEndsAt &&
-        new Date(trialEndsAt) < new Date();
+        tenantCtx.subscriptionStatus === "trialing" &&
+        !tenantCtx.stripeSubscriptionId &&
+        tenantCtx.trialEndsAt &&
+        new Date(tenantCtx.trialEndsAt) < new Date();
 
       if (isDbOnlyTrialing) {
+        // Mark trial as expired — use admin client since this is a system action
+        const supabase = await createClient();
         await supabase
           .from("tenants")
           .update({ subscription_status: "canceled" })
-          .eq("owner_auth_id", user.id);
+          .eq("id", tenantCtx.tenantId);
         redirect("/subscription-required?reason=trial_expired");
       }
 
       if (
-        tenant?.subscription_status &&
-        BLOCKED_STATUSES.includes(tenant.subscription_status)
+        tenantCtx.subscriptionStatus &&
+        BLOCKED_STATUSES.includes(tenantCtx.subscriptionStatus)
       ) {
         redirect("/subscription-required");
       }

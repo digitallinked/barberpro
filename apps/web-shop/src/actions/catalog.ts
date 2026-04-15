@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
 import { serviceSchema, serviceCategorySchema } from "@/validations/schemas";
@@ -28,6 +28,7 @@ export async function createService(formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/", "layout");
+    revalidateTag("services");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -60,6 +61,7 @@ export async function updateService(id: string, formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/", "layout");
+    revalidateTag("services");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -79,6 +81,7 @@ export async function deleteService(id: string) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/", "layout");
+    revalidateTag("services");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -102,6 +105,7 @@ export async function createServiceCategory(formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/", "layout");
+    revalidateTag("services");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -129,6 +133,7 @@ export async function updateServiceCategory(id: string, formData: FormData) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/", "layout");
+    revalidateTag("services");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

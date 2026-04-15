@@ -53,19 +53,55 @@ import {
 import { openPrintableDocument } from "@/lib/print-pdf";
 import { downloadCsv } from "@/lib/csv-download";
 import { useSupabase } from "@/hooks/use-supabase";
-import {
-  AnnualTaxSummaryChart,
-  CustomerSpendBarChart,
-  EmployerStatutoryBar,
-  ExpenseCategoryChart,
-  InventoryValueChart,
-  PaymentMixChart,
-  PlTrendChart,
-  RevenueTrendChart,
-  ServiceProductDonut,
-  StaffRevenueBarChart,
-  TopServicesBarChart,
-} from "./reports-charts";
+import dynamic from "next/dynamic";
+
+const _chartLoading = () => <div className="h-48 w-full animate-pulse rounded-xl bg-gray-800/60" />;
+
+// Each chart is dynamically imported so recharts is not in the initial JS bundle
+const AnnualTaxSummaryChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.AnnualTaxSummaryChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const CustomerSpendBarChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.CustomerSpendBarChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const EmployerStatutoryBar = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.EmployerStatutoryBar })),
+  { loading: _chartLoading, ssr: false }
+);
+const ExpenseCategoryChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.ExpenseCategoryChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const InventoryValueChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.InventoryValueChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const PaymentMixChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.PaymentMixChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const PlTrendChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.PlTrendChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const RevenueTrendChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.RevenueTrendChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const ServiceProductDonut = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.ServiceProductDonut })),
+  { loading: _chartLoading, ssr: false }
+);
+const StaffRevenueBarChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.StaffRevenueBarChart })),
+  { loading: _chartLoading, ssr: false }
+);
+const TopServicesBarChart = dynamic(
+  () => import("./reports-charts").then((m) => ({ default: m.TopServicesBarChart })),
+  { loading: _chartLoading, ssr: false }
+);
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -350,17 +386,36 @@ export default function ReportsPage() {
   }, [customStartStr, customEndStr]);
 
   const plCalendarYear = new Date().getFullYear();
-  const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(5000);
-  const { data: payrollPlData } = useAllPayrollEntries(plCalendarYear);
-  const { data: payrollTaxYearData } = useAllPayrollEntries(taxYear);
-  const { data: staffData, isLoading: staffLoading } = useStaffMembers();
-  const { data: customerStatsData } = useCustomerStats();
-  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
-  const { data: inventoryStatsData } = useInventoryStats();
-  const { data: expensesData, isLoading: expensesLoading } = useExpenses();
-  const { data: expenseStatsData } = useExpenseStats();
+
+  // Revenue-driving data — needed for revenue, transactions, staff, pnl, annual_tax tabs
+  const needsTx = ["revenue", "transactions", "staff", "pnl", "annual_tax"].includes(activeTab);
+  const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(5000, null);
+
+  // Payroll — gated by active tab
+  const { data: payrollPlData } = useAllPayrollEntries(plCalendarYear, activeTab === "pnl");
+  const { data: payrollTaxYearData } = useAllPayrollEntries(taxYear, activeTab === "annual_tax");
+
+  // Staff — needed for staff, attendance, revenue (commission calc)
+  const needsStaff = ["staff", "attendance", "revenue"].includes(activeTab);
+  const { data: staffData, isLoading: staffLoading } = useStaffMembers(null, needsStaff);
+
+  // Customers — only customers tab
+  const { data: customerStatsData } = useCustomerStats(activeTab === "customers");
+
+  // Inventory — only inventory tab
+  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems(null, activeTab === "inventory");
+  const { data: inventoryStatsData } = useInventoryStats(null, activeTab === "inventory");
+
+  // Expenses — expenses tab + pnl + annual_tax (uses expense total for tax calc)
+  const needsExpenses = ["expenses", "pnl", "annual_tax"].includes(activeTab);
+  const { data: expensesData, isLoading: expensesLoading } = useExpenses(null, needsExpenses);
+  const { data: expenseStatsData } = useExpenseStats(activeTab === "expenses");
+
   const { data: branchesData } = useBranches();
-  const { data: assignmentsResult } = useStaffAssignments();
+
+  // Staff assignments — staff and revenue tabs only (commission attribution)
+  const needsAssignments = ["staff", "revenue"].includes(activeTab);
+  const { data: assignmentsResult } = useStaffAssignments(needsAssignments);
 
   const reportAttRange = useMemo(() => {
     const b = periodBounds(periodScope, periodYear, periodMonthIndex, customRange);
@@ -371,9 +426,12 @@ export default function ReportsPage() {
     return { start: localDateStr(start), end: localDateStr(end) };
   }, [periodScope, periodYear, periodMonthIndex, customRange]);
 
+  // Attendance summaries — attendance and staff tabs
+  const needsAttendance = ["attendance", "staff"].includes(activeTab);
   const { data: attendanceSummariesResult } = useAttendanceSummaries(
     reportAttRange.start,
-    reportAttRange.end
+    reportAttRange.end,
+    needsAttendance
   );
 
   // Detailed records only fetched when on attendance tab
@@ -383,6 +441,7 @@ export default function ReportsPage() {
     undefined,
     activeTab === "attendance"
   );
+
 
   useEffect(() => {
     function close(e: MouseEvent) {

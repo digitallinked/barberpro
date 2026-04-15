@@ -6,6 +6,8 @@ import { useTenant } from "@/components/tenant-provider";
 import { getPayrollPeriods, getPayrollEntries, getAllPayrollEntries } from "@/services/payroll";
 import { calculateStaffCommission, getAttendanceSummaryForPeriod } from "@/lib/payroll-calculator";
 
+const PAYROLL_STALE = 5 * 60 * 1000; // 5 min
+
 export function usePayrollPeriods() {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
@@ -13,6 +15,7 @@ export function usePayrollPeriods() {
   return useQuery({
     queryKey: ["payroll-periods", tenantId],
     queryFn: () => getPayrollPeriods(supabase, tenantId),
+    staleTime: PAYROLL_STALE,
   });
 }
 
@@ -23,10 +26,11 @@ export function usePayrollEntries(periodId: string | null) {
     queryKey: ["payroll-entries", periodId],
     queryFn: () => getPayrollEntries(supabase, periodId!),
     enabled: !!periodId,
+    staleTime: PAYROLL_STALE,
   });
 }
 
-export function useAllPayrollEntries(year?: number) {
+export function useAllPayrollEntries(year?: number, enabled = true) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
 
@@ -36,6 +40,8 @@ export function useAllPayrollEntries(year?: number) {
   return useQuery({
     queryKey: ["all-payroll-entries", tenantId, year],
     queryFn: () => getAllPayrollEntries(supabase, tenantId, yearStart, yearEnd),
+    staleTime: PAYROLL_STALE,
+    enabled,
   });
 }
 
@@ -52,6 +58,7 @@ export function useStaffCommission(
     queryFn: () =>
       calculateStaffCommission(supabase, tenantId, staffId!, periodStart!, periodEnd!),
     enabled: !!staffId && !!periodStart && !!periodEnd,
+    staleTime: PAYROLL_STALE,
   });
 }
 
@@ -68,5 +75,6 @@ export function useStaffAttendanceSummary(
     queryFn: () =>
       getAttendanceSummaryForPeriod(supabase, tenantId, staffId!, periodStart!, periodEnd!),
     enabled: !!staffId && !!periodStart && !!periodEnd,
+    staleTime: PAYROLL_STALE,
   });
 }

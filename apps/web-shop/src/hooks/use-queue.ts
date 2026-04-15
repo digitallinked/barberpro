@@ -22,7 +22,11 @@ export function useQueueTickets() {
   });
 }
 
-export function useQueueStats() {
+/**
+ * @param poll - pass false on pages that don't need live queue counts (e.g. the main dashboard).
+ *               The queue page and queue board always pass true (default).
+ */
+export function useQueueStats(poll = true) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
   const branchId = useEffectiveBranchId();
@@ -31,7 +35,8 @@ export function useQueueStats() {
     queryKey: ["queue-stats", tenantId, branchId ?? "all"],
     queryFn: () => getQueueStats(supabase, tenantId, branchId!),
     enabled: !!branchId,
-    refetchInterval: 10_000,
+    refetchInterval: poll ? 10_000 : false,
+    staleTime: poll ? 0 : 60_000,
   });
 }
 

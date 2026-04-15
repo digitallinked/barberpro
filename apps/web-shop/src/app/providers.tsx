@@ -3,34 +3,31 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 
-import { LanguageProvider } from "@/lib/i18n/language-context";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
-import type { Language } from "@/lib/i18n/translations";
 
 type ProvidersProps = {
   children: ReactNode;
-  initialLanguage: Language;
 };
 
-export function Providers({ children, initialLanguage }: ProvidersProps) {
+export function Providers({ children }: ProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
-            refetchOnWindowFocus: false
-          }
-        }
+            staleTime: 5 * 60 * 1000,   // 5 min — sane default; overridden per-hook
+            gcTime: 10 * 60 * 1000,      // keep inactive data 10 min before GC
+            refetchOnWindowFocus: false,
+            refetchOnMount: false,        // rely on staleTime, not mount events
+          },
+        },
       })
   );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider initialLanguage={initialLanguage}>
-        {children}
-        <CookieConsentBanner />
-      </LanguageProvider>
+      {children}
+      <CookieConsentBanner />
     </QueryClientProvider>
   );
 }

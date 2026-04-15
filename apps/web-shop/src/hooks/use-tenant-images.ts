@@ -12,5 +12,6 @@ export function useTenantImages() {
   return useQuery({
     queryKey: ["tenant-images", tenantId],
     queryFn: () => getTenantImages(supabase, tenantId),
+    staleTime: 15 * 60 * 1000, // 15 min — images/logos rarely change
   });
 }

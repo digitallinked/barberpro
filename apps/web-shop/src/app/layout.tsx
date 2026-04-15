@@ -9,7 +9,7 @@ import { APP_DESCRIPTION, APP_NAME } from "@/constants";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { getMetadataBase } from "@/lib/env";
 import type { Language } from "@/lib/i18n/translations";
-import { STORAGE_KEY } from "@/lib/i18n/language-context";
+import { STORAGE_KEY, LanguageProvider } from "@/lib/i18n/language-context";
 
 import "./globals.css";
 import { Providers } from "./providers";
@@ -52,7 +52,12 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang={initialLanguage === "ms" ? "ms" : "en"}>
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
-        <Providers initialLanguage={initialLanguage}>{children}</Providers>
+        {/* LanguageProvider here serves public routes; dashboard layout overrides with tenant preference */}
+        <LanguageProvider initialLanguage={initialLanguage}>
+          <Providers>
+            {children}
+          </Providers>
+        </LanguageProvider>
         <PwaInstallBanner />
         <Analytics />
         <SpeedInsights />

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { paymentMethodForDb } from "@/lib/payment-method";
 import { posTransactionSchema, linkedQueueCheckoutSchema } from "@/validations/schemas";
@@ -223,6 +223,7 @@ export async function createTransaction(data: CreateTransactionData) {
     revalidatePath("/[branchSlug]/pos", "page");
     revalidatePath("/[branchSlug]/queue", "page");
     revalidatePath("/[branchSlug]/dashboard", "page");
+    revalidateTag("dashboard-stats");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -447,6 +448,7 @@ export async function createTransactionFromQueueTicket(data: LinkedQueueCheckout
     revalidatePath("/[branchSlug]/pos", "page");
     revalidatePath("/[branchSlug]/queue", "page");
     revalidatePath("/[branchSlug]/dashboard", "page");
+    revalidateTag("dashboard-stats");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

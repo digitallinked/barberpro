@@ -6,6 +6,8 @@ import { useTenant } from "@/components/tenant-provider";
 import { useEffectiveBranchId } from "./use-effective-branch";
 import { getCustomers, getCustomerStats } from "@/services/customers";
 
+const CUSTOMER_STALE = 5 * 60 * 1000; // 5 min
+
 export function useCustomers(explicitBranchId?: string | null) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
@@ -14,16 +16,19 @@ export function useCustomers(explicitBranchId?: string | null) {
   return useQuery({
     queryKey: ["customers", tenantId, branchId ?? "all"],
     queryFn: () => getCustomers(supabase, tenantId, branchId),
+    staleTime: CUSTOMER_STALE,
   });
 }
 
-export function useCustomerStats() {
+export function useCustomerStats(enabled = true) {
   const supabase = useSupabase();
   const { tenantId } = useTenant();
 
   return useQuery({
     queryKey: ["customer-stats", tenantId],
     queryFn: () => getCustomerStats(supabase, tenantId),
+    staleTime: CUSTOMER_STALE,
+    enabled,
   });
 }
 
@@ -49,5 +54,6 @@ export function useCustomerVisitStats() {
       }
       return { data: visitMap, error: null };
     },
+    staleTime: CUSTOMER_STALE,
   });
 }

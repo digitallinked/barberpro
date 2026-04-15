@@ -15,6 +15,7 @@ export function useTransactions(limit?: number, explicitBranchId?: string | null
   return useQuery({
     queryKey: ["transactions", tenantId, branchId ?? "all", limit],
     queryFn: () => getTransactions(supabase, tenantId, branchId, limit),
+    staleTime: 2 * 60 * 1000, // 2 min — transactions are live operational data
   });
 }
 
@@ -26,6 +27,7 @@ export function useDashboardStats(period: Period = "today", explicitBranchId?: s
   return useQuery({
     queryKey: ["dashboard-stats", tenantId, branchId ?? "all", period],
     queryFn: () => getDashboardStats(supabase, tenantId, branchId, period),
+    staleTime: 2 * 60 * 1000, // 2 min — stats should stay fairly fresh
   });
 }
 
@@ -37,5 +39,6 @@ export function useDailyRevenue(period: Period = "today", explicitBranchId?: str
   return useQuery({
     queryKey: ["daily-revenue", tenantId, branchId ?? "all", period],
     queryFn: () => getDailyRevenue(supabase, tenantId, branchId, period),
+    staleTime: 2 * 60 * 1000,
   });
 }

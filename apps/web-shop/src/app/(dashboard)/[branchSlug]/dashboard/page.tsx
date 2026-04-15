@@ -196,13 +196,14 @@ export default function DashboardPage() {
   const { data: monthStatsData } = useDashboardStats("month");
   // Chart always shows the current week for context; stat cards reflect the selected period
   const chartPeriod: Period = period === "month" ? "month" : "week";
-  const { data: chartData } = useDailyRevenue(chartPeriod);
+  const { data: chartData, isLoading: chartLoading } = useDailyRevenue(chartPeriod);
   const { data: transactionsData, isLoading: transactionsLoading } = useTransactions(10);
   const { data: staffData, isLoading: staffLoading } = useStaffMembers();
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryItems();
   const { data: branchesData, isLoading: branchesLoading } = useBranches();
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
-  const { data: queueData } = useQueueStats();
+  // No polling on the dashboard — queue counts update when user navigates to the queue page
+  const { data: queueData } = useQueueStats(false);
 
   const stats = statsData?.data ?? null;
   const transactions = transactionsData?.data ?? [];
@@ -218,13 +219,6 @@ export default function DashboardPage() {
   const barbers = staffMembers.filter((s) => /barber/i.test(s.role ?? ""));
   const chartBars = chartData?.data ?? [];
 
-  const isLoading =
-    statsLoading ||
-    transactionsLoading ||
-    staffLoading ||
-    inventoryLoading ||
-    branchesLoading ||
-    expensesLoading;
 
   const PERIODS = [
     { label: t.common.today, value: "today" as Period },
@@ -275,14 +269,6 @@ export default function DashboardPage() {
       : period === "week"
         ? t.dashboard.periodWeek
         : t.dashboard.periodMonth;
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <p className="text-gray-400">{t.common.loading}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -500,7 +486,9 @@ export default function DashboardPage() {
               </div>
               <BarChart2 className="h-5 w-5 text-[#D4AF37]" />
             </div>
-            {chartBars.length > 0 ? (
+            {chartLoading ? (
+              <div className="h-28 animate-pulse rounded-lg bg-gray-800/60" />
+            ) : chartBars.length > 0 ? (
               <MiniChart bars={chartBars} />
             ) : (
               <div className="flex h-28 items-center justify-center text-sm text-gray-600">
@@ -531,7 +519,20 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {transactions.length === 0 ? (
+            {transactionsLoading ? (
+              <div className="divide-y divide-white/[0.04]">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 px-5 py-3.5 animate-pulse">
+                    <div className="h-9 w-9 shrink-0 rounded-full bg-gray-800" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-32 rounded bg-gray-800" />
+                      <div className="h-2.5 w-20 rounded bg-gray-800/60" />
+                    </div>
+                    <div className="h-4 w-16 rounded bg-gray-800" />
+                  </div>
+                ))}
+              </div>
+            ) : transactions.length === 0 ? (
               <div className="px-5 py-12 text-center text-sm text-gray-500">
                 {t.dashboard.noDataYet}
               </div>
@@ -669,7 +670,19 @@ export default function DashboardPage() {
           {/* Top Barbers */}
           <Card className="p-5">
             <h3 className="mb-4 font-bold text-white">{t.dashboard.topBarbersToday}</h3>
-            {barbers.length === 0 ? (
+            {staffLoading ? (
+              <div className="space-y-3 animate-pulse">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gray-800" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-28 rounded bg-gray-800" />
+                      <div className="h-2.5 w-14 rounded bg-gray-800/60" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : barbers.length === 0 ? (
               <p className="text-sm text-gray-500">{t.dashboard.noDataYet}</p>
             ) : (
               <div className="space-y-3">
@@ -710,7 +723,16 @@ export default function DashboardPage() {
                 {t.dashboard.lowStockAlert}
               </h3>
             </div>
-            {lowStockItems.length === 0 ? (
+            {inventoryLoading ? (
+              <div className="space-y-2 animate-pulse">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between py-1">
+                    <div className="h-3 w-32 rounded bg-gray-800" />
+                    <div className="h-5 w-10 rounded bg-gray-800/60" />
+                  </div>
+                ))}
+              </div>
+            ) : lowStockItems.length === 0 ? (
               <p className="text-sm text-gray-500">{t.dashboard.noLowStock}</p>
             ) : (
               <>

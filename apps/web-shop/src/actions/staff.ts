@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { getAuthContext } from "./_helpers";
 import { isOwnerOrManager } from "@/lib/permissions";
@@ -65,6 +65,7 @@ export async function createStaffMember(formData: FormData) {
     if (profileError) return { success: false, error: profileError.message };
 
     revalidatePath("/[branchSlug]/staff", "page");
+    revalidateTag("staff");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -140,6 +141,7 @@ export async function updateStaffMember(id: string, formData: FormData) {
 
     revalidatePath("/[branchSlug]/staff", "page");
     revalidatePath("/[branchSlug]/staff/[id]", "page");
+    revalidateTag("staff");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -163,6 +165,7 @@ export async function reactivateStaffMember(id: string) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/[branchSlug]/staff", "page");
+    revalidateTag("staff");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
@@ -186,6 +189,7 @@ export async function deleteStaffMember(id: string) {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/[branchSlug]/staff", "page");
+    revalidateTag("staff");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };

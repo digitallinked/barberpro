@@ -12,5 +12,6 @@ export function useAppointments() {
   return useQuery({
     queryKey: ["appointments", tenantId, branchId],
     queryFn: () => getAppointments(supabase, tenantId, branchId ?? undefined),
+    staleTime: 2 * 60 * 1000, // 2 min — appointments are live-ish operational data
   });
 }
