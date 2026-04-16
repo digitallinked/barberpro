@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, Check, CheckCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "@/hooks/use-notifications";
+import { cn } from "@/lib/utils";
 import type { NotificationRow } from "@barberpro/notifications";
 import { formatDistanceToNow } from "date-fns";
 
@@ -94,7 +95,13 @@ export function NotificationBell() {
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl shadow-black/60"
+          role="dialog"
+          aria-label="Notifications"
+          className={cn(
+            "z-[60] rounded-xl border border-white/10 bg-[#1a1a1a] shadow-2xl shadow-black/60",
+            "max-sm:fixed max-sm:inset-x-4 max-sm:top-[4.75rem] max-sm:w-auto max-sm:max-h-[min(520px,calc(100dvh-5.5rem))]",
+            "sm:absolute sm:right-0 sm:top-full sm:z-50 sm:mt-2 sm:w-80",
+          )}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
@@ -122,7 +129,7 @@ export function NotificationBell() {
           </div>
 
           {/* List */}
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[min(400px,calc(100dvh-10rem))] overflow-y-auto sm:max-h-[400px]">
             {isLoading && (
               <div className="py-8 text-center text-xs text-gray-500">
                 Loading…
