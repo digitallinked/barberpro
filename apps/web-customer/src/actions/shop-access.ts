@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { headers } from "next/headers";
 
 /**
  * Checks whether the currently authenticated customer is also registered as a
@@ -36,10 +37,14 @@ export async function getShopDashboardSsoUrl(): Promise<
     return { error: "Not a shop user" };
   }
 
-  // redirectTo must be on the customer-app domain so Supabase auto-allows it
-  // (Supabase permits any path that starts with the configured site URL).
-  // The shop-handoff page then forwards the session tokens to the shop app.
-  const customerAppUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  // redirectTo must stay on the customer-app domain so Supabase auto-allows it.
+  // Resolve from current request host first (more reliable than env across
+  // preview/prod), then fall back to NEXT_PUBLIC_APP_URL.
+  const reqHeaders = await headers();
+  const forwardedHost = reqHeaders.get("x-forwarded-host");
+  const forwardedProto = reqHeaders.get("x-forwarded-proto") ?? "https";
+  const derivedOrigin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : null;
+  const customerAppUrl = (derivedOrigin ?? env.NEXT_PUBLIC_APP_URL).replace(/\/$/, "");
   const redirectTo = `${customerAppUrl}/auth/shop-handoff`;
 
   const admin = createAdminClient();
