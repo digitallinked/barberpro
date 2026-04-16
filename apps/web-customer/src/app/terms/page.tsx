@@ -2,11 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
+import { getSiteOrigin } from "@/lib/site-url";
+
+const TITLE = "Terms of Service | BarberPro.my";
+const DESC =
+  "Customer Terms of Service for using BarberPro.my to discover shops, book appointments, join queues, and manage memberships in Malaysia.";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | BarberPro.my",
-  description:
-    "Customer Terms of Service for using BarberPro.my to discover shops, book appointments, join queues, and manage memberships in Malaysia.",
+  title: TITLE,
+  description: DESC,
+  alternates: { canonical: `${getSiteOrigin()}/terms` },
+  openGraph: {
+    title: TITLE,
+    description: DESC,
+    type: "website",
+    url: `${getSiteOrigin()}/terms`,
+    locale: "en_MY",
+    siteName: "BarberPro",
+  },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESC },
 };
 
 const EFFECTIVE_DATE = "6 April 2026";

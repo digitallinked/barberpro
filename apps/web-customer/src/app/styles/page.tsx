@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -13,8 +14,32 @@ import {
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteOrigin } from "@/lib/site-url";
 
 import { StylesAiTool } from "./styles-ai-tool";
+
+const STYLES_TITLE = "Gaya & inspirasi rambut (BarberPro Plus) | BarberPro";
+const STYLES_DESC =
+  "Cuba gaya rambut dengan alat AI (ahli Plus), simpan inspirasi, dan kongsi dengan barber anda.";
+
+export const metadata: Metadata = {
+  title: STYLES_TITLE,
+  description: STYLES_DESC,
+  alternates: { canonical: `${getSiteOrigin()}/styles` },
+  openGraph: {
+    title: STYLES_TITLE,
+    description: STYLES_DESC,
+    type: "website",
+    url: `${getSiteOrigin()}/styles`,
+    locale: "ms_MY",
+    siteName: "BarberPro",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: STYLES_TITLE,
+    description: STYLES_DESC,
+  },
+};
 
 async function getSubscriptionStatus() {
   const supabase = await createClient();

@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -14,12 +13,13 @@ import {
 } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { marketingPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "About Us | BarberPro.my",
-  description:
-    "BarberPro.my is a Malaysian-built barber shop management platform. Learn what we're building and why."
-};
+const ABOUT_TITLE = "About Us | BarberPro.my";
+const ABOUT_DESC =
+  "BarberPro.my is a Malaysian-built barber shop management platform. Learn what we're building and why.";
+
+export const metadata = marketingPageMetadata("/about", ABOUT_TITLE, ABOUT_DESC);
 
 const values = [
   {

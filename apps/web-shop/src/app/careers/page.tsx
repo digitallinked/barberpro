@@ -1,14 +1,14 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Briefcase, Clock, Heart, MapPin, Monitor, Zap } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { marketingPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Careers | BarberPro.my",
-  description:
-    "Join the BarberPro.my team and help modernise Malaysian barber shops. View open roles and apply today."
-};
+const CAREERS_TITLE = "Careers | BarberPro.my";
+const CAREERS_DESC =
+  "Join the BarberPro.my team and help modernise Malaysian barber shops. View open roles and apply today.";
+
+export const metadata = marketingPageMetadata("/careers", CAREERS_TITLE, CAREERS_DESC);
 
 const perks = [
   {

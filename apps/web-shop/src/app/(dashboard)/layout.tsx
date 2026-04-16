@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { type ReactNode } from "react";
 
@@ -8,6 +9,9 @@ import { LanguageProvider } from "@/lib/i18n/language-context";
 import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/supabase/queries";
+import { NOINDEX_FOLLOW } from "@/lib/seo-robots";
+
+export const metadata: Metadata = NOINDEX_FOLLOW;
 
 const BLOCKED_STATUSES = ["canceled", "unpaid", "incomplete", "incomplete_expired", "paused"];
 

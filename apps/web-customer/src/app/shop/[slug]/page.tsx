@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,15 +16,94 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ShopImageCarousel } from "@/components/shop-image-carousel";
 import { ReviewsSection } from "@/components/reviews-section";
+import { getSiteOrigin } from "@/lib/site-url";
 
 export const revalidate = 60;
 
-type Props = {
+async function resolveShopSeo(slug: string) {
+  const supabase = createAdminClient();
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id, name, slug, logo_url")
+    .eq("slug", slug)
+    .eq("status", "active")
+    .in("subscription_status", ["active", "trialing"])
+    .maybeSingle();
+
+  if (!tenant) return null;
+
+  const { data: branches } = await supabase
+    .from("branches")
+    .select("address, logo_url")
+    .eq("tenant_id", tenant.id)
+    .eq("is_active", true)
+    .order("is_hq", { ascending: false })
+    .limit(1);
+
+  const primary = branches?.[0];
+  const address = primary?.address ?? null;
+  const logoUrl = primary?.logo_url ?? tenant.logo_url ?? null;
+  return { tenant, address, logoUrl };
+}
+
+type PageProps = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ booked?: string }>;
 };
 
-export default async function ShopProfilePage({ params, searchParams }: Props) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const resolved = await resolveShopSeo(slug);
+  if (!resolved) {
+    return { title: "Kedai tidak dijumpai | BarberPro" };
+  }
+
+  const { tenant, address, logoUrl } = resolved;
+  const site = getSiteOrigin();
+  const url = `${site}/shop/${tenant.slug}`;
+  const title = `${tenant.name} — Tempah & giliran di BarberPro`;
+  const description = address
+    ? `${tenant.name} di BarberPro. ${address.length > 155 ? `${address.slice(0, 152)}…` : address}. Tempah online & sertai giliran.`
+    : `Tempah temujanji dan sertai giliran di ${tenant.name} melalui BarberPro Malaysia.`;
+
+  const ogImages = logoUrl
+    ? [
+        {
+          url: shopMediaDisplayUrl(logoUrl, { width: 1200, quality: 88 }),
+          width: 1200,
+          height: 630,
+          alt: tenant.name,
+        },
+      ]
+    : [];
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url,
+      locale: "ms_MY",
+      siteName: "BarberPro",
+      images: ogImages,
+    },
+    twitter: {
+      card: ogImages.length ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(ogImages.length ? { images: [ogImages[0]!.url] } : {}),
+    },
+  };
+}
+
+export default async function ShopProfilePage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { booked } = await searchParams;
   const supabase = createAdminClient();
@@ -182,8 +262,47 @@ export default async function ShopProfilePage({ params, searchParams }: Props) {
       ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
       : null;
 
+  const shopPageUrl = `${getSiteOrigin()}/shop/${slug}`;
+  const primarySchemaImage =
+    shopImageUrls[0] ??
+    (resolvedLogoUrl
+      ? shopMediaDisplayUrl(resolvedLogoUrl, { width: 1200, quality: 88 })
+      : undefined);
+
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "HairSalon",
+    name: tenant.name,
+    url: shopPageUrl,
+    ...(primarySchemaImage ? { image: primarySchemaImage } : {}),
+    ...(primaryAddress
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: primaryAddress,
+            addressCountry: "MY",
+          },
+        }
+      : {}),
+    ...(avgRating !== null && reviews.length > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Math.round(avgRating * 10) / 10,
+            reviewCount: reviews.length,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar />
 
       <main className="flex-1">

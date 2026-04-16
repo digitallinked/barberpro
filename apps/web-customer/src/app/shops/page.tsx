@@ -1,10 +1,36 @@
+import type { Metadata } from "next";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { getSiteOrigin } from "@/lib/site-url";
 import { ShopsGrid } from "./shops-grid";
 import { ShopsHeader } from "./shops-header";
 
 export const revalidate = 60;
+
+const SHOPS_TITLE = "Cari kedai gunting berhampiran | BarberPro";
+const SHOPS_DESC =
+  "Terokai kedai barber dan gunting rambut aktif di BarberPro Malaysia — lokasi sebenar, tempahan dalam talian, dan giliran masa nyata.";
+
+export const metadata: Metadata = {
+  title: SHOPS_TITLE,
+  description: SHOPS_DESC,
+  alternates: { canonical: `${getSiteOrigin()}/shops` },
+  openGraph: {
+    title: SHOPS_TITLE,
+    description: SHOPS_DESC,
+    type: "website",
+    url: `${getSiteOrigin()}/shops`,
+    locale: "ms_MY",
+    siteName: "BarberPro",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SHOPS_TITLE,
+    description: SHOPS_DESC,
+  },
+};
 
 export default async function ShopsPage() {
   const supabase = createAdminClient();

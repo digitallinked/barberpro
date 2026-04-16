@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { marketingPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy | BarberPro.my",
-  description:
-    "BarberPro.my Privacy Policy describing how we collect, use, disclose, store, and protect personal data in connection with our Malaysia-based barber shop software platform.",
-};
+const PRIVACY_TITLE = "Privacy Policy | BarberPro.my";
+const PRIVACY_DESC =
+  "BarberPro.my Privacy Policy describing how we collect, use, disclose, store, and protect personal data in connection with our Malaysia-based barber shop software platform.";
+
+export const metadata = marketingPageMetadata("/privacy", PRIVACY_TITLE, PRIVACY_DESC);
 
 const EFFECTIVE_DATE = "6 April 2026";
 const COMPANY_NAME = "BARBERPRO TECHNOLOGIES";

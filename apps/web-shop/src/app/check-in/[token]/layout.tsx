@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "Self Check-in — BarberPro",
+  robots: { index: false, follow: true },
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",

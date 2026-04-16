@@ -10,6 +10,7 @@ import { APP_DESCRIPTION, APP_NAME } from "@/constants";
 import { PushPermissionPrompt } from "@/components/push-permission-prompt";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { getMetadataBase } from "@/lib/env";
+import { marketingPageMetadata } from "@/lib/seo";
 import type { Language } from "@/lib/i18n/translations";
 import { STORAGE_KEY, LanguageProvider } from "@/lib/i18n/language-context";
 
@@ -22,8 +23,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: APP_NAME,
-  description: APP_DESCRIPTION,
+  ...marketingPageMetadata("", APP_NAME, APP_DESCRIPTION),
   metadataBase: getMetadataBase(),
   manifest: "/manifest.json",
   appleWebApp: {

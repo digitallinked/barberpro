@@ -13,6 +13,7 @@ const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0
 
 export const metadata: Metadata = {
   title: "Join Queue — BarberPro",
+  robots: { index: false, follow: true },
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",

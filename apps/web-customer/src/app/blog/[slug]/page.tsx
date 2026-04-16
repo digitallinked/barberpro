@@ -12,6 +12,7 @@ import {
   type BlogListPost,
 } from "@/lib/blog-resolve";
 import { translations } from "@/lib/i18n/translations";
+import { getSiteOrigin } from "@/lib/site-url";
 import { ArticleContent } from "./article-content";
 
 export const revalidate = 60;
@@ -65,6 +66,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const resolved = resolveBlogPost(post, locale);
+  const origin = getSiteOrigin();
+  const canonical = `${origin}/blog/${resolved.slug}`;
   const ogImage = resolved.cover_image_url
     ? [{ url: resolved.cover_image_url, width: 1200, height: 630, alt: resolved.title }]
     : [];
@@ -77,7 +80,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: resolved.title,
       description: resolved.excerpt ?? undefined,
       type: "article",
-      url: `https://barberpro.my/blog/${resolved.slug}`,
+      url: canonical,
       locale: locale === "ms" ? "ms_MY" : "en_MY",
       publishedTime: resolved.published_at ?? undefined,
       authors: resolved.author_name ? [resolved.author_name] : [],
@@ -90,7 +93,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: resolved.excerpt ?? undefined,
       images: resolved.cover_image_url ? [resolved.cover_image_url] : [],
     },
-    alternates: { canonical: `https://barberpro.my/blog/${resolved.slug}` },
+    alternates: { canonical },
   };
 }
 
@@ -102,7 +105,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const post = resolveBlogPost(postRow, locale);
   const related = await getRelatedPosts(postRow, locale);
-  const postUrl = `https://barberpro.my/blog/${post.slug}`;
+  const postUrl = `${getSiteOrigin()}/blog/${post.slug}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -117,7 +120,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     publisher: {
       "@type": "Organization",
       name: "BarberPro",
-      logo: { "@type": "ImageObject", url: "https://barberpro.my/logo.png" },
+      logo: { "@type": "ImageObject", url: `${getSiteOrigin()}/logo.png` },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
     keywords: post.tags.join(", "),

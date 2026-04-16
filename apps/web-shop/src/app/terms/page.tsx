@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { marketingPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Terms of Service | BarberPro.my",
-  description:
-    "BarberPro.my Terms of Service for barber shop operators and other business subscribers using the BarberPro platform in Malaysia.",
-};
+const TERMS_TITLE = "Terms of Service | BarberPro.my";
+const TERMS_DESC =
+  "BarberPro.my Terms of Service for barber shop operators and other business subscribers using the BarberPro platform in Malaysia.";
+
+export const metadata = marketingPageMetadata("/terms", TERMS_TITLE, TERMS_DESC);
 
 const EFFECTIVE_DATE = "6 April 2026";
 const COMPANY_NAME = "BARBERPRO TECHNOLOGIES";

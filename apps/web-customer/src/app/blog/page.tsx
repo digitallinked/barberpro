@@ -6,6 +6,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getBlogLocale } from "@/lib/blog-locale";
+import { getSiteOrigin } from "@/lib/site-url";
 import {
   resolveBlogListItem,
   type BlogPostRow,
@@ -21,6 +22,8 @@ export const revalidate = 60;
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getBlogLocale();
   const b = translations[locale].blog;
+  const origin = getSiteOrigin();
+  const url = `${origin}/blog`;
   return {
     title: b.metaTitle,
     description: b.metaDesc,
@@ -28,10 +31,10 @@ export async function generateMetadata(): Promise<Metadata> {
       title: b.metaTitle,
       description: b.metaDesc,
       type: "website",
-      url: "https://barberpro.my/blog",
+      url,
       locale: locale === "ms" ? "ms_MY" : "en_MY",
     },
-    alternates: { canonical: "https://barberpro.my/blog" },
+    alternates: { canonical: url },
   };
 }
 

@@ -1,15 +1,15 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { ContactForm } from "./contact-form";
+import { marketingPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Contact Us | BarberPro.my",
-  description:
-    "Get in touch with the BarberPro.my team. We're here to help Malaysian barber shops succeed."
-};
+const CONTACT_TITLE = "Contact Us | BarberPro.my";
+const CONTACT_DESC =
+  "Get in touch with the BarberPro.my team. We're here to help Malaysian barber shops succeed.";
+
+export const metadata = marketingPageMetadata("/contact", CONTACT_TITLE, CONTACT_DESC);
 
 const faqHighlights = [
   {

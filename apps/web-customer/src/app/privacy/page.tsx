@@ -2,11 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
+import { getSiteOrigin } from "@/lib/site-url";
+
+const TITLE = "Privacy Policy | BarberPro.my";
+const DESC =
+  "Customer Privacy Policy for BarberPro.my describing how we collect, use, disclose, store, and protect personal data in Malaysia.";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | BarberPro.my",
-  description:
-    "Customer Privacy Policy for BarberPro.my describing how we collect, use, disclose, store, and protect personal data in Malaysia.",
+  title: TITLE,
+  description: DESC,
+  alternates: { canonical: `${getSiteOrigin()}/privacy` },
+  openGraph: {
+    title: TITLE,
+    description: DESC,
+    type: "website",
+    url: `${getSiteOrigin()}/privacy`,
+    locale: "en_MY",
+    siteName: "BarberPro",
+  },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESC },
 };
 
 const EFFECTIVE_DATE = "6 April 2026";

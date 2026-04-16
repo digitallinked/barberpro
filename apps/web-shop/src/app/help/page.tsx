@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import {
   BarChart2,
@@ -13,12 +12,13 @@ import {
 } from "lucide-react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { marketingPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Help Center | BarberPro.my",
-  description:
-    "Find answers to common questions about BarberPro.my — Malaysia's barber shop management platform."
-};
+const HELP_TITLE = "Help Center | BarberPro.my";
+const HELP_DESC =
+  "Find answers to common questions about BarberPro.my — Malaysia's barber shop management platform.";
+
+export const metadata = marketingPageMetadata("/help", HELP_TITLE, HELP_DESC);
 
 const categories = [
   { icon: Timer, iconBg: "bg-orange-500/20", iconColor: "text-orange-400", label: "Queue Management", count: 6 },
