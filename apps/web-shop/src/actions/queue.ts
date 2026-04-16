@@ -18,6 +18,7 @@ import { logger } from "@/lib/logger";
 import { resolveEffectiveBranchId } from "@/lib/supabase/branch-resolution";
 
 import { getAuthContext } from "./_helpers";
+import { emitNotification } from "@/lib/notifications/emit";
 
 function isUniqueViolation(err: { code?: string; message?: string }): boolean {
   return err.code === "23505" || /duplicate key|unique constraint/i.test(err.message ?? "");
@@ -121,13 +122,22 @@ export async function updateQueueStatus(
       updateData.completed_at = new Date().toISOString();
     }
 
-    const { error } = await supabase
+    const { data: updatedTicket, error } = await supabase
       .from("queue_tickets")
       .update(updateData)
       .eq("id", id)
-      .eq("tenant_id", tenantId);
+      .eq("tenant_id", tenantId)
+      .select("id, queue_number, customer_id, branch_id")
+      .single();
 
     if (error) return { success: false, error: error.message };
+
+    // Notify the customer when their ticket is called or they're almost next.
+    void notifyCustomerOnQueueStatusChange(
+      updatedTicket,
+      statusParsed.data,
+      tenantId
+    );
 
     revalidatePath("/[branchSlug]/queue", "page");
     return { success: true };
@@ -501,6 +511,77 @@ export async function getQueueCheckinUrl(requestedBranchId?: string | null) {
     return { success: true as const, url };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
+// ─── Notification helpers ─────────────────────────────────────────────────────
+
+type TicketStub = {
+  id: string;
+  queue_number: string;
+  customer_id: string | null;
+  branch_id: string;
+};
+
+/**
+ * Fire-and-forget helper: notifies a customer when their queue status changes.
+ * Resolves the customer's auth_user_id via the admin client, then emits.
+ * All errors are swallowed so they never affect the primary action.
+ */
+async function notifyCustomerOnQueueStatusChange(
+  ticket: TicketStub,
+  newStatus: string,
+  tenantId: string
+): Promise<void> {
+  if (!ticket.customer_id) return;
+  if (newStatus !== "in_service" && newStatus !== "waiting") return;
+
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = createAdminClient() as any;
+
+    // Resolve customer's auth_user_id via their shop-side customer record.
+    const { data: shopCustomer } = await admin
+      .from("customers")
+      .select("phone, email")
+      .eq("id", ticket.customer_id)
+      .maybeSingle();
+
+    if (!shopCustomer) return;
+
+    // Match to a customer_accounts row by phone or email.
+    const { data: account } = await admin
+      .from("customer_accounts")
+      .select("auth_user_id")
+      .or(
+        [
+          shopCustomer.phone ? `phone.eq.${shopCustomer.phone}` : null,
+          shopCustomer.email ? `email.eq.${shopCustomer.email}` : null,
+        ]
+          .filter(Boolean)
+          .join(",")
+      )
+      .maybeSingle();
+
+    if (!account?.auth_user_id) return;
+
+    const isServing = newStatus === "in_service";
+    const customerBaseUrl = process.env.CUSTOMER_APP_URL ?? "https://barberpro.my";
+
+    await emitNotification({
+      authUserId: account.auth_user_id,
+      tenantId,
+      category: "queue_alert",
+      title: isServing ? "It's your turn!" : "Queue update",
+      body: isServing
+        ? `Queue ${ticket.queue_number} — please head to your barber`
+        : `Your queue position has been updated`,
+      actionUrl: `${customerBaseUrl}/queue/${ticket.id}`,
+      data: { ticketId: ticket.id },
+    });
+  } catch (err) {
+    console.error("[notifyCustomerOnQueueStatusChange] failed:", err);
   }
 }
 

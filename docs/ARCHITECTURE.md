@@ -159,8 +159,8 @@ Shared shadcn/ui component overrides and design tokens. Any component used in mo
 ### `packages/ui-native` [PLANNED]
 Shared React Native components using NativeWind. Mirrors the design system for mobile apps.
 
-### `packages/notifications` [PLANNED]
-Expo push notification helpers shared between both mobile apps.
+### `packages/notifications` [EXISTS]
+Shared notification domain: types, `createNotification()` helper, `sendPushToUser()` fan-out using `web-push` (browser Web Push via VAPID) and Expo Push API. Used by `web-shop` and `web-customer` server-side code.
 
 ---
 

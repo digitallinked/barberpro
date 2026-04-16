@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { APP_DESCRIPTION, APP_NAME } from "@/constants";
+import { PushPermissionPrompt } from "@/components/push-permission-prompt";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { getMetadataBase } from "@/lib/env";
 import type { Language } from "@/lib/i18n/translations";
@@ -59,6 +60,9 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           </Providers>
         </LanguageProvider>
         <PwaInstallBanner />
+        {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && (
+          <PushPermissionPrompt vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY} />
+        )}
         <Analytics />
         <SpeedInsights />
       </body>

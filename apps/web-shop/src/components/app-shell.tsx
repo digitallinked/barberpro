@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Banknote,
   BarChart3,
-  Bell,
   Building2,
   CalendarCheck2,
   Check,
@@ -33,6 +32,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { NotificationBell } from "@/components/notification-bell";
 import { RouteGuard } from "@/components/route-guard";
 import { useTenant } from "@/components/tenant-provider";
 import {
@@ -648,12 +648,7 @@ function AppShellInner({ children }: AppShellProps) {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
-            <button
-              type="button"
-              className="relative rounded-md p-2 text-gray-400 transition hover:text-white"
-            >
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell />
           </div>
         </header>
 

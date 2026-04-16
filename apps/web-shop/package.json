@@ -15,6 +15,7 @@
     "@barberpro/auth": "workspace:*",
     "@barberpro/db": "workspace:*",
     "@barberpro/env": "workspace:*",
+    "@barberpro/notifications": "workspace:*",
     "@barberpro/types": "workspace:*",
     "@barberpro/ui": "workspace:*",
     "@googlemaps/js-api-loader": "^2.0.2",

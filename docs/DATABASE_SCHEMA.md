@@ -44,6 +44,12 @@ tenants
   ├── suppliers (1:many)
   ├── payroll_periods (1:many)
   └── payroll_entries (1:many)
+
+auth.users (Supabase Auth — not tenant-scoped)
+  ├── notifications (1:many) — in-app + push notification records
+  ├── push_subscriptions (1:many) — browser Web Push (VAPID) subscriptions
+  ├── mobile_push_tokens (1:many) — Expo push tokens (mobile-staff / mobile-customer)
+  └── notification_preferences (1:1) — per-user channel and category settings
 ```
 
 ---
@@ -510,6 +516,35 @@ Per-staff payroll record for a given period.
 
 ---
 
+## Notification System
+
+Added in migration `20260416120000_notifications.sql`. All tables are keyed on `auth_user_id` (auth.users.id), which works for both shop staff (`app_users.auth_user_id`) and end customers (`customer_accounts.auth_user_id`).
+
+| Table | Purpose | RLS |
+|---|---|---|
+| `notifications` | One row per notification per recipient. Realtime-enabled for live badge updates. | Own `auth_user_id` only |
+| `push_subscriptions` | Browser Web Push (VAPID) subscriptions — one per browser instance. | Own `auth_user_id` only |
+| `mobile_push_tokens` | Normalized Expo push tokens for mobile-staff and mobile-customer. Bridges legacy token columns. | Own `auth_user_id` only |
+| `notification_preferences` | Per-user category and channel opt-in/out toggles. | Own `auth_user_id` only |
+
+### Notification categories
+`queue_alert` | `booking` | `payment` | `reminder` | `general`
+
+### Required environment variables
+```
+NEXT_PUBLIC_VAPID_PUBLIC_KEY   # sent to browser for SW subscription
+VAPID_PRIVATE_KEY              # server-only, used when sending Web Push
+VAPID_SUBJECT                  # e.g. mailto:hello@barberpro.my
+CUSTOMER_APP_URL               # e.g. https://barberpro.my (used in notification action links)
+```
+
+Generate VAPID keys once:
+```bash
+npx web-push generate-vapid-keys
+```
+
+---
+
 ## Realtime Publications
 
 The following tables have Supabase Realtime enabled (via `supabase_realtime` publication):
@@ -519,6 +554,7 @@ The following tables have Supabase Realtime enabled (via `supabase_realtime` pub
 | `queue_tickets` | Queue board live updates |
 | `queue_ticket_seats` | Seat assignment live updates |
 | `branch_seats` | Seat configuration changes |
+| `notifications` | In-app notification badge and list live updates |
 
 ---
 

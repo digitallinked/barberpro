@@ -2,7 +2,7 @@ import "../global.css";
 
 import { useEffect } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import type { ErrorBoundaryProps } from "expo-router";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
@@ -66,7 +66,41 @@ const persister = createAsyncStoragePersister({
 });
 
 export default function RootLayout() {
+  const router = useRouter();
+
   useEffect(() => { checkForOtaUpdate(); }, []);
+
+  // Handle deep links from push notification taps.
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
+    import("expo-notifications").then((Notifications) => {
+      // Notification received while app is foregrounded
+      const foregroundSub = Notifications.addNotificationReceivedListener(
+        (_notification) => {
+          // No-op: the notification is already visible in-app via the handler
+        }
+      );
+
+      // User taps notification to open the app
+      const responseSub = Notifications.addNotificationResponseReceivedListener(
+        (response) => {
+          const data = response.notification.request.content.data as Record<string, string> | undefined;
+          const actionUrl = data?.actionUrl;
+          if (actionUrl) {
+            router.push(actionUrl as Parameters<typeof router.push>[0]);
+          }
+        }
+      );
+
+      cleanup = () => {
+        Notifications.removeNotificationSubscription(foregroundSub);
+        Notifications.removeNotificationSubscription(responseSub);
+      };
+    }).catch(() => undefined);
+
+    return () => cleanup?.();
+  }, [router]);
 
   return (
     <SafeAreaProvider>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BottomNav } from "./bottom-nav";
 import { NavDesktopLinks } from "./nav-desktop-links";
 import { NavbarHeaderShell } from "./navbar-header-shell";
+import { NotificationBell } from "./notification-bell";
 import { ProfileMenu } from "./profile-menu";
 
 export async function Navbar() {
@@ -63,13 +64,16 @@ export async function Navbar() {
           {/* Desktop nav links + language switcher — center */}
           <NavDesktopLinks />
 
-          {/* Profile menu — visible on all screen sizes */}
-          <ProfileMenu
-            isLoggedIn={!!user}
-            customerName={customerName}
-            avatarUrl={avatarUrl}
-            isShopUser={isShopUser}
-          />
+          {/* Right-side actions */}
+          <div className="flex items-center gap-2">
+            {!!user && <NotificationBell />}
+            <ProfileMenu
+              isLoggedIn={!!user}
+              customerName={customerName}
+              avatarUrl={avatarUrl}
+              isShopUser={isShopUser}
+            />
+          </div>
         </div>
       </NavbarHeaderShell>
 

@@ -8,7 +8,9 @@ import { env } from "@/lib/env";
 import { ClientProviders } from "@/components/client-providers";
 import { ActiveQueueBanner } from "@/components/active-queue-banner";
 import { AuthHashHandoff } from "@/components/auth-hash-handoff";
+import { PushPermissionPrompt } from "@/components/push-permission-prompt";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { createClient } from "@/lib/supabase/server";
 
 import "./globals.css";
 
@@ -42,7 +44,11 @@ type RootLayoutProps = {
   children: ReactNode;
 };
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
   return (
     <html lang="ms">
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
@@ -51,6 +57,12 @@ export default function RootLayout({ children }: RootLayoutProps) {
           {children}
           <ActiveQueueBanner />
           <PwaInstallBanner />
+          {vapidPublicKey && (
+            <PushPermissionPrompt
+              vapidPublicKey={vapidPublicKey}
+              isLoggedIn={!!user}
+            />
+          )}
         </ClientProviders>
         <Analytics />
         <SpeedInsights />

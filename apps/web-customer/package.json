@@ -12,6 +12,7 @@
   "dependencies": {
     "@barberpro/db": "workspace:*",
     "@barberpro/env": "workspace:*",
+    "@barberpro/notifications": "workspace:*",
     "@barberpro/types": "workspace:*",
     "@barberpro/ui": "workspace:*",
     "@supabase/ssr": "^0.9.0",
