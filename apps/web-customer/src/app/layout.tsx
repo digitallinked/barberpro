@@ -9,6 +9,7 @@ import { ClientProviders } from "@/components/client-providers";
 import { ActiveQueueBanner } from "@/components/active-queue-banner";
 import { AuthHashHandoff } from "@/components/auth-hash-handoff";
 import { PushPermissionPrompt } from "@/components/push-permission-prompt";
+import { GoogleTagManager } from "@/components/google-tag-manager";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { createClient } from "@/lib/supabase/server";
 
@@ -52,6 +53,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="ms">
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
+        <GoogleTagManager />
         <ClientProviders>
           <AuthHashHandoff />
           {children}

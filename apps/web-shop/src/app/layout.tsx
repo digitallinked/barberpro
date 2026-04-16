@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
+import { GoogleTagManager } from "@/components/google-tag-manager";
 import { APP_DESCRIPTION, APP_NAME } from "@/constants";
 import { PushPermissionPrompt } from "@/components/push-permission-prompt";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
@@ -53,6 +54,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang={initialLanguage === "ms" ? "ms" : "en"}>
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
+        <GoogleTagManager />
         {/* LanguageProvider here serves public routes; dashboard layout overrides with tenant preference */}
         <LanguageProvider initialLanguage={initialLanguage}>
           <Providers>
