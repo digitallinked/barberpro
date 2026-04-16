@@ -1,25 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   BookMarked,
   CalendarClock,
   ChevronDown,
+  ExternalLink,
+  Loader2,
   LogIn,
   LogOut,
   Settings,
   Star,
+  Store,
   User,
 } from "lucide-react";
 
+import { getShopDashboardSsoUrl } from "@/actions/shop-access";
 import { useT } from "@/lib/i18n/language-context";
 
 type Props = {
   isLoggedIn: boolean;
   customerName: string | null;
   avatarUrl: string | null;
+  isShopUser?: boolean;
 };
 
 function Avatar({
@@ -55,10 +60,20 @@ function Avatar({
   );
 }
 
-export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
+export function ProfileMenu({ isLoggedIn, customerName, avatarUrl, isShopUser = false }: Props) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
   const t = useT();
+
+  function handleShopDashboard() {
+    startTransition(async () => {
+      const result = await getShopDashboardSsoUrl();
+      if ("url" in result) {
+        window.location.href = result.url;
+      }
+    });
+  }
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
@@ -115,6 +130,28 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl }: Props) {
                   <p className="mt-0.5 text-[11px] text-gray-500">{t.auth.member}</p>
                 </div>
               </div>
+
+              {/* Shop dashboard shortcut — only visible to shop staff/owners */}
+              {isShopUser && (
+                <div className="border-b border-white/5 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => { setOpen(false); handleShopDashboard(); }}
+                    disabled={isPending}
+                    className="flex w-full items-center gap-3 rounded-xl bg-[#d4af37]/10 px-3 py-2.5 text-sm font-medium text-[#d4af37] transition hover:bg-[#d4af37]/20 disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    ) : (
+                      <Store className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="flex-1 text-left">
+                      {isPending ? t.auth.openingShopDashboard : t.auth.shopDashboard}
+                    </span>
+                    {!isPending && <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" />}
+                  </button>
+                </div>
+              )}
 
               {/* Nav items */}
               <div className="py-1.5">

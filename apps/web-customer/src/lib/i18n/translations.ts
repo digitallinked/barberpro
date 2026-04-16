@@ -140,6 +140,9 @@ export const translations = {
       signOut: "Log Keluar",
       logIn: "Log Masuk",
       signUpFreeBtn: "Daftar Percuma",
+      shopDashboard: "Papan Pemuka Kedai",
+      shopDashboardDesc: "Urus kedai anda",
+      openingShopDashboard: "Membuka papan pemuka…",
     },
     profile: {
       title: "Akaun Saya",
@@ -579,6 +582,9 @@ export const translations = {
       signOut: "Sign Out",
       logIn: "Log In",
       signUpFreeBtn: "Sign Up Free",
+      shopDashboard: "Shop Dashboard",
+      shopDashboardDesc: "Manage your shop",
+      openingShopDashboard: "Opening dashboard…",
     },
     profile: {
       title: "My Account",

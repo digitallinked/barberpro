@@ -16,20 +16,29 @@ export async function Navbar() {
 
   let customerName: string | null = null;
   let avatarUrl: string | null = null;
+  let isShopUser = false;
 
   if (user) {
-    const { data: customer } = (await (supabase as any)
-      .from("customer_accounts")
-      .select("full_name")
-      .eq("auth_user_id", user.id)
-      .maybeSingle()) as { data: { full_name: string } | null };
+    const [{ data: customer }, { data: appUser }] = await Promise.all([
+      (supabase as any)
+        .from("customer_accounts")
+        .select("full_name")
+        .eq("auth_user_id", user.id)
+        .maybeSingle() as Promise<{ data: { full_name: string } | null }>,
+      (supabase as any)
+        .from("app_users")
+        .select("id")
+        .eq("auth_user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle() as Promise<{ data: { id: string } | null }>,
+    ]);
 
     customerName = customer?.full_name ?? user.email ?? null;
-    // Pull avatar from OAuth provider metadata (e.g. Google sign-in)
     avatarUrl =
       (user.user_metadata?.avatar_url as string | undefined) ??
       (user.user_metadata?.picture as string | undefined) ??
       null;
+    isShopUser = !!appUser;
   }
 
   return (
@@ -59,6 +68,7 @@ export async function Navbar() {
             isLoggedIn={!!user}
             customerName={customerName}
             avatarUrl={avatarUrl}
+            isShopUser={isShopUser}
           />
         </div>
       </NavbarHeaderShell>
