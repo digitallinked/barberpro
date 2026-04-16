@@ -59,5 +59,9 @@ export async function getShopDashboardSsoUrl(): Promise<
     return { error: "Failed to generate shop access link" };
   }
 
-  return { url: data.properties.action_link };
+  // Ensure redirect_to is present even if provider defaults override options.
+  const actionLink = new URL(data.properties.action_link);
+  actionLink.searchParams.set("redirect_to", redirectTo);
+
+  return { url: actionLink.toString() };
 }

@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { env } from "@/lib/env";
 import { ClientProviders } from "@/components/client-providers";
 import { ActiveQueueBanner } from "@/components/active-queue-banner";
+import { AuthHashHandoff } from "@/components/auth-hash-handoff";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 import "./globals.css";
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="ms">
       <body className={`${dmSans.variable} min-h-screen font-sans`}>
         <ClientProviders>
+          <AuthHashHandoff />
           {children}
           <ActiveQueueBanner />
           <PwaInstallBanner />
