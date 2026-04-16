@@ -36,8 +36,11 @@ export async function getShopDashboardSsoUrl(): Promise<
     return { error: "Not a shop user" };
   }
 
-  const shopUrl = (env.NEXT_PUBLIC_SHOP_APP_URL ?? "https://shop.barberpro.my").replace(/\/$/, "");
-  const redirectTo = `${shopUrl}/auth/callback?next=/dashboard`;
+  // redirectTo must be on the customer-app domain so Supabase auto-allows it
+  // (Supabase permits any path that starts with the configured site URL).
+  // The shop-handoff page then forwards the session tokens to the shop app.
+  const customerAppUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const redirectTo = `${customerAppUrl}/auth/shop-handoff`;
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.generateLink({

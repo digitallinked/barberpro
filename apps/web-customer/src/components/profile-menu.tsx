@@ -67,10 +67,20 @@ export function ProfileMenu({ isLoggedIn, customerName, avatarUrl, isShopUser = 
   const t = useT();
 
   function handleShopDashboard() {
+    // Open a blank tab synchronously while still inside the trusted click event.
+    // Calling window.open after an async gap would be blocked by popup blockers.
+    const newTab = window.open("", "_blank");
     startTransition(async () => {
       const result = await getShopDashboardSsoUrl();
       if ("url" in result) {
-        window.location.href = result.url;
+        if (newTab) {
+          newTab.location.href = result.url;
+        } else {
+          // Popup was blocked — fall back to same-tab navigation
+          window.location.href = result.url;
+        }
+      } else {
+        newTab?.close();
       }
     });
   }
