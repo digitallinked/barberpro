@@ -345,7 +345,7 @@ function RegisterContent() {
     {
       id: "starter" as const,
       name: tr.planStarterName,
-      price: "RM 99",
+      price: "RM 69",
       desc: tr.planStarterDesc,
       features: [tr.planStarterF1, tr.planStarterF2, tr.planStarterF3],
       popular: false
@@ -353,7 +353,7 @@ function RegisterContent() {
     {
       id: "professional" as const,
       name: tr.planProName,
-      price: "RM 249",
+      price: "RM 179",
       desc: tr.planProDesc,
       features: [tr.planProF1, tr.planProF2, tr.planProF3],
       popular: true

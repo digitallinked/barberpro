@@ -24,16 +24,16 @@ export const STRIPE_PLANS = {
     name: "Starter",
     priceId:
       process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ??
-      "price_1THIsnBGoz93lNFYgCb8FRBx",
-    amount: 99,
+      "price_1TMkSGBGoz93lNFY6k2hJF0o",
+    amount: 69,
     currency: "MYR",
   },
   professional: {
     name: "Professional",
     priceId:
       process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ??
-      "price_1THIsqBGoz93lNFYxSAGPcp2",
-    amount: 249,
+      "price_1TMkSPBGoz93lNFYny3Ndrqs",
+    amount: 179,
     currency: "MYR",
   },
 } as const;

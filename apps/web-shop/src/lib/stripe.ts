@@ -24,8 +24,8 @@ export const STRIPE_PLANS = {
     name: "Starter",
     tier: "starter" as PlanTier,
     period: "monthly" as BillingPeriod,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? "price_1THIsnBGoz93lNFYgCb8FRBx",
-    amount: 99,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? "price_1TMkSGBGoz93lNFY6k2hJF0o",
+    amount: 69,
     currency: "MYR",
     interval: "month" as const
   },
@@ -33,8 +33,8 @@ export const STRIPE_PLANS = {
     name: "Professional",
     tier: "professional" as PlanTier,
     period: "monthly" as BillingPeriod,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ?? "price_1THIsqBGoz93lNFYxSAGPcp2",
-    amount: 249,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ?? "price_1TMkSPBGoz93lNFYny3Ndrqs",
+    amount: 179,
     currency: "MYR",
     interval: "month" as const
   },
@@ -42,8 +42,8 @@ export const STRIPE_PLANS = {
     name: "Starter",
     tier: "starter" as PlanTier,
     period: "yearly" as BillingPeriod,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID ?? "price_1TJkDSBGoz93lNFYuMWAHOjN",
-    amount: 990,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID ?? "price_1TMkSLBGoz93lNFYUc7NKPds",
+    amount: 690,
     currency: "MYR",
     interval: "year" as const
   },
@@ -51,8 +51,8 @@ export const STRIPE_PLANS = {
     name: "Professional",
     tier: "professional" as PlanTier,
     period: "yearly" as BillingPeriod,
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID ?? "price_1TJkDVBGoz93lNFYcScXNTmr",
-    amount: 2490,
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID ?? "price_1TMkSSBGoz93lNFY8pXTV7xy",
+    amount: 1790,
     currency: "MYR",
     interval: "year" as const
   }

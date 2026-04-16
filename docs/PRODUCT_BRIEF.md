@@ -88,8 +88,8 @@ No well-designed, affordable, Malaysia-first tool exists to solve all three side
 
 | Plan | Branches | Staff Accounts | Price (est.) | Key Features |
 |---|---|---|---|---|
-| **Starter** | 1 | Up to 5 | RM 99/month | Queue, POS, basic reports |
-| **Professional** | Up to 5 | Up to 20 | RM 249/month | All Starter + multi-branch, advanced reports, online booking |
+| **Starter** | 1 | Up to 5 | RM 69/month | Queue, POS, basic reports |
+| **Professional** | Up to 5 | Up to 20 | RM 179/month | All Starter + multi-branch, advanced reports, online booking |
 | **Enterprise** | Unlimited | Unlimited | Custom | All Professional + white-label, API access, dedicated support |
 
 ---

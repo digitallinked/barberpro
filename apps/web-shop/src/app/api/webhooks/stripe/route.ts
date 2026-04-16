@@ -36,17 +36,29 @@ function formatDate(timestamp: number | null | undefined): string {
   });
 }
 
+// Legacy price IDs from before the June 2026 pricing update (RM99/RM249 era).
+const LEGACY_PRO_PRICE_IDS_WEBHOOK = new Set([
+  "price_1THIsqBGoz93lNFYxSAGPcp2",
+  "price_1TJkDVBGoz93lNFYcScXNTmr",
+]);
+const LEGACY_STARTER_PRICE_IDS_WEBHOOK = new Set([
+  "price_1THIsnBGoz93lNFYgCb8FRBx",
+  "price_1TJkDSBGoz93lNFYuMWAHOjN",
+]);
+
 function inferPlanLabel(sub: Stripe.Subscription): string {
   const meta = sub.metadata?.plan;
   if (meta) return meta;
   const priceId = sub.items.data[0]?.price?.id ?? "";
   if (
     priceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID ||
-    priceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID
+    priceId === process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID ||
+    LEGACY_PRO_PRICE_IDS_WEBHOOK.has(priceId)
   ) return "professional";
   if (
     priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ||
-    priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID
+    priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID ||
+    LEGACY_STARTER_PRICE_IDS_WEBHOOK.has(priceId)
   ) return "starter";
   return "starter";
 }
@@ -317,6 +329,7 @@ export async function POST(request: Request) {
           const professionalPrices = [
             process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID,
             process.env.NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID,
+            ...LEGACY_PRO_PRICE_IDS_WEBHOOK,
           ].filter(Boolean);
           const oldPlan = professionalPrices.includes(prevPriceId)
             ? "professional"

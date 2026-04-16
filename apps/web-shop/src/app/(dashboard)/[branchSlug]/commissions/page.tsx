@@ -276,7 +276,7 @@ export default function CommissionsPage() {
                 href="/billing"
                 className="mt-4 flex items-center justify-center gap-1.5 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#D4AF37] hover:brightness-110"
               >
-                Unlock all models — RM 249/mo <ArrowRight className="h-3 w-3" />
+                Unlock all models — RM 179/mo <ArrowRight className="h-3 w-3" />
               </Link>
             )}
           </Card>

@@ -210,7 +210,7 @@ export default function BranchesPage() {
                 href="/billing"
                 className="flex items-center justify-center gap-2 rounded-lg bg-[#D4AF37] px-4 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
               >
-                Upgrade Now — RM 249/mo <ArrowRight className="h-4 w-4" />
+                Upgrade Now — RM 179/mo <ArrowRight className="h-4 w-4" />
               </Link>
               <button
                 type="button"

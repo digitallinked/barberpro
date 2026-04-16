@@ -295,14 +295,14 @@ export function MarketingPageContent() {
   const pricing = [
     {
       name: m.pricingStarterName,
-      price: "RM 99",
+      price: "RM 69",
       note: m.pricingStarterNote,
       features: [m.pricingF1, m.pricingF2, m.pricingF3, m.pricingF4, m.pricingF5, m.pricingF6, m.pricingF7, m.pricingF8],
       featured: false,
     },
     {
       name: m.pricingProName,
-      price: "RM 249",
+      price: "RM 179",
       note: m.pricingProNote,
       features: [m.pricingP1, m.pricingP2, m.pricingP3, m.pricingP4, m.pricingP5, m.pricingP6],
       featured: true,

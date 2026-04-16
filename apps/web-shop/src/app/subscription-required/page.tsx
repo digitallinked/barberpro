@@ -20,8 +20,8 @@ const PLANS: {
   desc: string;
   popular?: boolean;
 }[] = [
-  { id: "starter", name: "Starter", monthly: 99, yearly: 990, desc: "1 branch, up to 5 staff" },
-  { id: "professional", name: "Professional", monthly: 249, yearly: 2490, desc: "Unlimited branches & staff", popular: true },
+  { id: "starter", name: "Starter", monthly: 69, yearly: 690, desc: "1 branch, up to 5 staff" },
+  { id: "professional", name: "Professional", monthly: 179, yearly: 1790, desc: "Unlimited branches & staff", popular: true },
 ];
 
 function SubscriptionRequiredContent() {

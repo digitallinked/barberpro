@@ -332,8 +332,8 @@ function ChangePlanForm({
       <div>
         <label className="mb-1 block text-xs font-medium text-muted-foreground">New plan</label>
         <select name="plan" defaultValue={currentPlan ?? "starter"} className={selectCls()}>
-          <option value="starter">Starter — RM 99/mo</option>
-          <option value="professional">Professional — RM 249/mo</option>
+          <option value="starter">Starter — RM 69/mo</option>
+          <option value="professional">Professional — RM 179/mo</option>
         </select>
       </div>
       {!hasStripe && (

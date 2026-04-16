@@ -17,7 +17,7 @@ export function ForBusinessesContent() {
   const plans = [
     {
       name: t.forBusinesses.starterName,
-      price: "RM 99",
+      price: "RM 69",
       period: t.forBusinesses.perMonth,
       description: t.forBusinesses.starterDesc,
       features: [
@@ -31,7 +31,7 @@ export function ForBusinessesContent() {
     },
     {
       name: t.forBusinesses.proName,
-      price: "RM 249",
+      price: "RM 179",
       period: t.forBusinesses.perMonth,
       description: t.forBusinesses.proDesc,
       features: [

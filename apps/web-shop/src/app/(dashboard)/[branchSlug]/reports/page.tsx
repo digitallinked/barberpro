@@ -1418,7 +1418,7 @@ ${body}
             href="/billing"
             className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#D4AF37] px-5 py-2.5 text-sm font-bold text-[#111] shadow-lg shadow-[#D4AF37]/20 hover:brightness-110"
           >
-            Upgrade to Professional — RM 249/mo <ArrowRight className="h-4 w-4" />
+            Upgrade to Professional — RM 179/mo <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       )}

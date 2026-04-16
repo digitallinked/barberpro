@@ -1,6 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
+// Legacy price IDs from before the June 2026 pricing update (RM99/RM249 era).
+const LEGACY_STARTER_PRICE_IDS = new Set([
+  "price_1THIsnBGoz93lNFYgCb8FRBx",
+  "price_1TJkDSBGoz93lNFYuMWAHOjN",
+]);
+const LEGACY_PRO_PRICE_IDS = new Set([
+  "price_1THIsqBGoz93lNFYxSAGPcp2",
+  "price_1TJkDVBGoz93lNFYcScXNTmr",
+]);
+
 function inferTenantPlanFromEnvPrice(priceId: string | null): string | null {
   if (!priceId) return null;
   const starter = process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID;
@@ -11,6 +21,9 @@ function inferTenantPlanFromEnvPrice(priceId: string | null): string | null {
   if (pro && priceId === pro) return "professional";
   if (starterYearly && priceId === starterYearly) return "starter";
   if (proYearly && priceId === proYearly) return "professional";
+  // Fall back to legacy price IDs so existing subscribers are not misclassified
+  if (LEGACY_STARTER_PRICE_IDS.has(priceId)) return "starter";
+  if (LEGACY_PRO_PRICE_IDS.has(priceId)) return "professional";
   return null;
 }
 
