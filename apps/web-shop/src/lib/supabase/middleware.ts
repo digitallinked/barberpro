@@ -152,6 +152,13 @@ function setTenantCacheCookie(
 }
 
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  /** Must not hit auth gating — crawlers expect XML/plain, not an HTML login redirect. */
+  if (pathname === "/sitemap.xml" || pathname === "/robots.txt") {
+    return NextResponse.next();
+  }
+
   const { supabase, getResponse } = createMiddlewareClient<Database>(
     request,
     env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,8 +168,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user }
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
   const isAuthRoute = authRoutes.some((r) => pathname.startsWith(r));
