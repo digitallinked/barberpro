@@ -6,12 +6,18 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { signIn } from "@/actions/auth";
+import { AuthPageHeader } from "@/components/auth-page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useT } from "@/lib/i18n/language-context";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT();
+  const ta = t.auth;
+  const tl = ta.loginPage;
+
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,96 +41,97 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/30">
-            <Scissors className="h-6 w-6 text-primary" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Sign in to your BarberPro account
-            </p>
-          </div>
-        </div>
-
-        {/* Card */}
-        <div className="rounded-xl border border-border/60 bg-card p-6 shadow-xl shadow-black/20">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-400">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@barbershop.com"
-                autoComplete="email"
-                required
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
+    <>
+      <AuthPageHeader />
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/30">
+              <Scissors className="h-6 w-6 text-primary" />
             </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  required
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in…
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-
             <div className="text-center">
-              <Link
-                href="/forgot-password"
-                className="text-xs text-muted-foreground hover:text-primary"
-              >
-                Forgot password?
-              </Link>
+              <h1 className="text-2xl font-bold tracking-tight">{tl.title}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{tl.subtitle}</p>
             </div>
-          </form>
-        </div>
+          </div>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
-            Start free trial
-          </Link>
-        </p>
-      </div>
-    </main>
+          {/* Card */}
+          <div className="rounded-xl border border-border/60 bg-card p-6 shadow-xl shadow-black/20">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="email">{tl.emailAddress}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@barbershop.com"
+                  autoComplete="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password">{tl.passwordLabel}</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    required
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {tl.signingIn}
+                  </>
+                ) : (
+                  ta.signIn
+                )}
+              </Button>
+
+              <div className="text-center">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary"
+                >
+                  {ta.forgotPasswordLink}
+                </Link>
+              </div>
+            </form>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            {tl.noAccountPrompt}{" "}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              {tl.startFreeTrial}
+            </Link>
+          </p>
+        </div>
+      </main>
+    </>
   );
 }

@@ -47,7 +47,7 @@ type RootLayoutProps = {
 export default async function RootLayout({ children }: RootLayoutProps) {
   const cookieStore = await cookies();
   const stored = cookieStore.get(STORAGE_KEY)?.value as Language | undefined;
-  const initialLanguage: Language = stored === "ms" || stored === "en" ? stored : "ms";
+  const initialLanguage: Language = stored === "ms" || stored === "en" ? stored : "en";
 
   return (
     <html lang={initialLanguage === "ms" ? "ms" : "en"}>
