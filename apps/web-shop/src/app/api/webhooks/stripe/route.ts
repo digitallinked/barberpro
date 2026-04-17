@@ -578,10 +578,7 @@ export async function POST(request: Request) {
       .insert({ event_id: event.id, event_type: event.type });
 
     if (insertError) {
-      logger.warn("[webhook] Failed to record processed event", insertError, {
-        action: "stripe-webhook",
-        eventId: event.id,
-      });
+      logger.warn(`[webhook] Failed to record processed event ${event.id}: ${insertError.message}`);
     }
   } catch (err) {
     logger.error("[webhook] Unhandled error in event handler", err, {
