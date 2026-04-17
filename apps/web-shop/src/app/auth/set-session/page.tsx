@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -56,12 +57,12 @@ export default function SetSessionPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#0d1117]">
         <div className="space-y-4 text-center">
           <p className="text-sm text-red-400">{error}</p>
-          <a
+          <Link
             href="/login"
             className="block text-sm text-[#d4af37] underline-offset-4 hover:underline"
           >
             Sign in to shop dashboard
-          </a>
+          </Link>
         </div>
       </div>
     );

@@ -12,9 +12,8 @@ Four MCP servers are available in this project. Prefer MCP tools over manual CLI
 | Server identifier | Service | Use for |
 |---|---|---|
 | `project-0-barberpro-supabase` | Supabase (project-scoped) | Inspecting tables, running queries, checking RLS policies, managing migrations for the BarberPro Supabase project |
-| `plugin-supabase-supabase` | Supabase (plugin) | Broader Supabase platform operations |
-| `plugin-stripe-stripe` | Stripe | Inspecting customers, products, prices, subscriptions, and webhooks |
-| `plugin-vercel-vercel` | Vercel | Inspecting deployments, environment variables, domains, logs |
+| `project-0-barberpro-stripe` | Stripe | Inspecting customers, products, prices, subscriptions, and webhooks |
+| `project-0-barberpro-vercel` | Vercel | Inspecting deployments, environment variables, domains, logs |
 
 ## How to Call MCP Tools
 
@@ -38,9 +37,8 @@ CallMcpTool({
 ## When to Use Each Server
 
 - **Database schema / queries / RLS** → `project-0-barberpro-supabase`
-- **Stripe products, prices, subscriptions** → `plugin-stripe-stripe`
-- **Vercel deployments, env vars, logs** → `plugin-vercel-vercel`
-- **Supabase platform-level ops** → `plugin-supabase-supabase`
+- **Stripe products, prices, subscriptions** → `project-0-barberpro-stripe`
+- **Vercel deployments, env vars, logs** → `project-0-barberpro-vercel`
 
 ## Workflow
 

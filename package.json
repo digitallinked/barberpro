@@ -23,5 +23,7 @@
     "dev:mobile": "pnpm --filter @barberpro/mobile-customer dev",
     "typecheck:mobile": "pnpm --filter @barberpro/mobile-customer typecheck && pnpm --filter @barberpro/mobile-staff typecheck"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5"
+  }
 }

@@ -12,7 +12,7 @@ BarberPro is a Malaysia-first, multi-tenant barber shop management SaaS. The sys
 barberpro/
 ├── apps/
 │   ├── web-shop/             # Barber shop management portal (shop.barberpro.my)
-│   ├── web-admin/            # Super-admin console (admin-pro.barberpro.my)
+│   ├── web-admin/            # Super-admin console (admin-go.barberpro.my)
 │   ├── web-customer/         # Customer-facing portal (barberpro.my)
 │   ├── mobile-customer/      # Customer iOS/Android app               [PLANNED]
 │   └── mobile-staff/         # Staff/barber iOS/Android app           [PLANNED]
@@ -62,7 +62,7 @@ This is the primary operator dashboard. It handles:
 ---
 
 ### 2. `apps/web-admin` — Super-Admin Console
-**Domain:** `admin-pro.barberpro.my`
+**Domain:** `admin-go.barberpro.my`
 **Port (dev):** 3002
 **Audience:** BarberPro internal team only
 
@@ -220,7 +220,7 @@ Each app is a **separate Vercel project** linked to this monorepo. Vercel detect
 | App | Vercel Project | Domain |
 |---|---|---|
 | `apps/web-shop` | `barberpro-shop` | `shop.barberpro.my` |
-| `apps/web-admin` | `barberpro-admin` | `admin-pro.barberpro.my` |
+| `apps/web-admin` | `barberpro-admin` | `admin-go.barberpro.my` |
 | `apps/web-customer` | `barberpro-customer` | `barberpro.my` |
 | `apps/mobile-customer` | EAS (Expo) | App Store / Play Store |
 | `apps/mobile-staff` | EAS (Expo) | App Store / Play Store |

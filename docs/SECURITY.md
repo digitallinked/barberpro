@@ -115,18 +115,10 @@ Stripe requires a response within 5 seconds. For complex processing, write the e
 
 Some tables allow anonymous reads (queue board, check-in kiosk). These policies must be as narrow as possible.
 
-### Current Issue (Fix Required)
-The queue board policies use `using (true)` which exposes ALL tenants' data:
+### Current Policy
+Queue board policies are scoped to active branches only (implemented in `supabase/migrations/20260331120000_security_hardening.sql`):
 ```sql
--- WRONG — exposes all tenants' queue data to anyone
-create policy "public_queue_tickets_board_select" on public.queue_tickets
-  for select to anon using (true);
-```
-
-### Correct Pattern
-Scope to active/public branches only:
-```sql
--- CORRECT — scope to branches that are active
+-- Anon read is scoped to active branches — no cross-tenant leakage
 create policy "public_queue_tickets_board_select" on public.queue_tickets
   for select to anon
   using (
@@ -134,7 +126,7 @@ create policy "public_queue_tickets_board_select" on public.queue_tickets
   );
 ```
 
-The application layer (API route) still filters by `branch_id` parameter, but this ensures the DB-level policy provides a real security boundary.
+The application layer (`/api/queue-board`) additionally filters by `branch_id` query parameter, providing two independent layers of scoping. The remaining consideration is that any caller who knows a valid active `branch_id` UUID can read that branch's queue — this is intentional for public TV displays, but be aware that UUIDs in shared URLs or logs can be discovered.
 
 ---
 

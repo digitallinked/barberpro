@@ -212,19 +212,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  // Mark as processed BEFORE sending emails so Stripe retries don't cause duplicate sends.
-  const { error: insertError } = await supabase
-    .from("processed_webhook_events")
-    .insert({ event_id: event.id, event_type: event.type });
-
-  if (insertError) {
-    logger.error("[webhook] Failed to record processed event", insertError, {
-      action: "stripe-webhook",
-      eventId: event.id,
-    });
-    return NextResponse.json({ error: "Failed to record event" }, { status: 500 });
-  }
-
   try {
     switch (event.type) {
       // ── Checkout completed ──────────────────────────────────────────────────
@@ -580,11 +567,29 @@ export async function POST(request: Request) {
       default:
         break;
     }
+
+    // Record the event as processed AFTER the handler succeeds so that Stripe
+    // retries can safely re-run the handler if anything above throws.
+    // If the insert fails we log a warning but still return 200 — the handler
+    // already ran and a duplicate run on the next retry is safer than losing
+    // the event permanently.
+    const { error: insertError } = await supabase
+      .from("processed_webhook_events")
+      .insert({ event_id: event.id, event_type: event.type });
+
+    if (insertError) {
+      logger.warn("[webhook] Failed to record processed event", insertError, {
+        action: "stripe-webhook",
+        eventId: event.id,
+      });
+    }
   } catch (err) {
     logger.error("[webhook] Unhandled error in event handler", err, {
       action: "stripe-webhook",
       eventId: event.id,
     });
+    // Return 500 so Stripe retries. The idempotency record was not written,
+    // so the next retry will run the handler again.
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 

@@ -76,7 +76,7 @@ No well-designed, affordable, Malaysia-first tool exists to solve all three side
 |---|---|---|
 | Barber Shop Management Portal | Owners + Staff | `shop.barberpro.my` (web) |
 | Customer Portal | End customers | `barberpro.my` (web) |
-| Super-Admin Console | BarberPro team | `admin-pro.barberpro.my` (web) |
+| Super-Admin Console | BarberPro team | `admin-go.barberpro.my` (web) |
 | Customer Mobile App | End customers | iOS + Android |
 | Staff Mobile App | Barbers + Staff | iOS + Android |
 | Queue Board | In-shop lobby display | `/queue-board` (PWA on TV/tablet) |

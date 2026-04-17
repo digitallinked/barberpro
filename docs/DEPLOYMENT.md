@@ -15,7 +15,7 @@ Mobile apps use **EAS Build** (Expo Application Services) for iOS and Android bu
 | App | Vercel Project Name | Root Directory | Domain |
 |---|---|---|---|
 | `apps/web-shop` | `barberpro-shop` | `apps/web-shop` | `shop.barberpro.my` |
-| `apps/web-admin` | `barberpro-admin` | `apps/web-admin` | `admin-pro.barberpro.my` |
+| `apps/web-admin` | `barberpro-admin` | `apps/web-admin` | `admin-go.barberpro.my` |
 | `apps/web-customer` | `barberpro-customer` | `apps/web-customer` | `barberpro.my` |
 
 ### Vercel Project Setup
@@ -50,22 +50,47 @@ git diff HEAD^ HEAD --quiet -- apps/web-customer/ packages/
 **`apps/web-shop` environment:**
 ```
 NEXT_PUBLIC_APP_URL=https://shop.barberpro.my
+NEXT_PUBLIC_CUSTOMER_APP_URL=https://barberpro.my     # Required — used in queue notification deep links
 NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=[anon-key]
-SUPABASE_SERVICE_ROLE_KEY=[service-role-key]  # Production + Preview only
-STRIPE_SECRET_KEY=[sk_live_...]               # Production only; sk_test_... for Preview
+SUPABASE_SERVICE_ROLE_KEY=[service-role-key]          # Production + Preview only
+STRIPE_SECRET_KEY=[sk_live_...]                        # Production only; sk_test_... for Preview
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=[pk_live_...]
 STRIPE_WEBHOOK_SECRET=[whsec_...]
 NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID=[price_...]
 NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID=[price_...]
+NEXT_PUBLIC_STRIPE_STARTER_YEARLY_PRICE_ID=[price_...]
+NEXT_PUBLIC_STRIPE_PROFESSIONAL_YEARLY_PRICE_ID=[price_...]
+STRIPE_PORTAL_CONFIG_ID=[bpc_...]                     # Stripe Customer Portal config ID
+CRON_SECRET=[random-secret]                            # Must match Vercel Cron Authorization header
+RESEND_API_KEY=[re_...]
+RESEND_FROM_EMAIL=BarberPro <noreply@barberpro.my>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=[key]                 # Restrict to HTTP referrers in GCP console
 ```
 
 **`apps/web-admin` environment:**
 ```
-NEXT_PUBLIC_ADMIN_URL=https://admin-pro.barberpro.my
+NEXT_PUBLIC_ADMIN_URL=https://admin-go.barberpro.my
 NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=[anon-key]
-SUPABASE_SERVICE_ROLE_KEY=[service-role-key]
+SUPABASE_SERVICE_ROLE_KEY=[service-role-key]          # Never share this key with web-shop or web-customer
+STRIPE_SECRET_KEY=[sk_live_...]                        # For billing management pages
+NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID=[price_...]
+NEXT_PUBLIC_STRIPE_PROFESSIONAL_PRICE_ID=[price_...]
+```
+
+**`apps/web-customer` environment:**
+```
+NEXT_PUBLIC_APP_URL=https://barberpro.my
+NEXT_PUBLIC_SHOP_APP_URL=https://shop.barberpro.my
+NEXT_PUBLIC_SUPABASE_URL=https://[project-ref].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[anon-key]
+SUPABASE_SERVICE_ROLE_KEY=[service-role-key]          # Server-only routes only
+STRIPE_SECRET_KEY=[sk_live_...]
+NEXT_PUBLIC_STRIPE_CUSTOMER_PLUS_PRICE_ID=[price_...]
+RESEND_API_KEY=[re_...]
+RESEND_FROM_EMAIL=BarberPro <noreply@barberpro.my>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=[key]
 ```
 
 ### Rules
@@ -118,7 +143,7 @@ Add migration as a pre-deployment check in GitHub Actions:
 
 ## GitHub Actions CI Pipeline
 
-Create `.github/workflows/ci.yml`:
+CI pipeline already exists at `.github/workflows/ci.yml`. It runs on every push to `main` and every PR. Sample reference:
 
 ```yaml
 name: CI
@@ -139,7 +164,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -171,7 +196,7 @@ jobs:
       - name: Build admin app
         run: pnpm build:admin
         env:
-          NEXT_PUBLIC_ADMIN_URL: https://admin-pro.barberpro.my
+          NEXT_PUBLIC_ADMIN_URL: https://admin-go.barberpro.my
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 ```
@@ -216,14 +241,14 @@ This is used if you ever add Prisma or Drizzle. For Supabase JS client (which ma
 |---|---|---|---|
 | barberpro.my | A or CNAME | `@` | Vercel IP / cname.vercel-dns.com |
 | shop.barberpro.my | CNAME | `shop` | cname.vercel-dns.com |
-| admin-pro.barberpro.my | CNAME | `admin-pro` | cname.vercel-dns.com |
+| admin-go.barberpro.my | CNAME | `admin-go` | cname.vercel-dns.com |
 | *.barberpro.my (future) | CNAME | `*` | cname.vercel-dns.com |
 
 ### Vercel Domain Assignment
 In each Vercel project → Settings → Domains:
 - `barberpro-customer` project → Add `barberpro.my` and `www.barberpro.my`
 - `barberpro-shop` project → Add `shop.barberpro.my`
-- `barberpro-admin` project → Add `admin-pro.barberpro.my`
+- `barberpro-admin` project → Add `admin-go.barberpro.my`
 
 ---
 

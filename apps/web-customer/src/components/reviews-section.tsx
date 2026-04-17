@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Star, LogIn, ShieldCheck } from "lucide-react";
 
 type Review = {
@@ -168,9 +169,9 @@ export function ReviewsSection({ slug, isLoggedIn, canReview, initialReviews }: 
             <>
               <LogIn className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="flex-1 text-sm text-muted-foreground">
-                <a href="/login" className="font-medium text-primary hover:underline">
+                <Link href="/login" className="font-medium text-primary hover:underline">
                   Sign in
-                </a>{" "}
+                </Link>{" "}
                 and visit this shop to leave a review.
               </div>
             </>

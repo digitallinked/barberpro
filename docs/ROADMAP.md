@@ -9,122 +9,31 @@
 
 ---
 
-## Phase 0 — Production Hardening (Current Priority)
-**Goal:** Make `apps/web-shop` production-safe before any real customers use it.
-**Timeline:** Complete before first paying tenant
+## Phases 0–3 — Completed
 
-### Security Fixes
-- [ ] Fix Stripe webhook: use `createAdminClient()` instead of `createClient()` (session client has no user in webhook context)
-- [ ] Fix queue board RLS policies — `using (true)` exposes all tenants' queue data to anon users; scope to active branches only
-- [ ] Add Stripe webhook idempotency — store processed `event.id` to prevent double-processing on retries
-- [ ] Audit all anon-accessible RLS policies for data leakage
+All web-platform phases are shipped. Key milestones delivered:
 
-### Performance Fixes
-- [ ] Cache tenant state in a signed cookie post-login — eliminate the 1–3 Supabase DB queries per request in middleware
-- [ ] Switch all RLS policies to use `get_my_tenant_id()` function instead of inline subqueries (Postgres caches per transaction)
-- [ ] Enable Supabase Supavisor connection pooling (port 6543) for production DB URL
-- [ ] Add critical indexes: `app_users(auth_user_id)`, `app_users(tenant_id, is_active)`, `tenants(owner_auth_id)`, `tenants(slug)`, `queue_tickets(branch_id, status, created_at)`
+**Phase 0 — Production Hardening**
+- Stripe webhook uses `createAdminClient()` with idempotency guard and durability fix (insert after handler)
+- Queue board RLS scoped to active branches only (`20260331120000_security_hardening.sql`)
+- Vercel Analytics + Speed Insights on all web apps
+- Resend transactional email (subscription, payroll, trial expiry, card expiry)
+- `.env.example` files for all apps; GitHub Actions CI (`typecheck → lint → build`)
+- Separate Vercel projects for shop (`shop.barberpro.my`), admin (`admin-go.barberpro.my`), customer (`barberpro.my`)
 
-### Observability
-- [ ] Add Sentry error monitoring to `apps/web-shop` (Next.js SDK)
-- [ ] Configure Vercel Analytics + Speed Insights on `apps/web-shop`
-- [ ] Set up structured logging via Axiom or Logtail
+**Phase 1 — Super-Admin Console (`apps/web-admin`)**
+- Full middleware with `get_admin_role()` RBAC (super_admin, accounts, support, reports_viewer)
+- Tenant management, user search, billing, audit logs, announcements, blog CMS, platform reports
+- `packages/db`, `packages/auth`, `packages/env`, `packages/ui` extracted and shared
 
-### Email
-- [ ] Integrate Resend for transactional email
-- [ ] Booking confirmation email to customer
-- [ ] Payment failed notification to shop owner
-- [ ] Staff invitation email (via `link_auth_user_by_email`)
+**Phase 2 — Customer Portal (`apps/web-customer`)**
+- Landing page, shop discovery, booking flow, queue tracking, loyalty, customer auth
+- BarberPro Plus subscription (Stripe Checkout + Customer Portal)
+- Walk-in QR check-in, push notifications via `packages/notifications`
 
-### DevOps
-- [ ] Create `.env.example` files for all apps documenting required variables
-- [ ] Set up GitHub Actions CI: `typecheck → lint → build` on every PR
-- [ ] Configure separate Vercel projects for `apps/web-shop` and `apps/web-admin` with proper domains
-- [ ] Automate `supabase db push` as part of deployment pipeline
-
----
-
-## Phase 1 — Wire Up Super-Admin (`apps/web-admin`)
-**Goal:** Have a working admin console to manage the platform as tenants grow.
-**Prerequisite:** Phase 0 complete
-
-### Auth & Middleware
-- [ ] Add Supabase to `web-admin` (`@supabase/supabase-js`, `@supabase/ssr`)
-- [ ] Add middleware with `is_super_admin()` check — redirect non-admins to login
-- [ ] Add Sentry to `web-admin`
-
-### Features
-- [ ] Tenant list: search, filter by plan/status, view details
-- [ ] Tenant detail: subscription status, Stripe customer link, branch count, user count
-- [ ] User search: find any user across all tenants
-- [ ] Manually suspend / reactivate a tenant
-- [ ] Platform metrics: total tenants, active subscriptions, MRR
-- [ ] Audit log viewer
-
-### Package Extraction
-- [ ] Create `packages/db` — move Supabase clients from `apps/web-shop/src/lib/supabase/` to shared package
-- [ ] Create `packages/auth` — move `getAuthContext` and auth helpers to shared package
-- [ ] Update `apps/web-shop` and `apps/web-admin` to import from `@barberpro/db` and `@barberpro/auth`
-
----
-
-## Phase 2 — Customer Portal (`apps/web-customer`)
-**Goal:** Launch the customer-facing web app at `barberpro.my` to drive growth and enable online booking.
-**Prerequisite:** Phase 1 complete (shared packages must exist first)
-
-### Setup
-- [ ] Scaffold `apps/web-customer` as a new Next.js 15 app in the monorepo
-- [ ] Configure domain `barberpro.my` in Vercel
-- [ ] Add to root `package.json` workspace scripts
-- [ ] Add Sentry, Vercel Analytics
-
-### Marketing Pages
-- [ ] Landing page (`/`) — "Find your barber, skip the wait" hero, features, shop count CTA
-- [ ] How it works page
-- [ ] For Businesses page (upsell to `shop.barberpro.my` via `apps/web-shop`)
-- [ ] Blog/SEO placeholder structure
-
-### Shop Discovery
-- [ ] Shop listing page (`/shops`) — browse all active shops
-- [ ] Shop profile page (`/shop/[slug]`) — photos, services, staff, operating hours, live queue status
-- [ ] Basic location/city filtering
-
-### Customer Auth
-- [ ] Customer signup / login (Supabase Auth, same project)
-- [ ] Distinguish customer role from shop owner/staff role in `app_users` or new `customer_accounts` table
-- [ ] Customer profile page
-
-### Booking Flow
-- [ ] Service selection on shop profile page
-- [ ] Barber selection (optional)
-- [ ] Time slot picker (based on `appointments` table)
-- [ ] Booking confirmation page + email confirmation
-
-### Queue Tracking
-- [ ] Live queue position page for current visit (reuse existing Realtime subscription logic)
-- [ ] Queue join via QR code scan on the web
-
-### Loyalty
-- [ ] Loyalty points balance display
-- [ ] Points history
-
----
-
-## Phase 3 — Queue Board & Kiosk Polish
-**Goal:** Make the in-shop display surfaces production-quality.
-**Can run in parallel with Phase 2**
-
-### Queue Board (`/queue-board`)
-- [ ] Kiosk mode — fullscreen, no browser chrome, auto-wake screen via Wake Lock API
-- [ ] Convert to PWA — installable on Android TV / iPad, works offline for last-known state
-- [ ] Improved visual design — large text, high contrast, seat assignment display
-
-### Self-Check-in Kiosk (`/check-in/[token]`)
-- [ ] Full-screen kiosk layout (large touch targets, no navigation)
-- [ ] QR code generation for shop entrance printed cards
-- [ ] Party size selection
-- [ ] Confirmation screen with queue ticket number
-- [ ] Convert to PWA for offline-capable kiosk install
+**Phase 3 — Queue Board & Kiosk Polish**
+- Queue board TV display with Realtime updates and seat assignments
+- Self-check-in kiosk with party size, confirmation, and QR code entry
 
 ---
 

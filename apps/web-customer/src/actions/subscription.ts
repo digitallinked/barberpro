@@ -160,6 +160,13 @@ export async function finalizeCustomerPlusSubscription(sessionId: string) {
     return { error: "Payment not completed" };
   }
 
+  // Verify the Checkout session was created for this user to prevent one user
+  // from writing their Stripe IDs into another user's account.
+  const sessionUserId = session.metadata?.auth_user_id;
+  if (!sessionUserId || sessionUserId !== user.id) {
+    return { error: "Session does not belong to the current user." };
+  }
+
   const subscription = session.subscription as Stripe.Subscription;
   const customerId =
     typeof subscription.customer === "string"

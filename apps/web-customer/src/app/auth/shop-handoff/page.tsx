@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 export default function ShopHandoffPage() {
@@ -51,12 +52,12 @@ export default function ShopHandoffPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#0d1117]">
         <div className="space-y-4 text-center">
           <p className="text-sm text-red-400">{error}</p>
-          <a
+          <Link
             href="/"
             className="block text-sm text-[#d4af37] underline-offset-4 hover:underline"
           >
             Return home
-          </a>
+          </Link>
         </div>
       </div>
     );

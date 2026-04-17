@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Cookie, X } from "lucide-react";
 
 import { useT } from "@/lib/i18n/language-context";
@@ -46,12 +47,12 @@ export function CookieConsentBanner() {
           </div>
           <p className="text-sm leading-snug text-gray-300">
             {tc.message}{" "}
-            <a
+            <Link
               href="/privacy"
               className="font-medium text-[#D4AF37] underline-offset-2 hover:underline"
             >
               {tc.learnMore}
-            </a>
+            </Link>
           </p>
         </div>
 

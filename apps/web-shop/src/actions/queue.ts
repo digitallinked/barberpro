@@ -567,7 +567,7 @@ async function notifyCustomerOnQueueStatusChange(
     if (!account?.auth_user_id) return;
 
     const isServing = newStatus === "in_service";
-    const customerBaseUrl = process.env.CUSTOMER_APP_URL ?? "https://barberpro.my";
+    const customerBaseUrl = getCustomerPublicBaseUrl();
 
     await emitNotification({
       authUserId: account.auth_user_id,

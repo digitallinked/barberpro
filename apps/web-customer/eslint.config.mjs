@@ -16,8 +16,6 @@ const config = [
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
       "react/no-unescaped-entities": "warn",
-      // shadcn/ui generated components use empty interface extends patterns
-      "@typescript-eslint/no-empty-object-type": "warn",
     },
   },
 ];

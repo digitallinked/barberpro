@@ -10,7 +10,15 @@ import { canAccess, type AdminRole } from "@/constants/permissions";
  */
 export async function requireAccess(pathname: string): Promise<AdminRole> {
   const headersList = await headers();
-  const role = (headersList.get("x-admin-role") ?? "support") as AdminRole;
+  const roleHeader = headersList.get("x-admin-role");
+
+  // If the header is absent the middleware did not run (e.g. missing env vars).
+  // Fail closed: send to login rather than granting any implicit role.
+  if (!roleHeader) {
+    redirect("/login");
+  }
+
+  const role = roleHeader as AdminRole;
 
   if (!canAccess(role, pathname)) {
     redirect("/dashboard");

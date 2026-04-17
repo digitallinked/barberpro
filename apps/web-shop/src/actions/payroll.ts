@@ -350,7 +350,7 @@ export async function generatePayrollEntries(periodId: string) {
       return { success: false, error: "Cannot generate entries for approved or paid periods" };
     }
 
-    let staffQuery = supabase
+    const staffQuery = supabase
       .from("staff_profiles")
       .select(
         `

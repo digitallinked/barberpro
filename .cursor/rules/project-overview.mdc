@@ -12,7 +12,7 @@ BarberPro is a **Malaysia-first, multi-tenant barber shop management SaaS** buil
 | App | Package | Domain | Status |
 |---|---|---|---|
 | `apps/web-shop` | `@barberpro/web-shop` | `shop.barberpro.my` | Active — barber shop owners & staff |
-| `apps/web-admin` | `@barberpro/web-admin` | `admin-pro.barberpro.my` | Active — BarberPro super admin |
+| `apps/web-admin` | `@barberpro/web-admin` | `admin-go.barberpro.my` | Active — BarberPro super admin |
 | `apps/web-customer` | `@barberpro/web-customer` | `barberpro.my` | Active — end customers |
 | `apps/mobile-customer` | `@barberpro/mobile-customer` | App Store / Play Store | Planned Phase 4 |
 | `apps/mobile-staff` | `@barberpro/mobile-staff` | App Store / Play Store | Planned Phase 5 |
@@ -28,7 +28,7 @@ BarberPro is a **Malaysia-first, multi-tenant barber shop management SaaS** buil
 | `packages/types` | Shared TypeScript types | Exists (placeholder) |
 | `packages/config` | Shared tsconfig base | Exists |
 | `packages/env` | Typed env helpers | Exists |
-| `packages/notifications` | Expo push notification helpers | Planned |
+| `packages/notifications` | Web-push + Supabase notification helpers | Active |
 
 ## Backend
 

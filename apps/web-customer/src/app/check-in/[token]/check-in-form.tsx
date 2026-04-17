@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronUp, Scissors, Check, User, LogIn, UserPlus, ChevronRight, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CheckInService, LoggedInUser } from "./page";
 import { setActiveQueue } from "@/lib/active-queue";
@@ -210,9 +211,9 @@ export function CheckInForm({ branchName, branchId, token, services, loggedInUse
 
         <p className="mt-8 text-center text-[11px] text-gray-700">
           By joining the queue you agree to our{" "}
-          <a href="/terms" className="text-gray-500 underline underline-offset-2">Terms of Service</a>
+          <Link href="/terms" className="text-gray-500 underline underline-offset-2">Terms of Service</Link>
           {" "}and{" "}
-          <a href="/privacy" className="text-gray-500 underline underline-offset-2">Privacy Policy</a>
+          <Link href="/privacy" className="text-gray-500 underline underline-offset-2">Privacy Policy</Link>
         </p>
       </div>
       </>

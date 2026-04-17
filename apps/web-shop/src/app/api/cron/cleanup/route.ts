@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/logger";
 
 // Vercel Cron: runs weekly — cleans up stale data
 
+function isAuthorized(request: Request): boolean {
+  const auth = request.headers.get("authorization");
+  if (env.CRON_SECRET) {
+    return auth === `Bearer ${env.CRON_SECRET}`;
+  }
+  return process.env.NODE_ENV !== "production";
+}
+
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

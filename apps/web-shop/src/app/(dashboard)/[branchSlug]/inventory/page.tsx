@@ -654,7 +654,7 @@ export default function InventoryPage() {
                         </select>
                       </div>
                       <p className="text-[10px] text-gray-600 leading-relaxed">
-                        This will create an "Inventory Purchase" expense entry (pending approval) in the Expenses module.
+                        This will create an &quot;Inventory Purchase&quot; expense entry (pending approval) in the Expenses module.
                       </p>
                     </div>
                   )}

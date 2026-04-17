@@ -9,7 +9,7 @@ BarberPro.my is a **Malaysia-first, multi-tenant barber shop management SaaS** â
 | App | Domain | Status | Description |
 |---|---|---|---|
 | `apps/web-shop` | `shop.barberpro.my` | Active | Barber shop management portal (owners + staff) |
-| `apps/web-admin` | `admin-pro.barberpro.my` | Active | BarberPro super-admin console |
+| `apps/web-admin` | `admin-go.barberpro.my` | Active | BarberPro super-admin console |
 | `apps/web-customer` | `barberpro.my` | Active | Customer-facing portal |
 | `apps/mobile-customer` | App Store / Play Store | Planned (Phase 4) | Customer iOS/Android app |
 | `apps/mobile-staff` | App Store / Play Store | Planned (Phase 5) | Staff iOS/Android app |
@@ -25,7 +25,7 @@ BarberPro.my is a **Malaysia-first, multi-tenant barber shop management SaaS** â
 | `packages/db` | Shared Supabase clients + queries | Active |
 | `packages/auth` | Shared auth helpers | Active |
 | `packages/ui-native` | Shared React Native components | Planned (Phase 4) |
-| `packages/notifications` | Expo push notification helpers | Planned (Phase 4) |
+| `packages/notifications` | Web-push + Supabase notification helpers | Active |
 
 ---
 
@@ -33,7 +33,7 @@ BarberPro.my is a **Malaysia-first, multi-tenant barber shop management SaaS** â
 
 ### Prerequisites
 - Node.js 20+
-- pnpm 9+: `npm install -g pnpm`
+- pnpm 10+: `npm install -g pnpm`
 - Supabase CLI: `npm install -g supabase`
 
 ### Installation
@@ -111,7 +111,7 @@ pnpm dev:mobile
 ```
 apps/
   web-shop/             # Barber shop management (shop.barberpro.my)
-  web-admin/            # Super-admin console (admin-pro.barberpro.my)
+  web-admin/            # Super-admin console (admin-go.barberpro.my)
   web-customer/         # Customer portal (barberpro.my)
   mobile-customer/      # Customer iOS/Android app [Planned]
   mobile-staff/         # Staff iOS/Android app [Planned]
@@ -123,7 +123,7 @@ packages/
   db/                   # Supabase clients
   auth/                 # Auth helpers
   ui-native/            # React Native components [Planned]
-  notifications/        # Push notification helpers [Planned]
+  notifications/        # Web-push + Supabase notification helpers
 supabase/
   migrations/           # SQL migration files (versioned, never edit existing)
 docs/
