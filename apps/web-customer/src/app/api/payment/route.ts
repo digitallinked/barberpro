@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const body = bodySchema.safeParse(await request.json());
     if (!body.success) {
       return NextResponse.json(
-        { error: body.error.issues[0].message },
+        { error: body.error?.issues[0]?.message ?? "Invalid request" },
         { status: 400 }
       );
     }
